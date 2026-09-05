@@ -1,4 +1,4 @@
-import { Wordmark } from "@draft/ui";
+import { Logo } from "@draft/ui";
 import "./App.css";
 
 /**
@@ -12,7 +12,7 @@ import "./App.css";
 function App() {
   return (
     <main className="shell">
-      <Wordmark size={32} />
+      <Logo height={32} />
       <p className="tagline">The web build of DRAFT — foundation shell only for now.</p>
     </main>
   );

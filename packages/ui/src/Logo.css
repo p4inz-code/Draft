@@ -1,0 +1,13 @@
+.draft-logo-for-dark-bg {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .draft-logo-for-light-bg {
+    display: none;
+  }
+
+  .draft-logo-for-dark-bg {
+    display: inline;
+  }
+}

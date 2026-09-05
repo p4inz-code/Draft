@@ -1,28 +1,37 @@
 /**
- * DRAFT design tokens. System-follow by default (spec: theme tracks the OS
- * light/dark setting) — light values on :root, overridden under
- * prefers-color-scheme: dark. Placeholder palette until real brand assets
- * land (see docs/product.md); swapping values here re-themes every
- * @draft/ui consumer (apps/desktop, apps/web) without touching components.
+ * DRAFT design tokens, from the official brand kit (assets/brand/README.md).
+ * System-follow by default (spec: theme tracks the OS light/dark setting) —
+ * light values on :root, overridden under prefers-color-scheme: dark.
+ * Swapping values here re-themes every @draft/ui consumer (apps/desktop,
+ * apps/web) without touching components.
+ *
+ * Brand anchors: body #1A1B2E, accent #0EA5E9, bg-dark #0D0D14,
+ * bg-light #F8F8FA. Accent stays identical across themes by design; surface/
+ * border/muted shades are derived from the two background anchors.
  */
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/700.css";
+
 :root {
-  --draft-bg: #f6f6f7;
+  --draft-font-sans: "JetBrains Mono", "SF Mono", Menlo, monospace;
+
+  --draft-bg: #f8f8fa;
   --draft-surface: #ffffff;
-  --draft-text: #14151a;
-  --draft-text-muted: #63666f;
-  --draft-border: #e2e3e7;
-  --draft-accent: #4b5bff;
+  --draft-text: #1a1b2e;
+  --draft-text-muted: #5b5d75;
+  --draft-border: #e2e2ea;
+  --draft-accent: #0ea5e9;
   --draft-accent-contrast: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --draft-bg: #17181c;
-    --draft-surface: #1f2024;
-    --draft-text: #f2f2f4;
-    --draft-text-muted: #9a9ca6;
-    --draft-border: #2c2e34;
-    --draft-accent: #7c87ff;
-    --draft-accent-contrast: #0e0f12;
+    --draft-bg: #0d0d14;
+    --draft-surface: #16161f;
+    --draft-text: #f8f8fa;
+    --draft-text-muted: #9a9bb5;
+    --draft-border: #24242f;
+    --draft-accent: #0ea5e9;
+    --draft-accent-contrast: #0d0d14;
   }
 }

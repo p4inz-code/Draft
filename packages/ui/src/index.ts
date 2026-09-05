@@ -1,3 +1,3 @@
 export * from "./Button";
-export * from "./Wordmark";
+export * from "./Logo";
 import "./tokens.css";

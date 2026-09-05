@@ -1,0 +1,28 @@
+/**
+ * DRAFT design tokens. System-follow by default (spec: theme tracks the OS
+ * light/dark setting) — light values on :root, overridden under
+ * prefers-color-scheme: dark. Placeholder palette until real brand assets
+ * land (see docs/product.md); swapping values here re-themes every
+ * @draft/ui consumer (apps/desktop, apps/web) without touching components.
+ */
+:root {
+  --draft-bg: #f6f6f7;
+  --draft-surface: #ffffff;
+  --draft-text: #14151a;
+  --draft-text-muted: #63666f;
+  --draft-border: #e2e3e7;
+  --draft-accent: #4b5bff;
+  --draft-accent-contrast: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --draft-bg: #17181c;
+    --draft-surface: #1f2024;
+    --draft-text: #f2f2f4;
+    --draft-text-muted: #9a9ca6;
+    --draft-border: #2c2e34;
+    --draft-accent: #7c87ff;
+    --draft-accent-contrast: #0e0f12;
+  }
+}

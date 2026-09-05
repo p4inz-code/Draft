@@ -15,11 +15,12 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "test": "pnpm -r --if-present run test",
+    "test": "vitest run",
     "typecheck": "pnpm -r --if-present run typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "jsdom": "^25.0.1",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   }

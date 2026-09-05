@@ -887,6 +887,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "draft-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "draft-core",
+ "draft-events",
+ "draft-graph",
+ "draft-project",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "draft-mcp"
 version = "0.1.0"
 dependencies = [

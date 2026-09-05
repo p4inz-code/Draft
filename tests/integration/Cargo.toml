@@ -1,0 +1,13 @@
+[package]
+name = "draft-integration-tests"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dev-dependencies]
+draft-core.workspace = true
+draft-events.workspace = true
+draft-graph.workspace = true
+draft-project.workspace = true
+serde_json.workspace = true
+tempfile = "3"

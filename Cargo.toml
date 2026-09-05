@@ -10,6 +10,7 @@ members = [
   "crates/draft-events",
   "crates/draft-security",
   "crates/draft-platform",
+  "tests/integration",
 ]
 
 [workspace.package]

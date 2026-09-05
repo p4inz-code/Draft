@@ -1,0 +1,13 @@
+[package]
+name = "draft-events"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "The operation/event log DRAFT uses to sync the frontend live-edit store with the Rust-owned Project Graph (see ADR-012)"
+
+[dependencies]
+draft-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true

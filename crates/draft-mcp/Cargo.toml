@@ -1,0 +1,12 @@
+[package]
+name = "draft-mcp"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "DRAFT's MCP server (foundation-stage skeleton — see ADR-007; full implementation is Session 2)"
+
+[dependencies]
+draft-security.workspace = true
+serde.workspace = true

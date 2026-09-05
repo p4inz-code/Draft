@@ -1,0 +1,26 @@
+{
+  "name": "draft",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DRAFT — a cross-platform visual workspace for humans and AI agents.",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "dev": "pnpm --filter @draft/desktop run tauri dev",
+    "dev:web": "pnpm --filter @draft/web run dev",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "pnpm -r --if-present run test",
+    "typecheck": "pnpm -r --if-present run typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

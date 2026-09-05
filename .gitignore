@@ -1,0 +1,47 @@
+# Rust
+/target/
+**/target/
+# Cargo.lock is committed: DRAFT ships binaries, not published library crates.
+
+# Node / pnpm
+node_modules/
+**/node_modules/
+.pnpm-store/
+dist/
+**/dist/
+build/
+**/build/
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# Vite
+.vite/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# DRAFT user project files should never live inside the repo
+*.draft/

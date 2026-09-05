@@ -1,0 +1,11 @@
+[package]
+name = "draft-platform"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "OS abstraction trait for DRAFT, so core crates aren't locked to desktop-only APIs"
+
+[dependencies]
+dirs.workspace = true

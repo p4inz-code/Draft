@@ -1,0 +1,17 @@
+[package]
+name = "draft-media"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Media asset metadata and content-addressing for DRAFT"
+
+[dependencies]
+draft-core.workspace = true
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

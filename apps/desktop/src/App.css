@@ -32,6 +32,27 @@ body {
   border-bottom: 1px solid var(--draft-border);
 }
 
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.app-header-btn {
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--draft-border);
+  background: var(--draft-surface);
+  color: var(--draft-text);
+  cursor: pointer;
+}
+
+.app-header-btn:hover {
+  border-color: var(--draft-accent);
+}
+
 .status {
   font-size: 0.75rem;
   color: var(--draft-text-muted);

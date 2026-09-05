@@ -26,4 +26,5 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 draft-core = { path = "../../../crates/draft-core" }
+draft-project = { path = "../../../crates/draft-project" }
 

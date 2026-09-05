@@ -69,6 +69,9 @@ interface CanvasState {
 
   undo: () => void;
   redo: () => void;
+
+  /** Replaces the whole page with loaded content (open project) — resets history. */
+  loadPage: (pageId: PageId, shapes: ShapeMap) => void;
 }
 
 function recordOps(state: Pick<CanvasState, "operations">, ops: Operation[]): OperationRecord[] {
@@ -179,6 +182,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         future: rest,
         operations: recordOps(s, ops),
       };
+    }),
+  loadPage: (pageId, shapes) =>
+    set({
+      pageId,
+      shapes,
+      selection: [],
+      operations: [],
+      past: [],
+      future: [],
     }),
 }));
 

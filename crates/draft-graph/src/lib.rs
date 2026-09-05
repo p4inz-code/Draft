@@ -37,6 +37,12 @@ impl Page {
     pub fn object_count(&self) -> usize {
         self.objects.len()
     }
+
+    /// All objects on this page, keyed by ID — for persistence (`draft-project`
+    /// owns the file format; this crate only exposes the data to export).
+    pub fn objects(&self) -> &HashMap<ObjectId, serde_json::Value> {
+        &self.objects
+    }
 }
 
 /// The current, materialized state of a project: its pages and their
@@ -66,6 +72,25 @@ impl Graph {
 
     pub fn page(&self, id: PageId) -> Option<&Page> {
         self.pages.get(&id)
+    }
+
+    /// All pages, for persistence/export — order is not guaranteed; callers
+    /// that care about display order use `ProjectManifest.pages` instead.
+    pub fn pages(&self) -> impl Iterator<Item = &Page> {
+        self.pages.values()
+    }
+
+    /// Inserts a page with a caller-supplied ID and pre-existing objects —
+    /// used when reconstructing a `Graph` from saved `draft-project` page
+    /// documents, where the IDs must match what was persisted rather than
+    /// being freshly generated (see `create_page` for the "new page" case).
+    pub fn insert_page(
+        &mut self,
+        id: PageId,
+        name: String,
+        objects: HashMap<ObjectId, serde_json::Value>,
+    ) {
+        self.pages.insert(id, Page { id, name, objects });
     }
 
     /// Applies one operation from the log, mutating graph state. Rejects

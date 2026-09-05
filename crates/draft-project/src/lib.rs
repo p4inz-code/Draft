@@ -12,9 +12,12 @@
 //! `project.json` carries a `schemaVersion` from day one so future format
 //! changes can migrate forward instead of silently misreading old projects.
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
-use draft_core::{PageId, ProjectId};
+use draft_core::{ObjectId, PageId, ProjectId};
 use draft_security::is_path_within_project;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -126,6 +129,49 @@ fn write_manifest(dir: &Path, manifest: &ProjectManifest) -> Result<(), ProjectE
     std::fs::write(&manifest_path, json).map_err(|e| io_err(&manifest_path, e))
 }
 
+/// One page's saved content: `draft-graph::Page`'s persisted form. This crate
+/// doesn't depend on `draft-graph` — callers (the Tauri command layer,
+/// `draft-mcp`) convert between `Graph`/`Page` and this type, keeping the
+/// domain model (`draft-graph`) decoupled from the storage format (here).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PageDocument {
+    pub id: PageId,
+    pub name: String,
+    pub objects: HashMap<ObjectId, serde_json::Value>,
+}
+
+fn page_path(project_dir: &Path, page_id: PageId) -> PathBuf {
+    project_dir
+        .join("pages")
+        .join(format!("{}.json", page_id.as_uuid()))
+}
+
+/// Saves one page's content to `pages/<uuid>.json`.
+pub fn save_page(project_dir: &Path, page: &PageDocument) -> Result<(), ProjectError> {
+    let path = page_path(project_dir, page.id);
+    let json = serde_json::to_string_pretty(page).expect("PageDocument serialization cannot fail");
+    std::fs::write(&path, json).map_err(|e| io_err(&path, e))
+}
+
+/// Loads one page's content by ID.
+pub fn load_page(project_dir: &Path, page_id: PageId) -> Result<PageDocument, ProjectError> {
+    let path = page_path(project_dir, page_id);
+    let raw = std::fs::read_to_string(&path).map_err(|e| io_err(&path, e))?;
+    serde_json::from_str(&raw).map_err(|e| ProjectError::Corrupt(path, e))
+}
+
+/// Loads every page listed in the manifest, in the manifest's order.
+pub fn load_all_pages(
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+) -> Result<Vec<PageDocument>, ProjectError> {
+    manifest
+        .pages
+        .iter()
+        .map(|&id| load_page(project_dir, id))
+        .collect()
+}
+
 /// Resolves a project-relative asset path, rejecting anything that would
 /// escape the project directory (spec §17 privacy/local-first boundary —
 /// project files are portable and not trusted input; see
@@ -213,5 +259,37 @@ mod tests {
             resolve_asset_path(&project_dir, "../../secret.txt"),
             Err(ProjectError::UnsafeAssetPath(_))
         ));
+    }
+
+    #[test]
+    fn save_and_load_page_round_trips_objects() {
+        let root = tempfile::tempdir().unwrap();
+        let project_dir = root.path().join("Pages.draft");
+        let mut manifest = create_project(&project_dir, "Pages").unwrap();
+
+        let page_id = PageId::new();
+        let object_id = ObjectId::new();
+        let mut objects = HashMap::new();
+        objects.insert(
+            object_id,
+            serde_json::json!({"kind": "rectangle", "x": 1, "y": 2}),
+        );
+        let page = PageDocument {
+            id: page_id,
+            name: "Level 1".to_string(),
+            objects,
+        };
+
+        save_page(&project_dir, &page).unwrap();
+        manifest.pages.push(page_id);
+        save_project(&project_dir, &mut manifest).unwrap();
+
+        let reloaded_manifest = open_project(&project_dir).unwrap();
+        let pages = load_all_pages(&project_dir, &reloaded_manifest).unwrap();
+
+        assert_eq!(pages.len(), 1);
+        assert_eq!(pages[0].id, page_id);
+        assert_eq!(pages[0].name, "Level 1");
+        assert_eq!(pages[0].objects[&object_id]["kind"], "rectangle");
     }
 }

@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@draft/shared": "workspace:*",
     "@tauri-apps/api": "^2"
   },
   "devDependencies": {

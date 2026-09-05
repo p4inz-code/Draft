@@ -20,9 +20,14 @@ four implementation sessions below.
 - [x] Root + `docs/` documentation set, ADR-001 through ADR-012
 - [x] `security-review` pass on the foundation-stage code (no findings — no real attack
   surface exists yet at this stage)
-- [~] CI workflow (Windows/Linux/macOS matrix)
-- [ ] Full local verification pass (build + test + lint, Rust and TS, all green together)
-- [ ] Visual confirmation the Tauri window boots (via the `run` skill)
+- [x] CI workflow (Windows/Linux/macOS matrix) — all three green
+- [x] Full local verification pass (build + test + lint, Rust and TS, all green together)
+- [x] The Tauri window boots (`pnpm dev`): clean Rust + Vite build, the process launches,
+  runs, responds, and holds a valid, non-minimized window handle. A pixel screenshot of the
+  native window wasn't obtainable in this environment (the automation session's screen
+  capture shows a different display/session than where the native window renders) — verified
+  via process/window-API state instead of a visual capture; worth a human glance on a real
+  machine before calling this fully done.
 - [ ] `code-review` pass over the complete foundation diff
 - [ ] `CLAUDE.md` generated from the real repository structure
 

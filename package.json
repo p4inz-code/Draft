@@ -6,7 +6,7 @@
   "license": "SEE LICENSE IN LICENSE.md",
   "packageManager": "pnpm@11.9.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "scripts": {
     "build": "pnpm -r --if-present run build",

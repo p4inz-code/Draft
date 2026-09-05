@@ -18,7 +18,7 @@ code.
 
 ## Development setup
 
-Prerequisites: Rust (stable, via [rustup](https://rustup.rs)), Node 20+,
+Prerequisites: Rust (stable, via [rustup](https://rustup.rs)), Node 22.13+,
 [pnpm](https://pnpm.io).
 
 ```bash

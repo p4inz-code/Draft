@@ -49,7 +49,7 @@ For *why* it's shaped this way, start with [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Getting started
 
-Prerequisites: Rust (stable, via [rustup](https://rustup.rs)), Node 20+, and
+Prerequisites: Rust (stable, via [rustup](https://rustup.rs)), Node 22.13+, and
 [pnpm](https://pnpm.io).
 
 ```bash

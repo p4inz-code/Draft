@@ -45,8 +45,12 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Pinned to match rust-toolchain.toml exactly, rather than floating
+      # "stable" — keeps CI reproducible against the same compiler
+      # contributors build with locally.
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.97.1"
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2

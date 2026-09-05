@@ -28,8 +28,12 @@ four implementation sessions below.
   capture shows a different display/session than where the native window renders) — verified
   via process/window-API state instead of a visual capture; worth a human glance on a real
   machine before calling this fully done.
-- [ ] `code-review` pass over the complete foundation diff
-- [ ] `CLAUDE.md` generated from the real repository structure
+- [x] Real brand kit integrated (logo, icons, colors, JetBrains Mono typography) —
+  replaces the placeholder text wordmark and default Tauri icons; see
+  `assets/brand/README.md`
+- [x] `code-review` pass over the complete foundation diff (one low-severity finding —
+  CI's floating Rust toolchain — found and fixed)
+- [x] `CLAUDE.md` generated from the real repository structure
 
 ## V1
 

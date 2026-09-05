@@ -73,7 +73,7 @@ the same vocabulary spec'd for the event system MCP will eventually expose as
 | `draft-project` | Reads/writes the `.draft` bundle, schema versioning | Full create/open/save round-trip; migrations beyond "reject a future version" are Session 2+ |
 | `draft-mcp` | Exposes the graph to AI agents | Foundation-stage types only (`Transport`, `AgentConnection`); real `rmcp` integration is Session 2 |
 | `packages/canvas` | The drawing surface | Camera/viewport math only; shapes/tools/selection are Session 1 |
-| `packages/ui` | Shared components, design tokens | `Button`, `Wordmark`, CSS tokens |
+| `packages/ui` | Shared components, design tokens | `Button`, `Logo` (real brand kit lockup), CSS tokens |
 | `packages/project-client` | Typed wrapper over Tauri `invoke` | One call (`getCoreVersion`) — grows with each new command |
 | `apps/desktop` | Tauri 2 + React shell | Boots, round-trips one IPC call, consumes `@draft/ui` |
 | `apps/web` | Browser shell | Minimal — `@draft/ui` only, no canvas yet (see [docs/web.md](web.md)) |

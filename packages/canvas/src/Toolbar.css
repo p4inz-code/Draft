@@ -1,0 +1,46 @@
+.draft-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: var(--draft-surface);
+  border-bottom: 1px solid var(--draft-border);
+}
+
+.draft-toolbar-btn {
+  font-family: var(--draft-font-sans);
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--draft-border);
+  background: transparent;
+  color: var(--draft-text);
+  cursor: pointer;
+}
+
+.draft-toolbar-btn:hover:not(:disabled) {
+  border-color: var(--draft-accent);
+}
+
+.draft-toolbar-btn.active {
+  background: var(--draft-accent);
+  border-color: var(--draft-accent);
+  color: var(--draft-accent-contrast);
+}
+
+.draft-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.draft-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--draft-border);
+  margin: 0 0.25rem;
+}
+
+.draft-toolbar-zoom {
+  min-width: 3.5rem;
+  font-variant-numeric: tabular-nums;
+}

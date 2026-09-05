@@ -1,3 +1,4 @@
+import { Canvas, Toolbar } from "@draft/canvas";
 import { getCoreVersion } from "@draft/project-client";
 import { Logo } from "@draft/ui";
 import { useEffect, useState } from "react";
@@ -13,13 +14,18 @@ function App() {
   }, []);
 
   return (
-    <main className="shell">
-      <Logo height={32} />
-      <p className="tagline">If you can&rsquo;t explain it to AI, show it to AI.</p>
-      <span className="status">
-        foundation shell &middot; core <strong>{coreVersion ?? "…"}</strong>
-      </span>
-    </main>
+    <div className="app">
+      <header className="app-header">
+        <Logo height={22} />
+        <span className="status">
+          core <strong>{coreVersion ?? "…"}</strong>
+        </span>
+      </header>
+      <Toolbar />
+      <div className="app-canvas">
+        <Canvas />
+      </div>
+    </div>
   );
 }
 

@@ -39,3 +39,21 @@ export const parseObjectId = (value: string): ObjectId => parseId("object", valu
 export const parseAssetId = (value: string): AssetId => parseId("asset", value);
 export const parseAnnotationId = (value: string): AnnotationId => parseId("annotation", value);
 export const parseRegionId = (value: string): RegionId => parseId("region", value);
+
+/**
+ * Generates a new ID client-side (`crypto.randomUUID()`, so v4 — not the
+ * time-ordered v7 the Rust side prefers via `draft-core`; acceptable since
+ * nothing depends on client-generated IDs sorting by creation time, and
+ * both are valid `scheme://uuid` values). Used when the canvas creates an
+ * object locally before any round trip to the Rust core exists (Session 1).
+ */
+function newId<S extends Scheme>(scheme: S): Branded<S> {
+  return `${scheme}://${crypto.randomUUID()}` as Branded<S>;
+}
+
+export const newProjectId = (): ProjectId => newId("project");
+export const newPageId = (): PageId => newId("page");
+export const newObjectId = (): ObjectId => newId("object");
+export const newAssetId = (): AssetId => newId("asset");
+export const newAnnotationId = (): AnnotationId => newId("annotation");
+export const newRegionId = (): RegionId => newId("region");

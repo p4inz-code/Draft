@@ -39,17 +39,30 @@ four implementation sessions below.
 
 ### Session 1 — Foundation + Canvas
 
-- [ ] Freehand drawing, shapes, text, arrows/connections (on top of the camera engine
-  already built — see [ADR-004](docs/decisions/adr-004-custom-canvas-engine.md))
-- [ ] Selection, multi-select, grouping
-- [ ] Zoom, pan (camera math exists; needs a driving React component + tool state machine)
-- [ ] Undo/redo, built on the operation log ([docs/events.md](docs/events.md))
+- [x] Freehand drawing, shapes (rectangle/ellipse/diamond), text, line, arrow — one SVG
+  `Canvas` component in `@draft/canvas` driving the camera engine, tool state machine keyed
+  on the active tool
+- [x] Selection (click + marquee), move-by-drag, resize handles on resizable shapes
+  (rectangle/ellipse/diamond) — grouping not yet implemented
+- [x] Eraser tool (click or drag over shapes to delete)
+- [x] Zoom (wheel zoom-to-cursor, toolbar +/-/reset with a live %, Ctrl+=/Ctrl+-/Ctrl+0),
+  pan (middle-mouse-drag, works regardless of active tool — no separate Pan tool needed)
+- [x] Undo/redo via snapshot diffing ([ADR-013](docs/decisions/adr-013-undo-redo.md)), wired to
+  toolbar buttons and Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y
+- [x] Inline text editing (a real `foreignObject`/`textarea` editor, not a `prompt()` shim) —
+  fixed a real bug here: holding SVG pointer capture into the text tool's gesture raced the
+  textarea's `focus()` against the browser's native click handling, causing an instant blur
+  that (via the "discard empty text" cleanup) deleted the shape before typing could happen;
+  fixed by skipping pointer capture for the text tool and deferring focus a frame
 - [ ] Copy/paste
 - [ ] Image/video import onto the canvas
-- [ ] Pages actually persisted through `draft-project` (today only an empty page list
-  round-trips)
+- [ ] Pages actually persisted through `draft-project` (today the canvas store is
+  in-memory-only in the frontend; nothing round-trips through Tauri IPC to
+  `draft-graph`/`draft-project` yet — that's the next Session 1 slice)
+- [ ] Grouping
+- [ ] Inline text editing (currently a `window.prompt()` shim — see `packages/canvas/src/Canvas.tsx`)
 - [ ] Exit test: create a project, draw across multiple tools, import media, save, close,
-  reopen, verify identical state
+  reopen, verify identical state — blocked on the persistence item above
 
 Scoped heavier than the original product spec assumed, because the canvas is being built
 from scratch rather than adopting tldraw (see ADR-004) — expect this session to take
@@ -91,7 +104,12 @@ docs, changelog, and the first real release.
 - [ ] Full plugin ecosystem (foundation is plugin-ready per the crate/package boundaries in
   [ARCHITECTURE.md](ARCHITECTURE.md), but no plugin API exists yet)
 - [ ] Real-time collaboration
-- [ ] Advanced media (PSD/AI import, video regions/timelines)
+- [ ] Advanced media import: PSD (layers), AI/EPS (vector), video regions/timelines.
+  Common raster/vector formats (PNG/JPG/WebP/SVG/GIF) and DRAFT's own project JSON are
+  Session 1/2 scope via `draft-media`; PSD/AI specifically need dedicated parsing libraries
+  (e.g. `ag-psd` for PSD) and real testing against real files before claiming support —
+  not attempted until there's time to do it properly, per product spec §24's own
+  "defer if necessary" list.
 - [ ] Cloud sync (opt-in, without compromising the local-first default — see
   [ADR-008](docs/decisions/adr-008-local-first-architecture.md))
 - [ ] Additional agent-platform integrations beyond the MCP-compatible ones already covered

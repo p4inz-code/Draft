@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseObjectId, parsePageId } from "./ids";
+import { newObjectId, parseObjectId, parsePageId } from "./ids";
 
 describe("parseId", () => {
   it("accepts a well-formed scheme://uuid string", () => {
@@ -13,5 +13,16 @@ describe("parseId", () => {
 
   it("rejects a malformed uuid segment", () => {
     expect(() => parsePageId("page://not-a-uuid")).toThrow();
+  });
+});
+
+describe("newObjectId", () => {
+  it("generates ids that parse back as the same kind", () => {
+    const id = newObjectId();
+    expect(parseObjectId(id)).toBe(id);
+  });
+
+  it("generates unique ids", () => {
+    expect(newObjectId()).not.toBe(newObjectId());
   });
 });

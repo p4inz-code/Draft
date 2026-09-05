@@ -1,0 +1,13 @@
+# Normalize all text files to LF, regardless of platform or local git config
+# (core.autocrlf) — Windows CI checkouts were converting committed LF files
+# to CRLF, which made Biome's format check fail there but nowhere else.
+* text=auto eol=lf
+
+# Binary assets: never touch line endings.
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary

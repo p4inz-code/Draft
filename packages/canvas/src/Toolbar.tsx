@@ -47,8 +47,27 @@ export function Toolbar() {
   const zoomPct = useCanvasStore((s) => Math.round(s.camera.zoom * 100));
   const zoomBy = useCanvasStore((s) => s.zoomBy);
   const resetView = useCanvasStore((s) => s.resetView);
+  const selection = useCanvasStore((s) => s.selection);
+  const groupShapes = useCanvasStore((s) => s.groupShapes);
+  const ungroupShapes = useCanvasStore((s) => s.ungroupShapes);
+  const beginAction = useCanvasStore((s) => s.beginAction);
+  const commitAction = useCanvasStore((s) => s.commitAction);
+  const canGroup = selection.length > 1;
+  const canUngroup = useCanvasStore((s) => s.selection.some((id) => s.shapes[id]?.shape.groupId));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+
+  function handleGroup() {
+    beginAction();
+    groupShapes(selection);
+    commitAction();
+  }
+
+  function handleUngroup() {
+    beginAction();
+    ungroupShapes(selection);
+    commitAction();
+  }
 
   async function handleImageFile(file: File) {
     setImageError(null);
@@ -137,6 +156,23 @@ export function Toolbar() {
           {imageError}
         </span>
       )}
+      <span className="draft-toolbar-sep" />
+      <button
+        type="button"
+        className="draft-toolbar-btn"
+        onClick={handleGroup}
+        disabled={!canGroup}
+      >
+        Group
+      </button>
+      <button
+        type="button"
+        className="draft-toolbar-btn"
+        onClick={handleUngroup}
+        disabled={!canUngroup}
+      >
+        Ungroup
+      </button>
       <span className="draft-toolbar-sep" />
       <button type="button" className="draft-toolbar-btn" onClick={undo} disabled={!canUndo}>
         Undo

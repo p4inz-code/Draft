@@ -9,6 +9,39 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (latest) — Grouping
+
+**Commit:** (pending push at time of writing)
+
+Added the last unchecked Session 1 canvas feature: grouping. A shape gets an optional
+`groupId` field (same "opaque JSON payload" trade-off as everything else in `Shape` —
+`draft-graph` doesn't need to know this exists), `groupShapes`/`ungroupShapes`/`groupMembers`
+on the store, `Group`/`Ungroup` toolbar buttons gated on selection state, and click-to-select
+expanded to pull in every group sibling so dragging one member drags the whole group (marquee
+already multi-selects, so it was left alone rather than special-cased to expand to full
+groups on partial overlap).
+
+**A real bug caught while building this, not just adding the feature:** copy/paste
+(`Ctrl+C`/`Ctrl+V`) was cloning shapes verbatim, including `groupId` — meaning a pasted copy
+of a grouped shape would silently rejoin the *original* group, so moving the original would
+drag the pasted copy along with it. Fixed by remapping each paste's groupIds to fresh ones
+(keeping relative grouping within that one paste) instead of reusing the source's.
+
+**Verified manually in-browser** (`desktop-web-preview`): drew two rectangles, marquee-
+selected both, grouped them, confirmed clicking either one selects both, confirmed dragging
+moves both together preserving their relative offset, ungrouped, confirmed clicking one now
+selects only that one. Also added store-level tests for `groupShapes`/`ungroupShapes`/
+`groupMembers` (31 Vitest tests total now) and ran the full TS + Rust build.
+
+**Left honestly unresolved:** Session 1's "exit test" (draw across tools, save, close,
+reopen, verify identical state) is feature-unblocked now but not run as one combined pass —
+`Save`/`Open` need a real running Tauri window (`invoke` calls fail in this session's
+browser-only preview, visible as the "Live sync failed" banner), which isn't available on
+this dev machine right now. `crates/draft-project`'s round-trip test already covers the
+underlying save/load format.
+
+---
+
 ## 2026-09-06 (even later) — Image import
 
 **Commit:** (pending push at time of writing)

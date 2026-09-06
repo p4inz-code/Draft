@@ -111,3 +111,42 @@ describe("selection", () => {
     expect(useCanvasStore.getState().selection).toEqual([]);
   });
 });
+
+describe("grouping", () => {
+  it("groupShapes assigns a shared groupId, groupMembers returns every sibling", () => {
+    const { addShape, groupShapes, groupMembers } = useCanvasStore.getState();
+    const a = addShape(rect());
+    const b = addShape(rect());
+    const c = addShape(rect());
+
+    groupShapes([a, b]);
+
+    const groupIdA = useCanvasStore.getState().shapes[a].shape.groupId;
+    const groupIdB = useCanvasStore.getState().shapes[b].shape.groupId;
+    expect(groupIdA).toBeDefined();
+    expect(groupIdA).toBe(groupIdB);
+    expect(groupMembers(a).sort()).toEqual([a, b].sort());
+    expect(groupMembers(c)).toEqual([c]);
+  });
+
+  it("groupShapes is a no-op for fewer than two ids", () => {
+    const { addShape, groupShapes } = useCanvasStore.getState();
+    const a = addShape(rect());
+
+    groupShapes([a]);
+
+    expect(useCanvasStore.getState().shapes[a].shape.groupId).toBeUndefined();
+  });
+
+  it("ungroupShapes clears groupId from every given id", () => {
+    const { addShape, groupShapes, ungroupShapes } = useCanvasStore.getState();
+    const a = addShape(rect());
+    const b = addShape(rect());
+    groupShapes([a, b]);
+
+    ungroupShapes([a, b]);
+
+    expect(useCanvasStore.getState().shapes[a].shape.groupId).toBeUndefined();
+    expect(useCanvasStore.getState().shapes[b].shape.groupId).toBeUndefined();
+  });
+});

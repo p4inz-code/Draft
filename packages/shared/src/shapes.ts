@@ -11,6 +11,15 @@ import type { ObjectId } from "./ids";
 interface ShapeBase {
   x: number;
   y: number;
+  /**
+   * Shapes sharing a `groupId` move and select together (Session 1's
+   * grouping feature). Deliberately a plain field on the shape payload
+   * rather than a new `Operation`/graph concept — `draft-graph` already
+   * treats payloads as opaque JSON (see the file-level comment above), and a
+   * real "group" as a first-class graph object is Session 2's object
+   * taxonomy work, not this one.
+   */
+  groupId?: string;
 }
 
 export interface RectangleShape extends ShapeBase {

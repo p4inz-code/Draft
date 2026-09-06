@@ -67,6 +67,13 @@ interface CanvasState {
   toggleSelect: (id: ObjectId) => void;
   clearSelection: () => void;
 
+  /** All object IDs sharing `id`'s groupId, or just `[id]` if it isn't grouped. */
+  groupMembers: (id: ObjectId) => ObjectId[];
+  /** Assigns a fresh shared groupId to every shape in `ids` (min 2 to be meaningful). */
+  groupShapes: (ids: ObjectId[]) => void;
+  /** Clears groupId from every shape in `ids`. */
+  ungroupShapes: (ids: ObjectId[]) => void;
+
   undo: () => void;
   redo: () => void;
 
@@ -164,6 +171,41 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         : [...s.selection, id],
     })),
   clearSelection: () => set({ selection: [] }),
+
+  groupMembers: (id) => {
+    const state = get();
+    const groupId = state.shapes[id]?.shape.groupId;
+    if (!groupId) return [id];
+    return Object.values(state.shapes)
+      .filter((obj) => obj.shape.groupId === groupId)
+      .map((obj) => obj.id);
+  },
+
+  groupShapes: (ids) => {
+    if (ids.length < 2) return;
+    const groupId = newObjectId();
+    set((s) => {
+      const shapes = { ...s.shapes };
+      for (const id of ids) {
+        const existing = shapes[id];
+        if (existing) shapes[id] = { id, shape: { ...existing.shape, groupId } };
+      }
+      return { shapes };
+    });
+  },
+
+  ungroupShapes: (ids) =>
+    set((s) => {
+      const shapes = { ...s.shapes };
+      for (const id of ids) {
+        const existing = shapes[id];
+        if (existing) {
+          const { groupId: _groupId, ...rest } = existing.shape;
+          shapes[id] = { id, shape: rest as Shape };
+        }
+      }
+      return { shapes };
+    }),
 
   // Per ADR-013, undo/redo don't get a special code path downstream: the
   // transition is diffed into the same forward Operation vocabulary as any

@@ -1,4 +1,10 @@
-import { type ObjectId, type Shape, type TextShape, isResizableShape } from "@draft/shared";
+import {
+  type ObjectId,
+  type Shape,
+  type TextShape,
+  isResizableShape,
+  newObjectId,
+} from "@draft/shared";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import "./Canvas.css";
 import { ShapeView } from "./ShapeView";
@@ -108,9 +114,25 @@ export function Canvas() {
         e.preventDefault();
         state.beginAction();
         const pasteOffset = 20;
-        const newIds = clipboardRef.current.map((shape) =>
-          state.addShape({ ...shape, x: shape.x + pasteOffset, y: shape.y + pasteOffset }),
-        );
+        // Remap groupIds to fresh ones (shared across this paste's shapes,
+        // keeping their relative grouping) rather than reusing the
+        // originals — otherwise a pasted copy would silently rejoin the
+        // source group, so moving the original would drag the copy too.
+        const groupIdMap = new Map<string, string>();
+        const newIds = clipboardRef.current.map((shape) => {
+          let groupId = shape.groupId;
+          if (groupId) {
+            const remapped = groupIdMap.get(groupId) ?? newObjectId();
+            groupIdMap.set(groupId, remapped);
+            groupId = remapped;
+          }
+          return state.addShape({
+            ...shape,
+            x: shape.x + pasteOffset,
+            y: shape.y + pasteOffset,
+            groupId,
+          });
+        });
         state.commitAction();
         state.select(newIds);
         // Pasting again pastes at a further offset, like most editors, so
@@ -195,7 +217,7 @@ export function Canvas() {
     if (tool === "select") {
       const hitId = hitTest(state.shapes, world);
       if (hitId) {
-        if (!state.selection.includes(hitId)) state.select([hitId]);
+        if (!state.selection.includes(hitId)) state.select(state.groupMembers(hitId));
         state.beginAction();
         setDrag({ kind: "move-selection", lastWorld: world });
       } else {

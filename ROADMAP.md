@@ -74,10 +74,22 @@ four implementation sessions below.
   (not just a silent no-op) plus a `console.error`, and logs (rather than hides) the fallback
   when natural image-size detection fails.
 - [ ] Video import onto the canvas
-- [ ] Grouping
+- [x] Grouping: a shared `groupId` on the shape payload (not a new graph/operation concept —
+  `draft-graph` already treats payloads as opaque JSON), a `Group`/`Ungroup` toolbar pair
+  gated on selection state, and click-to-select expanding to every group sibling
+  (`groupMembers`) so moving one member moves the whole group. Copy/paste remaps pasted
+  groupIds to fresh ones (keeping relative grouping) rather than reusing the originals, so a
+  pasted copy doesn't silently rejoin the source group. A real "group" as a first-class graph
+  object (with its own MCP-visible identity) is Session 2's object-taxonomy work, not this.
 - [ ] Exit test: create a project, draw across multiple tools, save, close, reopen, verify
-  identical state — blocked on import/grouping above for the "full" version, but the
-  save/close/reopen core already works (see `crates/draft-project`'s round-trip test)
+  identical state — both former blockers (image import, grouping) are now done, so this is
+  unblocked feature-wise. Not yet run as one combined pass: `Save`/`Open` call real Tauri
+  commands (`save_snapshot`/`load_snapshot`) that only exist inside an actual running Tauri
+  window, and this dev environment can only preview the pure-frontend Vite build in a browser
+  (`apps/desktop`'s `src-tauri` backend isn't reachable there — every `invoke` fails, as seen
+  in the "Live sync failed" / "core …" banner during this session's manual testing). Needs a
+  real machine with the Tauri window open to close out; `crates/draft-project`'s round-trip
+  test already covers the underlying save/load format for what it's worth.
 
 Scoped heavier than the original product spec assumed, because the canvas is being built
 from scratch rather than adopting tldraw (see ADR-004) — expect this session to take

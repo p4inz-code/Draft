@@ -74,11 +74,15 @@ to live): `get_project`, `get_page`, `get_object`.
 Implemented on the **local-socket** (live) transport, both read and write:
 - `get_project` (manifest + page list), `get_page` (one page's objects by ID), `get_object`
   (one object by page + object ID) — gated on `AgentMode::allows_read()`.
-- `create_object` (page ID + arbitrary payload -> new object ID), `modify_object` (page +
+- `create_object` (page ID + shape payload -> new object ID), `modify_object` (page +
   object ID + replacement payload), `delete_object` (page + object ID) — gated on
   `AgentMode::allows_write()` (`Build` only). All three go through
   `draft_graph::Graph::apply` — the exact same code path a human's canvas edit takes, so
-  there's no separate "agent wrote this" handling to keep in sync.
+  there's no separate "agent wrote this" handling to keep in sync. Since
+  [ADR-014](decisions/adr-014-typed-shape-taxonomy.md), the payload is validated into a typed
+  `Shape` there too: a recognized `kind` with malformed fields is rejected with a clear
+  "invalid shape" error instead of being stored as-is; a `kind` this build doesn't recognize
+  is still accepted verbatim (forward-compatible, just not validated).
 - `recent_changes` (optional `limit`, default 50/max 200, and `since_sequence` for
   incremental polling) — returns the tail of `LiveState.log`, a rolling
   `draft_events::OperationLog` that both the human's committed canvas operations
@@ -91,9 +95,10 @@ Implemented on the **local-socket** (live) transport, both read and write:
 
 Not implemented yet:
 - `agent_state` — still vague pending a concrete need for it.
-- `annotations`, `requirements`, `flows`, `assets` — wait on the real object/shape taxonomy
-  in `draft-graph` (payloads are still opaque JSON; see docs/architecture.md's trade-off
-  note on this).
+- `annotations`, `requirements`, `flows`, `assets` — these are the product spec's *semantic*
+  taxonomy layered on top of objects, not object kinds themselves; the drawing-shape taxonomy
+  landed via [ADR-014](decisions/adr-014-typed-shape-taxonomy.md), but these still need a
+  concrete driving feature before being designed, per that same ADR's reasoning.
 - `request_user_permission` as an MCP tool an agent can call to ask for elevated access —
   today the user has to notice and change the dropdown themselves.
 - Per-connection write scoping (`PermissionGrant`'s richer, timestamped grant type is defined

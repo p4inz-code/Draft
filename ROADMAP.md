@@ -162,9 +162,24 @@ longer than "foundation + canvas" sounds like it should.
   mocked): `crates/draft-mcp/tests/mcp_stdio.rs` (saved-file path) and
   `crates/draft-mcp/tests/mcp_local_socket.rs` (live path — proves `Manual` denies reads and
   raising the mode allows them)
-- [ ] The real object/shape taxonomy in `draft-graph` (replacing today's untyped JSON
-  payloads)
-- [ ] Annotations, requirements, relationships, media references, regions
+- [x] The real object/shape taxonomy in `draft-graph`, replacing untyped JSON payloads —
+  [ADR-014](docs/decisions/adr-014-typed-shape-taxonomy.md): a Rust `Shape` enum mirroring
+  `packages/shared/src/shapes.ts`'s eight drawing kinds exactly, validated at the live write
+  boundary (`Graph::apply`, both human edits and agent writes) with a real error on a
+  malformed known-kind payload instead of silently storing it, plus an `Other` fallback so an
+  unrecognized `kind` (a future frontend addition) still round-trips instead of being
+  rejected outright. Closes the negative-image-size bug found in the day's code review at
+  its actual root (normalized during deserialization) rather than patching the two TS files
+  that disagreed about it. Scoped to the eight *drawing* kinds only — the product spec's
+  *semantic* taxonomy (below) stays deferred, per the same "don't guess before a concrete
+  need exists" reasoning ADR-005 originally used to defer this. Verified for real: 13 new
+  `draft-graph` tests (round-trip per kind, `Other` fallback preserves unknown data, a
+  malformed known kind is rejected via `apply` but tolerated via the lenient
+  `insert_page` load path, negative width/height normalizes, `set_position` works uniformly)
+  plus every existing MCP/integration test updated and passing against the new type.
+- [ ] Annotations, requirements, relationships, media references, regions (the product
+  spec's *semantic* taxonomy — layers meaning onto objects, not an object kind itself; still
+  needs a concrete driving feature before being designed, same reasoning as above)
 - [x] `recent_changes` MCP tool: `LiveState.log` (a `draft_events::OperationLog`, already
   defined in Session 1's foundation work but never wired up until now) records every
   operation applied to the live graph — the human's (`apply_operations`, tagged

@@ -50,7 +50,11 @@ fn a_recorded_operation_log_replays_into_the_expected_graph_state() {
         graph.apply(&record.operation).unwrap();
     }
 
+    // "enemy_spawn" isn't one of draft-graph's known drawing-shape kinds
+    // (ADR-014), so it round-trips as an opaque Shape::Other — still proves
+    // the same cross-crate composition (log -> apply -> stored state).
     let stored = graph.page(page).unwrap().object(object).unwrap();
+    let stored = serde_json::to_value(stored).unwrap();
     assert_eq!(stored["kind"], "enemy_spawn");
     assert_eq!(stored["x"], 120.0);
     assert_eq!(stored["y"], 40.0);

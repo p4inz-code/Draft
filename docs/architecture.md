@@ -68,7 +68,7 @@ the same vocabulary spec'd for the event system MCP will eventually expose as
 | `draft-security` | Agent permission model, path-safety guard | Full for the types that exist; scoping (per-page/object grants) is Session 3 |
 | `draft-platform` | OS abstraction trait so core crates aren't desktop-locked | `PlatformPaths` trait + native (`dirs`-backed) impl; browser/WASM impl is Session 3 |
 | `draft-events` | Typed operation vocabulary + append-only log | In-memory log; persisting/replaying it is Session 1/2 |
-| `draft-graph` | Applies operations to build current state | Untyped (`serde_json::Value`) object payloads; the real shape schema is Session 1/2 |
+| `draft-graph` | Applies operations to build current state | Typed `Shape` payloads ([ADR-014](decisions/adr-014-typed-shape-taxonomy.md)) for the eight drawing kinds; the semantic taxonomy (annotations/regions/requirements) is later-session scope |
 | `draft-media` | Asset identity via content hashing | SHA-256 hashing + basic metadata; video timestamps/regions/PSD are later-session scope |
 | `draft-project` | Reads/writes the `.draft` bundle, schema versioning | Full create/open/save round-trip; migrations beyond "reject a future version" are Session 2+ |
 | `draft-mcp` | Exposes the graph to AI agents | Foundation-stage types only (`Transport`, `AgentConnection`); real `rmcp` integration is Session 2 |
@@ -80,9 +80,11 @@ the same vocabulary spec'd for the event system MCP will eventually expose as
 
 ## Trade-offs made explicit
 
-- **Untyped object payloads in `draft-graph` right now** trade type safety for not having to
-  guess the full shape schema (freehand stroke, text, arrow, image, video, ...) before the
-  canvas that will produce them exists. Revisit once Session 1 defines real shapes.
+- **A typed `Shape` enum in `draft-graph`** ([ADR-014](decisions/adr-014-typed-shape-taxonomy.md))
+  validates every object payload — human edit or agent write — into one of the eight known
+  drawing kinds, with an `Other` fallback preserving anything it doesn't recognize verbatim
+  rather than rejecting it. The product spec's semantic taxonomy (region, requirement, flow,
+  ...) is still deferred — those layer meaning onto objects rather than being object kinds.
 - **Operations, not whole-graph snapshots**, keep IPC payloads small as a project grows, at
   the cost of needing every mutation site to go through the operation vocabulary rather than
   mutating state ad hoc.

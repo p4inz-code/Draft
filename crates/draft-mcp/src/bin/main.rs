@@ -104,7 +104,7 @@ impl DraftMcpServer {
             .page(page_id)
             .and_then(|p| p.object(object_id))
         {
-            Some(object) => object.to_string(),
+            Some(object) => serde_json::to_string(object).expect("Shape always serializes"),
             None => serde_json::json!({ "error": "no such object on that page" }).to_string(),
         }
     }

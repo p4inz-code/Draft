@@ -68,7 +68,12 @@ async fn an_mcp_client_can_query_a_real_saved_project() {
     let objects = page_json["objects"].as_object().unwrap();
     let (_, object_payload) = objects.iter().next().unwrap();
     assert_eq!(object_payload["kind"], "rectangle");
-    assert_eq!(object_payload["width"], 100);
+    // .as_f64() rather than a direct Value comparison against the integer
+    // literal `100` — draft-graph's typed Shape (ADR-014) stores width as
+    // f64, so it now serializes back out as `100.0`, not `100`; serde_json
+    // treats those as different Number representations even though they're
+    // the same value, and TS's `number` type never distinguished them anyway.
+    assert_eq!(object_payload["width"].as_f64(), Some(100.0));
 
     client.cancel().await.unwrap();
 }

@@ -88,8 +88,10 @@ variant or ID kind, update the TypeScript mirror in the same change (see
 For which crate/package owns what, and how much of each is actually implemented today versus
 foundation-stage skeleton, see the responsibility table in
 [docs/architecture.md](docs/architecture.md) rather than assuming from the directory name alone
-— several (`draft-mcp`, `draft-graph`'s object payloads, `packages/canvas`) are intentionally
-thin right now pending Session 1/2 work.
+— `draft-graph`'s object payloads are now a typed `Shape` enum
+([ADR-014](docs/decisions/adr-014-typed-shape-taxonomy.md)), but its *semantic* taxonomy
+(annotations, requirements, regions) and several other areas remain foundation-stage,
+pending later session work.
 
 ## Conventions specific to this repo
 

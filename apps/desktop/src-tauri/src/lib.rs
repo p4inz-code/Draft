@@ -158,7 +158,10 @@ fn set_selection(
     object_ids: Vec<ObjectId>,
     live: State<'_, Arc<LiveState>>,
 ) -> Result<(), String> {
-    let mut selection = live.selection.lock().map_err(|_| "selection lock poisoned")?;
+    let mut selection = live
+        .selection
+        .lock()
+        .map_err(|_| "selection lock poisoned")?;
     selection.page = Some(page_id);
     selection.objects = object_ids;
     Ok(())
@@ -185,7 +188,16 @@ fn get_page_snapshot(
     Ok(PageSnapshotOut {
         page_id: page.id,
         page_name: page.name.clone(),
-        objects: page.objects().clone(),
+        objects: page
+            .objects()
+            .iter()
+            .map(|(id, shape)| {
+                (
+                    *id,
+                    serde_json::to_value(shape).expect("Shape always serializes"),
+                )
+            })
+            .collect(),
     })
 }
 

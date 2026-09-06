@@ -44,8 +44,10 @@ foundation phase.
 
 ## Consequences
 
-- Object payloads are untyped JSON in the graph today, deliberately, until Session 1/2
-  defines the real shape taxonomy (spec §8) — see [docs/project-graph.md](../project-graph.md).
+- Object payloads were untyped JSON in the graph at foundation stage, deliberately, until
+  the canvas produced concrete shapes worth typing — see
+  [ADR-014](adr-014-typed-shape-taxonomy.md) for the typed taxonomy that replaced this, and
+  [docs/project-graph.md](../project-graph.md) for the current state.
 - Every new kind of user action needs a corresponding operation variant
   ([docs/events.md](../events.md)), not a direct graph mutator.
 - MCP write tools (Session 2+) are automatically limited to exactly what the canvas itself
@@ -55,4 +57,5 @@ foundation phase.
 
 1. [x] Implement `Graph::apply` for create/update/move/delete with unknown-page/object and
    duplicate-creation rejection.
-2. [ ] Define the typed shape taxonomy once Session 1's canvas needs it.
+2. [x] Define the typed shape taxonomy once Session 1's canvas needs it — see
+   [ADR-014](adr-014-typed-shape-taxonomy.md).

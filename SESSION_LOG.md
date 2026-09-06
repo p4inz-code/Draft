@@ -9,6 +9,57 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (very end of day) — ADR-014: a typed shape taxonomy in draft-graph
+
+**Commit:** (pending push at time of writing)
+
+The last well-scoped item before the remaining roadmap gets into genuinely large or blocked
+work: ADR-005 (foundation phase) deliberately left object payloads as untyped JSON with its
+own action item to "define the typed shape taxonomy once Session 1's canvas needs it." That
+need has now clearly arrived — the canvas produces eight real shape kinds plus grouping — and
+today's code review found a concrete bug traceable directly to the gap (the negative-image-
+size render/hit-test desync). Ran this through the `engineering:architecture` skill first
+rather than improvising a type-system change ad hoc; wrote
+[ADR-014](docs/decisions/adr-014-typed-shape-taxonomy.md) and then implemented its first
+slice.
+
+**What changed:** `crates/draft-graph::shape` defines a `Shape` enum mirroring
+`packages/shared/src/shapes.ts` exactly (rectangle/ellipse/diamond/line/text/arrow/freehand/
+image + `groupId`), internally tagged on `kind` with a hand-written `Deserialize` that
+validates a *recognized* kind strictly (rejecting malformed fields with a new
+`GraphError::InvalidShape`) but keeps an *unrecognized* kind verbatim as `Shape::Other` —
+forward-compatible with a frontend shape kind added before its Rust mirror lands, per the
+same manual-mirror discipline `CLAUDE.md` already required for operations and ID kinds.
+`Page::objects` is now `HashMap<ObjectId, Shape>` instead of raw JSON; `Graph::apply`
+validates every `CreateObject`/`UpdateObject` payload (human edit or agent write, the same
+code path) into it, and `MoveObject` now calls `Shape::set_position` uniformly instead of
+poking at JSON object keys. Also normalizes negative `width`/`height` during deserialization,
+closing the code-review bug at its actual root instead of patching the two TS files that
+disagreed about it.
+
+**Deliberately scoped to the eight *drawing* kinds** the canvas produces today, not the
+product spec's full semantic taxonomy (`Region`, `Requirement`, `Flow`, `Component`,
+`Screen`, ...) — those layer meaning onto objects rather than being object kinds, and still
+have no concrete driving feature, which is exactly the mistake ADR-005 already avoided once.
+
+**A real, narrow gotcha along the way:** `draft-project`'s on-disk `PageDocument` format
+deliberately keeps `serde_json::Value` (it's storage, not a live-write boundary) —
+`Graph::insert_page` (reconstructing a `Graph` from saved pages) parses leniently, falling
+back to `Shape::Other` rather than failing to load an entire project over one malformed
+object, while `Graph::apply` (the live write boundary) stays strict. Also: typed `f64` fields
+mean a whole-number width like `100` now serializes back out as `100.0` — harmless for JS/TS
+(no int/float distinction there) but broke one Rust test asserting exact JSON `Value`
+equality, fixed by comparing numerically instead.
+
+**Verified for real:** 13 new tests in `draft-graph` (every known kind round-trips through
+`Graph::apply`, `Other` preserves unknown data verbatim, a malformed known kind is rejected
+via `apply` but tolerated via the lenient `insert_page` path, negative width/height
+normalizes, `set_position` works uniformly for known and unknown shapes) plus every existing
+MCP/integration test updated to the new type and passing. Full `cargo build/clippy/test` and
+`pnpm build/lint/test` green.
+
+---
+
 ## 2026-09-06 (end of day) — Full-diff code review, 4 confirmed bugs fixed
 
 **Commit:** (pending push at time of writing)

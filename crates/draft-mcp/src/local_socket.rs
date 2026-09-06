@@ -36,7 +36,9 @@ impl ConnectionGuard {
 
 impl Drop for ConnectionGuard {
     fn drop(&mut self) {
-        self.state.connections.send_modify(|n| *n = n.saturating_sub(1));
+        self.state
+            .connections
+            .send_modify(|n| *n = n.saturating_sub(1));
     }
 }
 

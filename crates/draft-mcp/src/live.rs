@@ -221,7 +221,7 @@ impl LiveMcpServer {
         };
         let graph = self.state.graph.lock().expect("LiveState.graph poisoned");
         match graph.page(page_id).and_then(|p| p.object(object_id)) {
-            Some(object) => object.to_string(),
+            Some(object) => serde_json::to_string(object).expect("Shape always serializes"),
             None => serde_json::json!({ "error": "no such object on that page" }).to_string(),
         }
     }
@@ -359,7 +359,11 @@ impl LiveMcpServer {
         if !mode.allows_read() {
             return read_denied(mode);
         }
-        let selection = self.state.selection.lock().expect("LiveState.selection poisoned");
+        let selection = self
+            .state
+            .selection
+            .lock()
+            .expect("LiveState.selection poisoned");
         serde_json::json!({
             "page": selection.page.map(|p| p.to_string()),
             "objects": selection.objects.iter().map(|o| o.to_string()).collect::<Vec<_>>(),

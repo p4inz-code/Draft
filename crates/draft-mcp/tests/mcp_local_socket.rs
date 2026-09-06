@@ -204,11 +204,17 @@ async fn connection_count_tracks_connect_and_disconnect() {
     });
 
     let client = connect_client(&pipe_name).await;
-    connections.changed().await.expect("connection count changed");
+    connections
+        .changed()
+        .await
+        .expect("connection count changed");
     assert_eq!(*connections.borrow(), 1);
 
     client.cancel().await.unwrap();
-    connections.changed().await.expect("connection count changed");
+    connections
+        .changed()
+        .await
+        .expect("connection count changed");
     assert_eq!(*connections.borrow(), 0);
 }
 
@@ -233,16 +239,18 @@ async fn watch_mode_denies_writes_and_build_mode_allows_them() {
         let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
     });
 
+    // "widget" is deliberately not one of draft-graph's known drawing-shape
+    // kinds (ADR-014) — this test is about the write-permission gate, not
+    // shape-schema validation, so it uses a kind that round-trips as an
+    // opaque Shape::Other without needing to satisfy any kind's required
+    // fields.
     let client = connect_client(&pipe_name).await;
     let create_args = serde_json::Map::from_iter([
         (
             "page_id".to_string(),
             serde_json::Value::String(page_id.to_string()),
         ),
-        (
-            "payload".to_string(),
-            serde_json::json!({"kind": "rectangle"}),
-        ),
+        ("payload".to_string(), serde_json::json!({"kind": "widget"})),
     ]);
     let result = client
         .call_tool(CallToolRequestParams::new("create_object").with_arguments(create_args.clone()))
@@ -296,7 +304,7 @@ async fn watch_mode_denies_writes_and_build_mode_allows_them() {
         ),
         (
             "payload".to_string(),
-            serde_json::json!({"kind": "rectangle", "moved": true}),
+            serde_json::json!({"kind": "widget", "moved": true}),
         ),
     ]);
     client
@@ -304,14 +312,17 @@ async fn watch_mode_denies_writes_and_build_mode_allows_them() {
         .await
         .unwrap();
     assert_eq!(
-        state
-            .graph
-            .lock()
-            .unwrap()
-            .page(page_id)
-            .unwrap()
-            .object(object_id)
-            .unwrap()["moved"],
+        serde_json::to_value(
+            state
+                .graph
+                .lock()
+                .unwrap()
+                .page(page_id)
+                .unwrap()
+                .object(object_id)
+                .unwrap()
+        )
+        .unwrap()["moved"],
         true
     );
 

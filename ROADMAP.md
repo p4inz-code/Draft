@@ -79,6 +79,11 @@ longer than "foundation + canvas" sounds like it should.
     but is untested on this Windows dev machine) hosted **inside the running desktop app**,
     reading the *live* in-memory `Graph` as the human edits — this is the actually-important
     half: an agent reading a live session, not just a stale file
+- [x] Local-socket access control: a `security-review` pass caught that the socket wasn't
+  actually restricted to the current OS user (Windows named pipes and Unix socket files
+  don't get "loopback-only" protection for free the way TCP sockets do). Fixed: an explicit
+  owner-only Windows security descriptor (`D:P(A;;GA;;;OW)`), and a `0600`-chmod'd Unix
+  socket file in the user's app-data dir instead of the shared temp directory
 - [x] Read-only MCP tools: `get_project`, `get_page`, `get_object` (both transports).
   `selection`/`recent_changes`/`agent_state` deliberately not exposed yet — they only make
   sense for a live session with real selection/history tracking, which doesn't exist on the

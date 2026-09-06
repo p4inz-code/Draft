@@ -9,6 +9,45 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (later still) — Security review + fix on the local socket
+
+**Commit:** (pending push at time of writing)
+
+Ran a `security-review` pass on the new MCP write surface (the whole point of the review the
+user asked for before continuing). It found one real, concrete finding: the local-socket
+transport didn't restrict access to the current OS user. "Loopback-only" (what ADR-007/
+docs/mcp.md claimed) describes a TCP socket's *binding*, not a Unix-socket-file's or a
+named-pipe's *ACL* — those default to something more permissive on both platforms (a socket
+file in the shared temp dir inherits the umask and is commonly group/world-readable; an
+unsecured Windows named pipe's default DACL grants the `Everyone` group read access per
+`CreateNamedPipe`'s own docs). On a shared/multi-user machine, another local account could
+have observed or interacted with a live DRAFT session once the user granted any agent access.
+
+**Fixed on both platforms:**
+- Windows: the named pipe now gets an explicit `D:P(A;;GA;;;OW)` security descriptor
+  (Generic-All to Owner only) built via `ConvertStringSecurityDescriptorToSecurityDescriptorW`
+  and passed through `create_with_security_attributes_raw`.
+- Unix: the socket file is `chmod`'d to `0600` immediately after `bind`, and moved from the
+  shared temp directory into the user's own app-data directory (via `draft-platform`).
+
+**A real Rust gotcha hit while building this:** the Windows security descriptor type holds a
+raw pointer, making it `!Send`. Constructing it inline inside the `async fn` accept loop —
+even with an explicit `drop()` right after use — still made the whole future non-`Send`
+across the loop's `.await`, because a value with a custom `Drop` impl is considered live for
+its full lexical scope, not just to its last use. Fixed by extracting a fully synchronous
+helper function (`create_secured_pipe_instance`) that builds the descriptor, creates the
+pipe, and lets the descriptor drop — all before returning a plain, `Send` `NamedPipeServer`.
+A synchronous function's internal locals never leak into the caller's async state machine;
+only the return value does.
+
+**Verified:** all existing MCP tests still pass against the hardened pipe (proving the
+owner's own connections still work), plus a new unit test that the security descriptor
+builds successfully, plus a new Unix-only integration test
+(`mcp_local_socket_unix.rs`, `#![cfg(unix)]`) asserting the socket file is exactly `0600` —
+can't be run on this Windows dev machine, so it's verified by CI's Linux/macOS legs instead.
+
+---
+
 ## 2026-09-06 (later) — Write MCP tools + bidirectional sync
 
 **Commit:** (pending push at time of writing)

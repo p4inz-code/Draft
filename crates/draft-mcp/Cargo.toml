@@ -17,11 +17,15 @@ draft-project.workspace = true
 draft-graph.workspace = true
 draft-core.workspace = true
 draft-events.workspace = true
+draft-platform.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 rmcp = { version = "3", features = ["server", "transport-io", "macros"] }
 schemars = "0.8"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Security", "Win32_Security_Authorization", "Win32_Foundation"] }
 
 [dev-dependencies]
 rmcp = { version = "3", features = ["client", "transport-child-process"] }

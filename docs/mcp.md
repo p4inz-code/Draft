@@ -23,6 +23,17 @@ alone is the wrong default here.
   frontend uses to refetch and merge the affected page. The Unix path exists and compiles
   (`#[cfg(unix)]`) but hasn't been exercised on Linux/macOS yet — this has been built and
   tested on Windows only so far.
+  - **Owner-only access control.** "Loopback-only" describes a TCP socket's binding, not a
+    Unix-socket-file's or named-pipe's ACL — those default to something more permissive than
+    "just this user" (a socket file in the shared temp dir inherits the umask and is commonly
+    group/world-readable; an unsecured Windows named pipe's default DACL grants the `Everyone`
+    group read access, per `CreateNamedPipe`'s own documentation). A security-review pass
+    caught this as a real gap on a shared/multi-user machine, so both platforms now
+    explicitly restrict the socket to its creator: Windows gets a `D:P(A;;GA;;;OW)` security
+    descriptor (Generic-All to Owner only, no inheritance) passed via
+    `create_with_security_attributes_raw`; Unix gets the socket file `chmod`'d to `0600`
+    right after `bind`, in the user's own app-data directory (via `draft-platform`) rather
+    than the shared temp directory.
 - **Stdio**, via the `draft-mcp` CLI binary (`crates/draft-mcp/src/bin/main.rs`) operating
   directly on a saved `.draft` project directory — for headless/CI use where no desktop
   instance is running. Loads the project once at startup; doesn't see later edits.

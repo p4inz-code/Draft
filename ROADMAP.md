@@ -154,8 +154,18 @@ longer than "foundation + canvas" sounds like it should.
   (`applyRemoteObjects`) — this wasn't in the original plan but is necessary for write tools
   to be useful at all (a write nobody sees isn't "collaboration")
 - [ ] Watch mode, agent observation of live changes (no `recent_changes` resource yet)
-- [ ] Visible connection indicator (today a connection is silent until a tool call succeeds
-  or is denied — no "N agents connected" UI)
+- [x] Visible connection indicator: `LiveState.connections` (a `tokio::sync::watch<usize>`,
+  not `broadcast` — a UI only cares about the latest count) is incremented/decremented by an
+  RAII guard around each accepted local-socket connection (`ConnectionGuard` in
+  `local_socket.rs`, so the count comes back down even if a connection's task exits early or
+  panics), forwarded to the frontend as a `draft-agent-connections-changed` Tauri event, and
+  shown as "N agents connected" in the header — visible the moment a connection is accepted,
+  not just once a tool call succeeds or is denied against it (closes the last gap in the
+  spec's "explicit, visible, revocable" permission story). Verified with a real test
+  (`connection_count_tracks_connect_and_disconnect`) that connects and disconnects a genuine
+  client and asserts the count goes 0 → 1 → 0; the header render itself was only checked
+  against the Tauri-less browser preview (shows the "…" loading state without crashing) — the
+  live count needs a real Tauri window with a real MCP client attached to see end to end.
 - [ ] `apps/web` gains `@draft/canvas` and reaches feature parity with desktop
 - [ ] Existing repository/project filesystem integration
 - [ ] `draft-platform`'s browser/WASM implementation

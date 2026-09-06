@@ -19,6 +19,27 @@ use std::sync::Arc;
 
 use crate::live::{LiveMcpServer, LiveState};
 
+/// Increments `LiveState.connections` on creation and decrements it on
+/// drop — guarantees the count comes back down even if the served
+/// connection's task exits early or panics, without duplicating the
+/// decrement at every return point in the accept loops below.
+struct ConnectionGuard {
+    state: Arc<LiveState>,
+}
+
+impl ConnectionGuard {
+    fn new(state: Arc<LiveState>) -> Self {
+        state.connections.send_modify(|n| *n += 1);
+        Self { state }
+    }
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        self.state.connections.send_modify(|n| *n = n.saturating_sub(1));
+    }
+}
+
 #[cfg(windows)]
 pub const WINDOWS_PIPE_NAME: &str = r"\\.\pipe\draft-mcp";
 
@@ -70,6 +91,7 @@ pub async fn serve_forever_on(state: Arc<LiveState>, pipe_name: &str) -> std::io
 
         let state = Arc::clone(&state);
         tokio::spawn(async move {
+            let guard = ConnectionGuard::new(Arc::clone(&state));
             match LiveMcpServer::new(state).serve(pipe).await {
                 Ok(service) => {
                     if let Err(err) = service.waiting().await {
@@ -80,6 +102,7 @@ pub async fn serve_forever_on(state: Arc<LiveState>, pipe_name: &str) -> std::io
                     eprintln!("draft-mcp: local-socket connection failed to start: {err}");
                 }
             }
+            drop(guard);
         });
     }
 }
@@ -213,6 +236,7 @@ pub async fn serve_forever_on(
         let (stream, _addr) = listener.accept().await?;
         let state = Arc::clone(&state);
         tokio::spawn(async move {
+            let guard = ConnectionGuard::new(Arc::clone(&state));
             match LiveMcpServer::new(state).serve(stream).await {
                 Ok(service) => {
                     if let Err(err) = service.waiting().await {
@@ -223,6 +247,7 @@ pub async fn serve_forever_on(
                     eprintln!("draft-mcp: local-socket connection failed to start: {err}");
                 }
             }
+            drop(guard);
         });
     }
 }

@@ -2,10 +2,12 @@ import { Canvas, type ShapeMap, Toolbar, useCanvasStore } from "@draft/canvas";
 import {
   applyOperations,
   ensurePage,
+  getAgentConnectionCount,
   getAgentMode,
   getCoreVersion,
   getPageSnapshot,
   loadSnapshot,
+  onAgentConnectionsChanged,
   onGraphChanged,
   saveSnapshot,
   setAgentMode,
@@ -29,6 +31,7 @@ function App() {
   const [coreVersion, setCoreVersion] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [agentMode, setAgentModeState] = useState<AgentMode>("manual");
+  const [agentConnections, setAgentConnections] = useState<number | null>(null);
 
   useEffect(() => {
     getCoreVersion()
@@ -37,6 +40,20 @@ function App() {
     getAgentMode()
       .then(setAgentModeState)
       .catch(() => {});
+    getAgentConnectionCount()
+      .then(setAgentConnections)
+      .catch(() => {});
+  }, []);
+
+  // The spec's "explicit, visible" permission story means a connection
+  // should be visible the moment it's accepted — not just once a tool call
+  // succeeds or is denied against it.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    onAgentConnectionsChanged(setAgentConnections).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
   }, []);
 
   // Keeps the live MCP graph (apps/desktop/src-tauri's `LiveState`) in sync
@@ -154,6 +171,9 @@ function App() {
             </select>
           </label>
           {status && <span className="status">{status}</span>}
+          <span className="status" title="Agents connected over the local MCP socket">
+            {agentConnections ?? "…"} agent{agentConnections === 1 ? "" : "s"} connected
+          </span>
           <span className="status">
             core <strong>{coreVersion ?? "…"}</strong>
           </span>

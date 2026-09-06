@@ -88,6 +88,32 @@ async fn manual_mode_denies_reads_and_a_higher_mode_allows_them() {
 }
 
 #[tokio::test]
+async fn connection_count_tracks_connect_and_disconnect() {
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let state = Arc::new(LiveState::new(Graph::new(), AgentMode::Manual));
+    let mut connections = state.connections.subscribe();
+    assert_eq!(*connections.borrow(), 0);
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    let client = connect_client(&pipe_name).await;
+    connections.changed().await.expect("connection count changed");
+    assert_eq!(*connections.borrow(), 1);
+
+    client.cancel().await.unwrap();
+    connections.changed().await.expect("connection count changed");
+    assert_eq!(*connections.borrow(), 0);
+}
+
+#[tokio::test]
 async fn watch_mode_denies_writes_and_build_mode_allows_them() {
     let pipe_name = format!(
         r"\\.\pipe\draft-mcp-test-{}",

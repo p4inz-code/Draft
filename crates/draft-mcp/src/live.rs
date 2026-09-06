@@ -32,15 +32,24 @@ pub struct LiveState {
     /// something out from under it. Sending is best-effort: no receivers
     /// (e.g. running the stdio binary, which has no UI to refresh) is fine.
     pub changes: broadcast::Sender<PageId>,
+    /// The current number of open local-socket connections — a `watch`
+    /// channel (not `broadcast`) because a UI only ever cares about the
+    /// latest count, not every increment/decrement event. This is what
+    /// backs the "N agents connected" indicator (spec's "explicit, visible"
+    /// permission story): accepting a connection is visible even before any
+    /// tool call succeeds or is denied, not just silent until one is.
+    pub connections: tokio::sync::watch::Sender<usize>,
 }
 
 impl LiveState {
     pub fn new(graph: Graph, mode: AgentMode) -> Self {
         let (changes, _) = broadcast::channel(64);
+        let (connections, _) = tokio::sync::watch::channel(0);
         Self {
             graph: Mutex::new(graph),
             mode: Mutex::new(mode),
             changes,
+            connections,
         }
     }
 

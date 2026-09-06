@@ -9,6 +9,31 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (even later still) — Visible agent connection indicator
+
+**Commit:** (pending push at time of writing)
+
+Closed the last gap in the "explicit, visible, revocable" permission story (spec §13/§16):
+until now, a local-socket agent connection was silent until its first tool call succeeded or
+was denied. Added `LiveState.connections`, a `tokio::sync::watch<usize>` (deliberately
+`watch` not `broadcast` — a UI only cares about the current count, not every individual
+connect/disconnect event), incremented/decremented by a `ConnectionGuard` RAII wrapper around
+each accepted connection in both the Windows and Unix accept loops in `local_socket.rs` — the
+guard pattern means the count comes back down correctly even if a connection's serving task
+exits early or panics, without duplicating the decrement at every return point. Forwarded to
+`apps/desktop` as a `draft-agent-connections-changed` Tauri event (mirroring the existing
+`draft-graph-changed` pattern) and shown as "N agents connected" in the header.
+
+**Verified for real:** a new test, `connection_count_tracks_connect_and_disconnect`, spawns
+the actual accept loop, connects a genuine `rmcp` client, asserts the count goes to 1, cancels
+the client, and asserts it comes back to 0. Full cargo build/clippy/test and TS build/lint/test
+all green. The header UI itself was only checked against the Tauri-less browser preview (shows
+the "…" loading state without crashing, since `invoke` isn't available there) — seeing a real
+count change end to end needs a real Tauri window with an actual MCP client attached, same
+limitation noted in the grouping entry below for the Session 1 exit test.
+
+---
+
 ## 2026-09-06 (latest) — Grouping
 
 **Commit:** (pending push at time of writing)

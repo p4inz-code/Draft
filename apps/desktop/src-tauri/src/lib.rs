@@ -140,6 +140,14 @@ fn get_agent_mode(live: State<'_, Arc<LiveState>>) -> Result<AgentMode, String> 
     Ok(*live.mode.lock().map_err(|_| "mode lock poisoned")?)
 }
 
+/// The current number of open local-socket agent connections — the initial
+/// value for the frontend's "N agents connected" indicator; live updates
+/// after this arrive via the `draft-agent-connections-changed` event.
+#[tauri::command]
+fn get_agent_connection_count(live: State<'_, Arc<LiveState>>) -> Result<usize, String> {
+    Ok(*live.connections.borrow())
+}
+
 /// Fetches one page's current live content — used by the frontend to
 /// refresh after a `draft-graph-changed` event (an agent wrote something
 /// via an MCP write tool while Build mode was granted).
@@ -185,6 +193,22 @@ pub fn run() {
                 }
             });
 
+            // Forwards the live connection count (see
+            // draft_mcp::live::LiveState.connections) so the frontend can
+            // show a real "N agents connected" indicator instead of staying
+            // silent until a tool call succeeds or is denied.
+            let app_handle = app.handle().clone();
+            let mut connections = live_state.connections.subscribe();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    let count = *connections.borrow_and_update();
+                    let _ = app_handle.emit("draft-agent-connections-changed", count);
+                    if connections.changed().await.is_err() {
+                        break;
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -195,6 +219,7 @@ pub fn run() {
             apply_operations,
             set_agent_mode,
             get_agent_mode,
+            get_agent_connection_count,
             get_page_snapshot,
         ])
         .run(tauri::generate_context!())

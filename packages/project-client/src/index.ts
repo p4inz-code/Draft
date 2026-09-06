@@ -68,6 +68,11 @@ export async function getAgentMode(): Promise<AgentMode> {
   return invoke<AgentMode>("get_agent_mode");
 }
 
+/** The current number of open local-socket agent connections. */
+export async function getAgentConnectionCount(): Promise<number> {
+  return invoke<number>("get_agent_connection_count");
+}
+
 /** Fetches one page's current live content — used after `onGraphChanged` fires. */
 export async function getPageSnapshot(pageId: PageId): Promise<PageSnapshot> {
   return invoke<PageSnapshot>("get_page_snapshot", { pageId });
@@ -82,5 +87,19 @@ export async function getPageSnapshot(pageId: PageId): Promise<PageSnapshot> {
 export async function onGraphChanged(handler: (pageId: PageId) => void): Promise<UnlistenFn> {
   return listen<string>("draft-graph-changed", (event) => {
     handler(event.payload as PageId);
+  });
+}
+
+/**
+ * Subscribes to `draft-agent-connections-changed`, fired whenever an agent
+ * connects or disconnects over the local socket — see `apps/desktop/src-tauri`'s
+ * `setup` hook. Fires once immediately with the current count, then again on
+ * every change. Returns an unsubscribe function.
+ */
+export async function onAgentConnectionsChanged(
+  handler: (count: number) => void,
+): Promise<UnlistenFn> {
+  return listen<number>("draft-agent-connections-changed", (event) => {
+    handler(event.payload);
   });
 }

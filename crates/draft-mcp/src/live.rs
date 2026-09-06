@@ -344,7 +344,19 @@ impl LiveMcpServer {
         // `limit` doesn't get silently skipped on the next poll. Without
         // `since_sequence`, the caller just wants the tail of the log.
         let (skip, take) = match since_sequence {
-            Some(since) => ((since as usize + 1).min(total), limit),
+            // `since` is agent-controlled and unbounded (a JSON u64, so
+            // `u64::MAX` is a valid value) — saturating_add avoids an
+            // overflow panic (debug builds) / silent wrap to a wrong
+            // cursor (release builds) before the value is clamped to
+            // `total` anyway.
+            Some(since) => (
+                since
+                    .saturating_add(1)
+                    .min(total as u64)
+                    .try_into()
+                    .unwrap_or(total),
+                limit,
+            ),
             None => (total.saturating_sub(limit), limit),
         };
         let records: Vec<_> = log.iter().skip(skip).take(take).collect();

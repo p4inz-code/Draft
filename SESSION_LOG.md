@@ -9,6 +9,47 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (past midnight) — security-review fix + a real product-direction correction
+
+**Commit:** (pending push at time of writing)
+
+Ran a `security-review` pass (as a natural continuation of ADR-014's typed validation work)
+scoped to `crates/draft-graph`, `crates/draft-mcp`, and `apps/desktop/src-tauri`. Found one
+real MEDIUM finding: `recent_changes`'s `since_sequence` parameter is an agent-controlled,
+unbounded `u64` that did `since as usize + 1` with no bound check — `since_sequence:
+18446744073709551615` overflows that addition (a panic in debug builds, a silent wrap to the
+wrong cursor in release builds), before ever reaching the existing `.min(total)` clamp.
+Fixed with `saturating_add` and clamping to the log length before the `u64 -> usize` cast.
+Verified with a new test connecting a client and calling `recent_changes` with
+`since_sequence: u64::MAX`, asserting a clean empty result. No other findings met the
+review's confidence bar — checked and cleared `Shape`'s custom deserializer (no unbounded
+amplification/recursion), NaN/Infinity via JSON numeric literals (`serde_json` already
+rejects those at parse time), every `.expect()` on `Shape` serialization, and the read-gate
+checks on the two newest tools.
+
+**A real course-correction from the user, worth recording plainly:** asked to research
+competitor whiteboard features and plan "killer features," free of cost, to compete with
+Miro/Figma/tldraw. Did that research (tldraw's SDK relicensing, Miro's 3-board/AI-credit
+caps, Excalidraw+'s paywalled version history/presentations, and — notably — that
+`mcp_excalidraw` already exists as a more feature-complete "MCP-native canvas" competitor
+with 26+ tools) and proposed a plan built around that framing. **The user rejected it
+directly**: DRAFT does not compete with whiteboard apps. Its actual purpose is narrower — a
+channel that teaches an AI agent a human's design intent (what they want, and why a given
+design would be good) — and it must never upload the user's raw assets to an agent, an
+explicit extension of the project's existing "no raw screenshots" principle
+(`CLAUDE.md`) to imported media generally. That reframing surfaced a real, concrete problem
+already in the codebase: `ImageShape.src` is a data URL embedded directly in the shape
+payload, meaning `get_page`/`get_object` today **do** hand a connected agent the raw image
+bytes on every call — not a hypothetical, an existing violation of a principle the user
+considers core to the product. Rewrote the plan around fixing this (routing image import
+through `draft-media`'s already-built, already-unused content-addressed asset hashing
+instead of embedding bytes) and, once that's fixed, broadening import formats (SVG,
+verified JPG/JPEG, reference-only animated video) — the one area the user explicitly does
+want real feature strength — ahead of anything resembling whiteboard feature parity. Plan
+approved; asset-privacy work starts next.
+
+---
+
 ## 2026-09-06 (very end of day) — ADR-014: a typed shape taxonomy in draft-graph
 
 **Commit:** (pending push at time of writing)

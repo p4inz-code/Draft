@@ -202,6 +202,18 @@ longer than "foundation + canvas" sounds like it should.
   image hit-test/render desync, a lock-ordering race between human and agent writes, write-
   tool code duplication, `groupMembers`' O(n) scan) are tracked but not fixed this pass —
   narrower edge cases or larger refactors than the session's remaining time justified.
+- [x] `security-review` pass over the same diff, scoped to the MCP write surface —
+  `recent_changes`'s `since_sequence` (an agent-controlled, unbounded `u64`) did
+  `since as usize + 1` with no bound check, overflowing (a debug-build panic; a silent wrap
+  to the wrong cursor in release) on `since_sequence: 18446744073709551615`. Fixed with
+  saturating arithmetic, clamped to the log length before the cast back to `usize`. Verified
+  with a real test connecting a client and calling `recent_changes` with `since_sequence:
+  u64::MAX`, asserting a clean empty result instead of a panic. No other findings met the
+  review's confidence bar (checked and cleared: `Shape`'s custom deserializer for
+  unbounded-amplification/recursion risk, NaN/Infinity via JSON numeric literals — `serde_json`
+  already rejects these at parse time — every `.expect()` on `Shape` serialization for
+  attacker-reachability, and `get_selection`/`recent_changes`'s permission gates against the
+  existing `allows_read()` checks).
 - [x] `get_selection` MCP tool: a `set_selection` Tauri command mirrors `@draft/canvas`'s
   store selection into `LiveState.selection` (page ID + object IDs) on every change, and the
   new tool returns it, gated on `allows_read()` like the other read tools — lets a `Watch`-mode

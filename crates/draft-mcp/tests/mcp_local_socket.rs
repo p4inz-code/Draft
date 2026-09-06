@@ -187,6 +187,45 @@ async fn recent_changes_since_sequence_pages_oldest_first_without_gaps() {
 }
 
 #[tokio::test]
+async fn recent_changes_does_not_panic_on_a_maximal_since_sequence() {
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let state = Arc::new(LiveState::new(Graph::new(), AgentMode::Watch));
+    state.record(
+        Actor::Agent,
+        Operation::CreateObject {
+            page: PageId::new(),
+            object: ObjectId::new(),
+            payload: serde_json::json!({}),
+        },
+    );
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    // Regression: `since_sequence` is an agent-controlled u64 with no upper
+    // bound — u64::MAX used to overflow `since as usize + 1` (a debug-build
+    // panic, a silent-wrap logic bug in release) before it was ever clamped
+    // to the log's actual length.
+    let client = connect_client(&pipe_name).await;
+    let args =
+        serde_json::Map::from_iter([("since_sequence".to_string(), serde_json::json!(u64::MAX))]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("recent_changes").with_arguments(args))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert_eq!(json["changes"], serde_json::json!([]));
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn connection_count_tracks_connect_and_disconnect() {
     let pipe_name = format!(
         r"\\.\pipe\draft-mcp-test-{}",

@@ -239,7 +239,8 @@ longer than "foundation + canvas" sounds like it should.
   `sockaddr_un.sun_path` limit (Linux's is 108, so Ubuntu passed while macOS silently failed —
   `bind()`'s error was swallowed by the accept loop's `let _ = ...`, so the socket file was
   simply never created). Fixed by using `std::env::temp_dir()` directly with a short 8-hex-char
-  filename instead of a nested tempdir and a full UUID.
+  filename instead of a nested tempdir and a full UUID. Confirmed (not just assumed) green
+  on all three CI legs — Windows, macOS, and Ubuntu — after pushing the fix.
 - [ ] `agent_state` resource — still vague pending a concrete need for it
 
 ### Session 3 — Agent Collaboration + Project Workflow

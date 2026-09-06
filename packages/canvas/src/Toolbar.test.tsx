@@ -95,12 +95,62 @@ describe("Toolbar image import", () => {
     expect(shape.height).toBe(200);
   });
 
+  it("imports a video as a reference thumbnail, storing the video bytes but caching a still image", async () => {
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation((() => ({
+      drawImage,
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext);
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(
+      "data:image/png;base64,thumb",
+    );
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:fake"),
+      revokeObjectURL: vi.fn(),
+    });
+    let video: HTMLVideoElement | undefined;
+    const realCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const el = realCreateElement(tag);
+      if (tag === "video") video = el as HTMLVideoElement;
+      return el;
+    });
+
+    const { container } = render(<Toolbar />);
+    const file = new File(["fake-video-bytes"], "clip.mp4", { type: "video/mp4" });
+    importFile(container, file);
+
+    await vi.waitFor(() => expect(video).toBeDefined());
+    Object.defineProperty(video, "videoWidth", { value: 640, configurable: true });
+    Object.defineProperty(video, "videoHeight", { value: 320, configurable: true });
+    video?.dispatchEvent(new Event("loadedmetadata"));
+    video?.dispatchEvent(new Event("seeked"));
+
+    await vi.waitFor(() => {
+      expect(Object.values(useCanvasStore.getState().shapes)).toHaveLength(1);
+    });
+
+    const shape = useCanvasStore.getState().shapes;
+    const added = Object.values(shape)[0]?.shape;
+    expect(added).toMatchObject({ kind: "image", mediaKind: "video", assetId: "hash-mp4" });
+    // The asset backend is handed the video's own bytes (a data: URL for the
+    // File, not the thumbnail) — that's what gets stored as the asset.
+    expect(useCanvasStore.getState().assetBackend?.save).toHaveBeenCalledWith(
+      "mp4",
+      expect.stringContaining("data:"),
+    );
+    // What the human sees on canvas is the extracted thumbnail, not the raw video bytes.
+    expect(useCanvasStore.getState().assetCache["hash-mp4"]).toBe("data:image/png;base64,thumb");
+
+    vi.unstubAllGlobals();
+  });
+
   it("rejects a non-image file without calling the asset backend", async () => {
     const { container } = render(<Toolbar />);
     const file = new File(["hello"], "notes.txt", { type: "text/plain" });
     importFile(container, file);
 
-    expect((await screen.findByRole("alert")).textContent).toMatch(/isn't an image file/);
+    expect((await screen.findByRole("alert")).textContent).toMatch(/isn't an image or video file/);
     expect(useCanvasStore.getState().assetBackend?.save).not.toHaveBeenCalled();
     expect(Object.values(useCanvasStore.getState().shapes)).toHaveLength(0);
   });

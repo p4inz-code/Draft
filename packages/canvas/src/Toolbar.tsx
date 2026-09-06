@@ -3,6 +3,7 @@ import "./Toolbar.css";
 import { screenToWorld } from "./camera";
 import { NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
 import { parseSvgDimensions } from "./svg";
+import { extractVideoThumbnail } from "./video";
 
 const TOOLS: Array<{ id: Tool; label: string }> = [
   { id: "select", label: "Select" },
@@ -23,6 +24,9 @@ const TOOL_SHORTCUT_KEYS: Partial<Record<Tool, string>> = Object.fromEntries(
 
 /** Rejects anything past this before it's ever read into memory as a data URL. */
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+/** Videos are reference/template assets (ADR-015's plan), not full productions —
+ * a looser cap than images, not an unbounded one. */
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 /** Reads natural pixel dimensions of a data URL by loading it into an offscreen `Image`. */
 function readImageSize(dataUrl: string): Promise<{ width: number; height: number }> {
@@ -63,6 +67,10 @@ function readFileAsText(file: File): Promise<string> {
 
 function isSvgFile(file: File): boolean {
   return file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+}
+
+function isVideoFile(file: File): boolean {
+  return file.type.startsWith("video/");
 }
 
 /** SVG dimensions come from the markup itself (`readImageSize`'s `Image()`-based
@@ -120,14 +128,16 @@ export function Toolbar() {
   async function handleImageFile(file: File) {
     setImageError(null);
     try {
-      if (!file.type.startsWith("image/")) {
-        throw new Error(`"${file.name}" isn't an image file (got "${file.type || "unknown"}")`);
-      }
-      if (file.size > MAX_IMAGE_BYTES) {
-        const mb = (file.size / (1024 * 1024)).toFixed(1);
+      const isVideo = isVideoFile(file);
+      if (!file.type.startsWith("image/") && !isVideo) {
         throw new Error(
-          `"${file.name}" is ${mb}MB, over the ${MAX_IMAGE_BYTES / (1024 * 1024)}MB limit`,
+          `"${file.name}" isn't an image or video file (got "${file.type || "unknown"}")`,
         );
+      }
+      const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+      if (file.size > maxBytes) {
+        const mb = (file.size / (1024 * 1024)).toFixed(1);
+        throw new Error(`"${file.name}" is ${mb}MB, over the ${maxBytes / (1024 * 1024)}MB limit`);
       }
 
       const state = useCanvasStore.getState();
@@ -135,19 +145,30 @@ export function Toolbar() {
         throw new Error("image import isn't available in this environment");
       }
 
+      // The full file, always — this is what actually gets stored as the
+      // asset (see ADR-015). For a video, this is the video's own bytes,
+      // never rendered directly; `displayDataUrl` below is what the human
+      // actually sees on canvas.
       const dataUrl = await readFileAsDataUrl(file);
-      const natural = await readImportedSize(file, dataUrl);
+      const { natural, displayDataUrl } = isVideo
+        ? await extractVideoThumbnail(file).then((thumb) => ({
+            natural: { width: thumb.width, height: thumb.height },
+            displayDataUrl: thumb.dataUrl,
+          }))
+        : { natural: await readImportedSize(file, dataUrl), displayDataUrl: dataUrl };
       const maxDimension = 400;
       const scale = Math.min(1, maxDimension / Math.max(natural.width, natural.height, 1));
       const width = Math.max(1, Math.round(natural.width * scale));
       const height = Math.max(1, Math.round(natural.height * scale));
 
       // The reference (assetId), not `dataUrl`, is what ends up on the
-      // shape and crosses into the graph/MCP — see ADR-015. `dataUrl` stays
-      // local, cached only for this viewer's own rendering.
+      // shape and crosses into the graph/MCP — see ADR-015. `displayDataUrl`
+      // stays local, cached only for this viewer's own rendering (for a
+      // video, a still thumbnail — an SVG `<image>` can't render the video
+      // file itself, see `video.ts`).
       const extension = fileExtension(file);
       const assetId = await state.assetBackend.save(extension, dataUrl);
-      state.cacheAsset(assetId, dataUrl);
+      state.cacheAsset(assetId, displayDataUrl);
 
       // The canvas SVG doesn't fill the window (header/toolbar sit above
       // it), so centering on window dimensions offsets the drop point from
@@ -166,6 +187,7 @@ export function Toolbar() {
         width,
         height,
         assetId,
+        ...(isVideo ? { mediaKind: "video" as const } : {}),
       });
       state.commitAction();
     } catch (err) {
@@ -199,13 +221,14 @@ export function Toolbar() {
         type="button"
         className="draft-toolbar-btn"
         onClick={() => fileInputRef.current?.click()}
+        title="Import an image, SVG, or video (video imports as a reference thumbnail — see ROADMAP)"
       >
-        Image
+        Media
       </button>
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         style={{ display: "none" }}
         onChange={(e) => {
           const file = e.target.files?.[0];

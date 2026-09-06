@@ -4,3 +4,4 @@ export * from "./diff";
 export * from "./geometry";
 export * from "./store";
 export * from "./Toolbar";
+export * from "./video";

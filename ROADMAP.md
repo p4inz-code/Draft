@@ -131,13 +131,23 @@ four implementation sessions below.
     test file before this) covers PNG/JPEG/SVG import through the injected `assetBackend`,
     a rejected non-image file, and the "no backend wired in" error path, using a fake
     `Image` global since jsdom never decodes real image bytes.
-- [ ] Video import onto the canvas (reference-only, per ADR-015's plan: a thumbnail frame
-  shown on canvas, full file kept as an asset reference — not video playback). Not attempted
-  yet: needs its own small design decision (how a thumbnail gets extracted, and how a shape
-  distinguishes "this reference is a video" from a still image) before implementing, and
-  reliably testing frame-extraction under jsdom needs the same kind of `HTMLVideoElement`/
-  `<canvas>` mocking `Toolbar.test.tsx` just proved is needed for `Image()` — not something
-  to rush alongside the other three formats above.
+- [x] Video import onto the canvas — reference-only, per ADR-015's plan: a thumbnail frame
+  shown on canvas, the actual video file kept as a full-fidelity asset reference, no in-canvas
+  playback. `packages/canvas/src/video.ts::extractVideoThumbnail` drives an offscreen
+  `<video>`/`<canvas>` pair (seek to a small time offset once metadata loads, draw the seeked
+  frame, read it back as a PNG data URL) and works from either a fresh `File` (import) or an
+  already-loaded data URL (reopening a project — `App.tsx`'s `loadImageAssets` re-derives the
+  thumbnail after `loadAsset` returns the video's own bytes, since those aren't something an
+  `<image>` element can render directly). The toolbar's "Media" button now accepts
+  `video/*` alongside `image/*`, at a looser 50MB cap than the 15MB image limit (a reference/
+  template video, not a full production). A new `ImageShape.mediaKind?: "video"` field (mirrored
+  in `draft-graph::shape::KnownShape::Image` as `Option<MediaKind>`, per ADR-014's manual-mirror
+  rule) marks the reference as a video so an agent reading it via `get_object` knows not to
+  expect the bytes to decode as a still image. Verified for real: `video.test.ts` (4 tests)
+  drives the video/canvas sequencing with mocked `getContext`/`toDataURL` (jsdom has neither
+  real video decoding nor a 2D canvas context without the optional `canvas` package), and
+  `Toolbar.test.tsx` gained an end-to-end import test asserting the video's own bytes reach
+  `assetBackend.save` while the cached, human-visible asset is the extracted thumbnail.
 - [x] Grouping: a shared `groupId` on the shape payload (not a new graph/operation concept —
   `draft-graph` already treats payloads as opaque JSON), a `Group`/`Ungroup` toolbar pair
   gated on selection state, and click-to-select expanding to every group sibling

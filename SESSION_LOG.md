@@ -9,6 +9,49 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (latest) — video import: reference-only, thumbnail on canvas
+
+**Commit:** (pending push at time of writing)
+
+Closed the last item from the approved plan's format-breadth list, the one the previous
+entry deliberately deferred: video import. Design (small, but real — this is the "own small
+design decision" the previous entry flagged as needed before starting):
+
+- `packages/canvas/src/video.ts::extractVideoThumbnail` — an offscreen `<video>` loads the
+  file (or, on reopening a project, an already-loaded data URL), seeks to a small time offset
+  once metadata is available (a frame at exactly 0s is black/undecoded for some codecs), then
+  draws the seeked frame onto an offscreen `<canvas>` and reads it back as a PNG data URL.
+- A new `ImageShape.mediaKind?: "video"` field (mirrored into
+  `draft-graph::shape::KnownShape::Image` as `Option<MediaKind>`, in the same change per
+  ADR-014's manual-mirror rule) marks a reference as video rather than a still image — so an
+  agent calling `get_object` knows not to expect the `assetId` bytes to decode as one.
+- `Toolbar.tsx`'s import flow now accepts `video/*` too (a looser 50MB cap than images' 15MB,
+  reference/template videos rather than full productions), stores the video's own bytes as
+  the asset (unchanged from image import — `assetBackend.save` doesn't care what the bytes
+  are), but caches the *extracted thumbnail* as what the human actually sees on canvas.
+- `App.tsx`'s `loadImageAssets` (reopening a project) now checks `mediaKind` per shape: a
+  plain image caches the loaded bytes directly as before, a video re-runs
+  `extractVideoThumbnail` on the loaded data URL first, since those bytes are the video file
+  itself, not something an `<image>` element can render.
+
+The predicted testing cost from the previous entry was real: jsdom has neither video
+decoding nor a working 2D canvas context (the optional `canvas` npm package isn't a
+dependency here), so `video.test.ts` mocks `HTMLCanvasElement.prototype.getContext`/
+`toDataURL` and manually dispatches `loadedmetadata`/`seeked` on a captured `<video>`
+instance (jsdom doesn't fire either on its own) — proving the sequencing and wiring, not
+real frame fidelity, the same trade-off already made for `Image()` in `Toolbar.test.tsx`.
+Added a matching end-to-end case there: importing a `.mp4` sends the video's own bytes to
+`assetBackend.save` while `assetCache` ends up holding the thumbnail, not the video bytes.
+Manually verified in the browser (`desktop-web-preview`) that the toolbar's "Media" button
+and its updated tooltip render correctly alongside the numbered shortcuts and Group/Ungroup
+pair from earlier sessions — full round-trip through Tauri's real `save_asset`/`load_asset`
+still needs an actual Tauri window per the existing image-import caveat, not just a browser
+preview. `pnpm build/lint/test` (55 tests) and `cargo build/clippy/test --workspace` all
+green. This closes the plan's item 2 (import format breadth) in full: SVG, verified JPEG,
+GIF (previous entry), and now video.
+
+---
+
 ## 2026-09-06 (even later) — import format breadth: SVG, verified JPEG, GIF
 
 **Commit:** (pending push at time of writing)

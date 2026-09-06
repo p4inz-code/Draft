@@ -1,4 +1,10 @@
-import { Canvas, type ShapeMap, Toolbar, useCanvasStore } from "@draft/canvas";
+import {
+  Canvas,
+  type ShapeMap,
+  Toolbar,
+  extractVideoThumbnail,
+  useCanvasStore,
+} from "@draft/canvas";
 import {
   applyOperations,
   ensurePage,
@@ -36,6 +42,10 @@ function toShapeMap(objects: Record<ObjectId, unknown>): ShapeMap {
  * cached. Best-effort per asset: one bad/missing reference (e.g. an agent
  * wrote a fabricated `assetId`) shouldn't stop the rest of the page from
  * rendering.
+ *
+ * A `mediaKind: "video"` object's loaded bytes are the video file itself,
+ * not something an `<image>` element can render (see `video.ts`) — those
+ * get re-thumbnailed after loading rather than cached as-is.
  */
 function loadImageAssets(objects: Record<string, unknown>, projectDir: string | null) {
   const cache = useCanvasStore.getState().assetCache;
@@ -50,8 +60,12 @@ function loadImageAssets(objects: Record<string, unknown>, projectDir: string | 
       !(shape.assetId in cache)
     ) {
       const assetId = shape.assetId;
+      const isVideo = "mediaKind" in shape && shape.mediaKind === "video";
       loadAsset(assetId, projectDir ?? undefined)
-        .then((dataUrl) => useCanvasStore.getState().cacheAsset(assetId, dataUrl))
+        .then((dataUrl) =>
+          isVideo ? extractVideoThumbnail(dataUrl).then((t) => t.dataUrl) : dataUrl,
+        )
+        .then((displayDataUrl) => useCanvasStore.getState().cacheAsset(assetId, displayDataUrl))
         .catch((err) => console.warn(`[App] couldn't load asset ${assetId}:`, err));
     }
   }

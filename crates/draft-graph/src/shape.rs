@@ -81,7 +81,11 @@ pub enum KnownShape {
     /// store (`draft-project::save_asset`/`load_asset`), never the raw file
     /// bytes — the whole point being that `get_page`/`get_object` can hand
     /// this to an MCP agent without ever uploading the user's actual image.
-    /// See ADR-015 for why this replaced an embedded data URL.
+    /// See ADR-015 for why this replaced an embedded data URL. `media_kind`
+    /// distinguishes a reference-only video import (the asset is a video
+    /// file, `width`/`height` describe an extracted thumbnail frame, not
+    /// in-canvas video playback) from a plain image — see `shapes.ts`'s
+    /// matching comment.
     Image {
         #[serde(flatten)]
         base: ShapeBase,
@@ -89,7 +93,18 @@ pub enum KnownShape {
         height: f64,
         #[serde(rename = "assetId")]
         asset_id: String,
+        #[serde(rename = "mediaKind", default, skip_serializing_if = "Option::is_none")]
+        media_kind: Option<MediaKind>,
     },
+}
+
+/// The only variant today is `Video` — an imported still image has no
+/// `mediaKind` at all (see `ImageShape.mediaKind?` in `shapes.ts`), so this
+/// only ever needs to say "this asset isn't actually a still image."
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaKind {
+    Video,
 }
 
 const KNOWN_KINDS: &[&str] = &[
@@ -170,11 +185,13 @@ impl KnownShape {
                 width,
                 height,
                 asset_id,
+                media_kind,
             } => KnownShape::Image {
                 base,
                 width: width.abs(),
                 height: height.abs(),
                 asset_id,
+                media_kind,
             },
             other => other,
         }
@@ -328,6 +345,22 @@ mod tests {
             }
             _ => panic!("expected an Image variant"),
         }
+    }
+
+    #[test]
+    fn image_media_kind_round_trips_and_is_omitted_when_absent() {
+        let video = roundtrip(serde_json::json!({
+            "kind": "image", "x": 0.0, "y": 0.0, "width": 100.0, "height": 50.0,
+            "assetId": "abc.mp4", "mediaKind": "video"
+        }));
+        let json = serde_json::to_value(&video).unwrap();
+        assert_eq!(json["mediaKind"], "video");
+
+        let still = roundtrip(serde_json::json!({
+            "kind": "image", "x": 0.0, "y": 0.0, "width": 100.0, "height": 50.0, "assetId": "abc.png"
+        }));
+        let json = serde_json::to_value(&still).unwrap();
+        assert!(json.get("mediaKind").is_none());
     }
 
     #[test]

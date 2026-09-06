@@ -75,12 +75,21 @@ export interface FreehandShape extends ShapeBase {
  * image: the payload that crosses the graph/MCP boundary only ever carries
  * this reference, matching the project's "no raw assets to an agent"
  * principle (the same one that already applies to canvas screenshots).
+ *
+ * `mediaKind: "video"` marks a reference-only video/animation import: the
+ * asset behind `assetId` is a video file, not a still image, so an agent
+ * reading this shape knows not to expect the bytes to decode as one —
+ * `width`/`height` and the human's own on-canvas rendering both come from a
+ * single extracted thumbnail frame (`packages/canvas/src/video.ts`), not the
+ * video itself (no in-canvas video playback exists — see ROADMAP). Absent
+ * (not `false`) for a plain image, matching every other optional field here.
  */
 export interface ImageShape extends ShapeBase {
   kind: "image";
   width: number;
   height: number;
   assetId: string;
+  mediaKind?: "video";
 }
 
 export type Shape =

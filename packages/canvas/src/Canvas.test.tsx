@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Canvas } from "./Canvas";
 import { NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
 
@@ -145,6 +145,40 @@ describe("text tool click-away commit", () => {
       (o) => o.shape.kind === "text",
     );
     expect(committed?.shape.kind === "text" && committed.shape.text).toBe("hello");
+
+    unmount();
+  });
+});
+
+describe("text tool focus retry", () => {
+  it("keeps retrying focus across frames instead of giving up after one attempt", async () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("text");
+    pointerDownAt(svg, 50, 50);
+
+    const textarea = container.querySelector(".draft-text-editor") as HTMLTextAreaElement | null;
+    expect(textarea).not.toBeNull();
+    if (!textarea) throw new Error("text editor not found");
+
+    // Real jsdom's focus() always succeeds immediately, so the only way to
+    // exercise the retry path (added after this exact bug reached a real
+    // user: "only a box appears, typing does nothing" — one rAF wasn't
+    // always enough in the desktop WebView) is to simulate an environment
+    // where the first attempt doesn't "take".
+    const realFocus = textarea.focus.bind(textarea);
+    let focusCalls = 0;
+    textarea.focus = () => {
+      focusCalls += 1;
+      if (focusCalls > 1) realFocus();
+    };
+
+    await vi.waitFor(() => {
+      expect(document.activeElement).toBe(textarea);
+    });
+    expect(focusCalls).toBeGreaterThan(1);
 
     unmount();
   });

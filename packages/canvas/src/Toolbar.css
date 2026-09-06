@@ -1,10 +1,32 @@
-.draft-toolbar {
+.draft-toolbar-dock {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--draft-surface);
+  border-bottom: 1px solid var(--draft-border);
+  transition: opacity 0.25s ease;
+}
+
+/* Idle fade (auto-hide): tools become unclickable rather than just faint,
+ * so a faded toolbar can't intercept a click meant for the canvas beneath
+ * it. Reviving is driven from Toolbar.tsx (pointer near the top of the
+ * window, a tool shortcut key, or hovering the dock itself) — pinning
+ * (`.pinned`, applied via not adding `.idle` at all while pinned) skips
+ * this entirely. */
+.draft-toolbar-dock.idle {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.draft-toolbar-island {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.5rem;
-  background: var(--draft-surface);
-  border-bottom: 1px solid var(--draft-border);
+  padding: 0.25rem;
+  border-radius: 10px;
+  background: var(--draft-bg, transparent);
+  border: 1px solid var(--draft-border);
 }
 
 .draft-toolbar-btn {
@@ -50,4 +72,27 @@
   font-size: 0.75rem;
   color: var(--draft-danger, #e5484d);
   padding: 0 0.35rem;
+}
+
+.draft-toolbar-pin {
+  font-family: var(--draft-font-sans);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--draft-border);
+  background: transparent;
+  color: var(--draft-text-muted);
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.draft-toolbar-pin:hover {
+  border-color: var(--draft-accent);
+  color: var(--draft-text);
+}
+
+.draft-toolbar-pin.pinned {
+  background: var(--draft-accent);
+  border-color: var(--draft-accent);
+  color: var(--draft-accent-contrast);
 }

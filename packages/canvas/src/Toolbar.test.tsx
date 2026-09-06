@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Toolbar } from "./Toolbar";
 import { useCanvasStore } from "./store";
@@ -199,5 +199,84 @@ describe("Toolbar image import", () => {
 
     expect((await screen.findByRole("alert")).textContent).toMatch(/isn't available/);
     expect(Object.values(useCanvasStore.getState().shapes)).toHaveLength(0);
+  });
+});
+
+describe("Toolbar auto-hide dock", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    cleanup();
+  });
+
+  function dock(container: HTMLElement) {
+    return container.querySelector(".draft-toolbar-dock") as HTMLElement;
+  }
+
+  // jsdom has no PointerEvent constructor at all (see Canvas.test.tsx's
+  // firePointer for the same workaround), so a plain MouseEvent with a
+  // "pointermove" type string stands in — Toolbar.tsx's listener matches by
+  // type string, not by constructor.
+  function movePointer(clientY: number) {
+    act(() => {
+      window.dispatchEvent(new MouseEvent("pointermove", { clientY }));
+    });
+  }
+
+  it("fades after being idle, and revives when the pointer approaches the top of the window", () => {
+    const { container } = render(<Toolbar />);
+    expect(dock(container).className).not.toMatch(/idle/);
+
+    act(() => {
+      vi.advanceTimersByTime(3001);
+    });
+    expect(dock(container).className).toMatch(/idle/);
+
+    movePointer(10);
+    expect(dock(container).className).not.toMatch(/idle/);
+  });
+
+  it("does not revive on a pointer move far from the top", () => {
+    const { container } = render(<Toolbar />);
+    act(() => {
+      vi.advanceTimersByTime(3001);
+    });
+    expect(dock(container).className).toMatch(/idle/);
+
+    movePointer(500);
+    expect(dock(container).className).toMatch(/idle/);
+  });
+
+  it("revives on a numbered tool-shortcut keypress", () => {
+    const { container } = render(<Toolbar />);
+    act(() => {
+      vi.advanceTimersByTime(3001);
+    });
+    expect(dock(container).className).toMatch(/idle/);
+
+    fireEvent.keyDown(window, { key: "2" });
+    expect(dock(container).className).not.toMatch(/idle/);
+  });
+
+  it("pinning keeps the dock visible through the idle timeout, and persists across remounts", () => {
+    const { container, unmount } = render(<Toolbar />);
+    fireEvent.click(screen.getByRole("button", { name: /pin toolbar/i }));
+
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(dock(container).className).not.toMatch(/idle/);
+
+    unmount();
+    const { container: remounted } = render(<Toolbar />);
+    expect(screen.getByRole("button", { name: /unpin toolbar/i })).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(dock(remounted).className).not.toMatch(/idle/);
   });
 });

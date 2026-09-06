@@ -166,6 +166,44 @@ four implementation sessions below.
   is a defensible architectural choice consistent with ADR-014's explicit scoping of the
   typed taxonomy to drawing kinds only, revisit if a second non-image reference type
   actually needs it.
+- [x] Real bugs found by actually running the desktop app (not just the browser preview) and
+  testing it — the first time this session the real Tauri window, not the Vite dev-server
+  preview, surfaced a bug the preview couldn't: a real user's report ("text tool doesn't
+  work, only a box appears") is exactly the class of thing ROADMAP's earlier entries already
+  flagged the browser preview can't validate (every Tauri `invoke` fails there). Three issues
+  reported at once, investigated and two fixed:
+  - **Text tool not receiving keystrokes.** `TextEditor`'s focus-on-mount had already been
+    patched twice this session for real timing races against the browser's own native
+    click/focus handling (deferred a frame via `requestAnimationFrame`); a single rAF still
+    wasn't reliably enough in the real desktop WebView. Fixed by retrying the focus for up to
+    10 frames, verifying `document.activeElement` actually landed on the textarea each time,
+    instead of assuming one frame is always enough.
+  - **"Live sync failed: object ... does not exist."** `apps/desktop/src/App.tsx`'s canvas→
+    live-graph sync fired `ensurePage`/`applyOperations` as independent, un-awaited Tauri IPC
+    calls with no ordering guarantee between them — a quick draw immediately followed by
+    another action (e.g. Ctrl+Z) could have its two operations reach the Rust graph out of
+    order, rejecting the later-arriving-but-earlier-generated one with `UnknownObject`. Fixed
+    by chaining every `ensurePage`/`applyOperations` call through one promise queue, so they
+    always land in the same order they were generated in.
+  - **"N agents connected" showing a stale, too-high count.** Investigated and traced to
+    `pnpm tauri dev`'s file-watcher restarting the whole process repeatedly during a
+    Rust-file-heavy session (7+ commits touching `crates/`/`apps/desktop/src-tauri` in one
+    sitting) — `crates/draft-mcp/src/local_socket.rs`'s connection-count accept loop itself
+    checked out clean (each process's counter starts at 0, RAII-guarded, no double-spawn path
+    in `apps/desktop/src-tauri`'s `setup` hook). Not a code defect found; treated as a
+    dev-mode artifact from repeated restarts rather than "fixed."
+- [x] Toolbar redesign: grouped into three floating "islands" (draw tools / content
+  [Media+Group+Ungroup] / view+history [Undo+Redo+zoom]) instead of one long undifferentiated
+  row, informed by the Stitch UI mockups and Figma/tldraw's floating-panel convention (kanvaz,
+  P4inz's other product, was also checked for reference). Auto-hides after 3s idle (fades to
+  15% opacity, `pointer-events: none` so a faded toolbar can't steal a click meant for the
+  canvas), revives on a pointer approaching the top of the window or any numbered tool
+  shortcut, and a "Pin" toggle (persisted to `localStorage`) disables auto-hide entirely for
+  anyone who'd rather it just stay put. Verified for real: 11 tests in `Toolbar.test.tsx`
+  (fade timing, revive triggers, pin persistence across remounts) plus a live check in the
+  browser preview confirming the fade/revive/pin logic actually runs correctly against a real
+  DOM (jsdom's synthetic pointer events don't model this reliably, so the logic itself was
+  additionally verified by dispatching a real `PointerEvent` in a live browser tab).
 - [x] Grouping: a shared `groupId` on the shape payload (not a new graph/operation concept —
   `draft-graph` already treats payloads as opaque JSON), a `Group`/`Ungroup` toolbar pair
   gated on selection state, and click-to-select expanding to every group sibling

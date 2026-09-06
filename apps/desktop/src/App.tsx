@@ -116,20 +116,37 @@ function App() {
   // socket sees changes as they happen — not just whatever was last saved.
   useEffect(() => {
     const store = useCanvasStore;
-    ensurePage(store.getState().pageId, "Page 1").catch(() => {});
 
-    return store.subscribe((state, prev) => {
+    // `ensurePage`/`applyOperations` are each a separate Tauri IPC round
+    // trip with no ordering guarantee between concurrent calls — firing
+    // them independently (as this used to) let a later-generated operation
+    // reach the Rust graph before an earlier one (e.g. a quick draw
+    // immediately followed by Ctrl+Z), producing a real "object ... does
+    // not exist" error even though the human's own actions were perfectly
+    // ordered. Chaining every call through one promise queue guarantees
+    // they land in the same order they were generated, matching how a
+    // single in-process graph is meant to be driven.
+    let syncQueue = ensurePage(store.getState().pageId, "Page 1").catch(() => {});
+
+    const unsubscribe = store.subscribe((state, prev) => {
       if (state.pageId !== prev.pageId) {
-        ensurePage(state.pageId, "Page 1").catch(() => {});
+        syncQueue = syncQueue.then(() => ensurePage(state.pageId, "Page 1")).catch(() => {});
       }
       if (state.operations.length > prev.operations.length) {
         const newOps = state.operations.slice(prev.operations.length).map((r) => r.operation);
-        applyOperations(newOps).catch((err) => setStatus(`Live sync failed: ${String(err)}`));
+        syncQueue = syncQueue
+          .then(() => applyOperations(newOps))
+          .catch((err) => setStatus(`Live sync failed: ${String(err)}`));
       }
       if (state.selection !== prev.selection) {
+        // Selection has no ordering dependency on the object graph (a
+        // stale/out-of-order selection is harmless and self-corrects on
+        // the next change), so it stays off the queue rather than waiting
+        // behind slower operation syncs.
         setSelection(state.pageId, state.selection).catch(() => {});
       }
     });
+    return unsubscribe;
   }, []);
 
   // The reverse direction: an agent wrote something via an MCP write tool

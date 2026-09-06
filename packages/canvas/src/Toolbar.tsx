@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./Toolbar.css";
 import { screenToWorld } from "./camera";
 import { NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
@@ -21,6 +21,13 @@ const TOOLS: Array<{ id: Tool; label: string }> = [
 const TOOL_SHORTCUT_KEYS: Partial<Record<Tool, string>> = Object.fromEntries(
   Object.entries(NUMBER_KEY_TOOLS).map(([key, tool]) => [tool, key]),
 );
+
+const TOOLBAR_PINNED_KEY = "draft.toolbarPinned";
+/** No revive signal for this long fades the toolbar out. */
+const IDLE_MS = 3000;
+/** A pointer this close to the top of the window counts as "reaching for
+ * the toolbar," reviving it — matches where the dock actually sits. */
+const REVIVE_ZONE_PX = 120;
 
 /** Rejects anything past this before it's ever read into memory as a data URL. */
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -116,6 +123,53 @@ export function Toolbar() {
   const canUngroup = useCanvasStore((s) => s.selection.some((id) => s.shapes[id]?.shape.groupId));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+
+  const [pinned, setPinned] = useState(() => {
+    try {
+      return localStorage.getItem(TOOLBAR_PINNED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [idle, setIdle] = useState(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function revive() {
+    setIdle(false);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => setIdle(true), IDLE_MS);
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: revive is redefined every render but only ever closes over refs/setState, so omitting it from the deps array is safe and avoids tearing down/rebuilding these listeners on every render.
+  useEffect(() => {
+    revive();
+    function onPointerMove(e: PointerEvent) {
+      if (e.clientY <= REVIVE_ZONE_PX) revive();
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (NUMBER_KEY_TOOLS[e.key]) revive();
+    }
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("keydown", onKeyDown);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, []);
+
+  function togglePinned() {
+    setPinned((p) => {
+      const next = !p;
+      try {
+        localStorage.setItem(TOOLBAR_PINNED_KEY, next ? "1" : "0");
+      } catch {
+        // Best-effort persistence only — a private window or blocked
+        // storage just means the preference doesn't survive a reload.
+      }
+      return next;
+    });
+  }
 
   function handleGroup() {
     beginAction();
@@ -226,99 +280,118 @@ export function Toolbar() {
     }
   }
 
+  const dockClass = ["draft-toolbar-dock", idle && !pinned ? "idle" : ""].filter(Boolean).join(" ");
+
   return (
     <div
-      className="draft-toolbar"
-      role="toolbar"
-      aria-label="Canvas tools"
+      className={dockClass}
+      onPointerEnter={revive}
       title="Tip: middle-mouse-drag pans regardless of the active tool"
     >
-      {TOOLS.map((t) => (
+      <div className="draft-toolbar-island" role="toolbar" aria-label="Draw tools">
+        {TOOLS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={t.id === tool ? "draft-toolbar-btn active" : "draft-toolbar-btn"}
+            onClick={() => setTool(t.id)}
+            aria-pressed={t.id === tool}
+            title={`${t.label} (${TOOL_SHORTCUT_KEYS[t.id]})`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="draft-toolbar-island" role="toolbar" aria-label="Content">
         <button
-          key={t.id}
           type="button"
-          className={t.id === tool ? "draft-toolbar-btn active" : "draft-toolbar-btn"}
-          onClick={() => setTool(t.id)}
-          aria-pressed={t.id === tool}
-          title={`${t.label} (${TOOL_SHORTCUT_KEYS[t.id]})`}
+          className="draft-toolbar-btn"
+          onClick={() => fileInputRef.current?.click()}
+          title="Import an image, SVG, or video (video imports as a reference thumbnail — see ROADMAP)"
         >
-          {t.label}
+          Media
         </button>
-      ))}
-      <span className="draft-toolbar-sep" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void handleImageFile(file);
+          }}
+        />
+        <span className="draft-toolbar-sep" />
+        <button
+          type="button"
+          className="draft-toolbar-btn"
+          onClick={handleGroup}
+          disabled={!canGroup}
+        >
+          Group
+        </button>
+        <button
+          type="button"
+          className="draft-toolbar-btn"
+          onClick={handleUngroup}
+          disabled={!canUngroup}
+        >
+          Ungroup
+        </button>
+      </div>
+
+      <div className="draft-toolbar-island" role="toolbar" aria-label="View and history">
+        <button type="button" className="draft-toolbar-btn" onClick={undo} disabled={!canUndo}>
+          Undo
+        </button>
+        <button type="button" className="draft-toolbar-btn" onClick={redo} disabled={!canRedo}>
+          Redo
+        </button>
+        <span className="draft-toolbar-sep" />
+        <button
+          type="button"
+          className="draft-toolbar-btn"
+          onClick={() => zoomBy(1 / 1.25)}
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          className="draft-toolbar-btn draft-toolbar-zoom"
+          onClick={resetView}
+          title="Reset view"
+        >
+          {zoomPct}%
+        </button>
+        <button
+          type="button"
+          className="draft-toolbar-btn"
+          onClick={() => zoomBy(1.25)}
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+      </div>
+
       <button
         type="button"
-        className="draft-toolbar-btn"
-        onClick={() => fileInputRef.current?.click()}
-        title="Import an image, SVG, or video (video imports as a reference thumbnail — see ROADMAP)"
+        className={pinned ? "draft-toolbar-pin pinned" : "draft-toolbar-pin"}
+        onClick={togglePinned}
+        aria-pressed={pinned}
+        aria-label={pinned ? "Unpin toolbar (allow auto-hide)" : "Pin toolbar (keep it visible)"}
+        title={pinned ? "Unpin toolbar (allow auto-hide)" : "Pin toolbar (keep it visible)"}
       >
-        Media
+        Pin
       </button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) void handleImageFile(file);
-        }}
-      />
+
       {imageError && (
         <span className="draft-toolbar-error" role="alert">
           {imageError}
         </span>
       )}
-      <span className="draft-toolbar-sep" />
-      <button
-        type="button"
-        className="draft-toolbar-btn"
-        onClick={handleGroup}
-        disabled={!canGroup}
-      >
-        Group
-      </button>
-      <button
-        type="button"
-        className="draft-toolbar-btn"
-        onClick={handleUngroup}
-        disabled={!canUngroup}
-      >
-        Ungroup
-      </button>
-      <span className="draft-toolbar-sep" />
-      <button type="button" className="draft-toolbar-btn" onClick={undo} disabled={!canUndo}>
-        Undo
-      </button>
-      <button type="button" className="draft-toolbar-btn" onClick={redo} disabled={!canRedo}>
-        Redo
-      </button>
-      <span className="draft-toolbar-sep" />
-      <button
-        type="button"
-        className="draft-toolbar-btn"
-        onClick={() => zoomBy(1 / 1.25)}
-        aria-label="Zoom out"
-      >
-        −
-      </button>
-      <button
-        type="button"
-        className="draft-toolbar-btn draft-toolbar-zoom"
-        onClick={resetView}
-        title="Reset view"
-      >
-        {zoomPct}%
-      </button>
-      <button
-        type="button"
-        className="draft-toolbar-btn"
-        onClick={() => zoomBy(1.25)}
-        aria-label="Zoom in"
-      >
-        +
-      </button>
     </div>
   );
 }

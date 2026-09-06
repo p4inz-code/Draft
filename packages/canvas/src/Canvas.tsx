@@ -542,14 +542,27 @@ function TextEditor({ shape, onDone }: { shape: TextShape; onDone: (text: string
     // Deferred a frame: focusing synchronously on mount raced the browser's
     // own native click/focus handling for the pointerdown that created this
     // element, causing an immediate blur (see handlePointerDown's text
-    // branch for the pointer-capture half of this fix).
-    const raf = requestAnimationFrame(() => {
+    // branch for the pointer-capture half of this fix). One rAF isn't
+    // guaranteed to land after that native handling has actually settled in
+    // every environment (a real regression the desktop WebView hit — one
+    // frame was enough in a browser tab but not always there), so this
+    // keeps retrying for a few frames rather than assuming the first one
+    // worked — bounded, so a genuinely unfocusable element (e.g. this
+    // textarea unmounting mid-flight) can't spin forever.
+    let rafId: number;
+    let attemptsLeft = 10;
+    const tryFocus = () => {
       const el = ref.current;
       if (!el) return;
       el.focus();
       el.select();
-    });
-    return () => cancelAnimationFrame(raf);
+      attemptsLeft -= 1;
+      if (document.activeElement !== el && attemptsLeft > 0) {
+        rafId = requestAnimationFrame(tryFocus);
+      }
+    };
+    rafId = requestAnimationFrame(tryFocus);
+    return () => cancelAnimationFrame(rafId);
   }, []);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

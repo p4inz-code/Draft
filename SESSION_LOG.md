@@ -9,6 +9,66 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (real-app testing) — first real bugs from the actual app, not the browser preview
+
+**Commit:** (pending push at time of writing)
+
+Launched the actual Tauri desktop window (`pnpm tauri dev`) for the user to test directly,
+rather than the pure-frontend browser preview this session had relied on until now. This
+immediately paid off: the user reported three real problems the browser preview literally
+cannot surface (every Tauri `invoke` fails there, as ROADMAP already notes) —
+
+1. **Text tool: "only a box appears, typing does nothing."** Root-caused via a dedicated
+   investigation (not guessed at): `TextEditor`'s focus-on-mount had already been patched
+   twice this session for a real timing race against the browser's native click/focus
+   handling — a `requestAnimationFrame`-deferred `.focus()` call. That one frame of delay
+   isn't reliably enough in the real desktop WebView runtime (this exact class of gap between
+   a Chrome-engine browser tab and a real WebView2 window is a known category of quirk).
+   Fixed by retrying for up to 10 frames, checking `document.activeElement` actually landed
+   on the textarea each time rather than assuming the first attempt worked — bounded so a
+   genuinely-unmounted element can't spin forever. Added a regression test
+   (`Canvas.test.tsx`) that fakes a first focus() call not "taking," proving the retry loop
+   recovers.
+2. **"Live sync failed: object object://... does not exist."** Traced to `App.tsx`'s
+   canvas→live-graph sync firing `ensurePage`/`applyOperations` as independent, un-awaited
+   Tauri IPC calls with no ordering guarantee between concurrent invokes — two operations
+   that must land in generation order (e.g. draw, then immediately Ctrl+Z) could reach the
+   Rust graph out of order, and `Graph::apply` correctly rejects an operation targeting an
+   object it never saw created, surfacing as this exact error. Fixed by chaining every
+   `ensurePage`/`applyOperations` call through one promise queue instead of firing them
+   independently — a stale/out-of-order `setSelection` call stays off the queue since it's
+   harmless and self-corrects, unlike an operation.
+3. **"6 agents connected" with nothing actually connected.** Investigated
+   `crates/draft-mcp/src/local_socket.rs`'s connection-count accept loop and
+   `apps/desktop/src-tauri`'s `setup` hook directly — found no code defect (the counter is
+   correctly RAII-guarded, starts at 0 per process, and the accept loop is spawned exactly
+   once per app launch). Best explanation: `pnpm tauri dev`'s file-watcher restarted the
+   whole process repeatedly during this session (7+ commits touching Rust files in one
+   sitting), and this is the first time anyone checked the count against a freshly-launched,
+   not-yet-rebuilt instance. Documented as a dev-mode artifact rather than "fixed," since
+   there's nothing in the shipped code to fix.
+
+Also redesigned the toolbar per explicit user feedback ("so cluttered," referencing the
+Stitch mockups sent earlier and pointing at kanvaz — P4inz's own other product — for UX
+reference): split the single long row into three grouped "islands" (draw tools / content /
+view+history), added an idle auto-fade (3s, `pointer-events: none` so a faded toolbar can't
+eat a click meant for the canvas) that revives on a pointer near the top of the window or any
+numbered tool shortcut, and a persistent "Pin" toggle for anyone who'd rather it just stay
+put. This is a deliberate, explicit exception to the standing "hold UI polish until the final
+audit" instruction from earlier in the session — the user asked for it directly, mid-session,
+because the clutter was actively in the way of testing, not because it's cosmetic polish.
+
+`pnpm build/lint/test` (64 tests, 11 new in `Toolbar.test.tsx` + 1 new in `Canvas.test.tsx`)
+green. `apps/desktop/src/App.tsx` has no automated test coverage (no test harness exists for
+`apps/desktop` at all, a pre-existing gap, not something this pass introduced) — the
+ordering-queue fix was verified by code inspection and reasoning through the exact race
+rather than an automated test; the toolbar's fade/revive/pin logic was additionally verified
+against a real browser DOM (not just jsdom, which doesn't model real pointer-event dispatch
+reliably) by dispatching a genuine `PointerEvent` in a live tab and confirming the class
+toggled correctly.
+
+---
+
 ## 2026-09-06 (latest, part 2) — code-review pass on video import: 5 confirmed bugs, all fixed
 
 **Commit:** (pending push at time of writing)

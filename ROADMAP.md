@@ -44,6 +44,17 @@ four implementation sessions below.
   on the active tool
 - [x] Selection (click + marquee), move-by-drag, resize handles on resizable shapes
   (rectangle/ellipse/diamond) — grouping not yet implemented
+- [x] Two real bugs found and fixed from a user-supplied screen recording of the select
+  tool "not working properly": (1) `.draft-canvas` hardcoded `cursor: crosshair` regardless
+  of the active tool, so the select tool visually looked like a drawing tool was still
+  armed — now the cursor is `default` for select and `crosshair` for every drawing tool. (2)
+  no drag-initiating pointerdown handler called `e.preventDefault()`, so a marquee/move/pan
+  drag also kicked off the browser's own native text/drag-selection over the page — visible
+  in the recording as a stray light-blue selection band fighting the marquee rectangle for
+  the same drag. Fixed by calling `preventDefault()` at the top of both pointerdown handlers
+  and adding `user-select: none` to the canvas as defense-in-depth. Verified manually
+  in-browser: marquee-selecting two shapes now shows only the intended selection outline,
+  no native selection artifact.
 - [x] Eraser tool (click or drag over shapes to delete)
 - [x] Zoom (wheel zoom-to-cursor, toolbar +/-/reset with a live %, Ctrl+=/Ctrl+-/Ctrl+0),
   pan (middle-mouse-drag, works regardless of active tool — no separate Pan tool needed)
@@ -137,8 +148,18 @@ longer than "foundation + canvas" sounds like it should.
 - [ ] The real object/shape taxonomy in `draft-graph` (replacing today's untyped JSON
   payloads)
 - [ ] Annotations, requirements, relationships, media references, regions
-- [ ] `selection`/`recent_changes`/`agent_state` resources (need live selection/history
-  tracking on the Rust side first — Session 3 territory per the original plan)
+- [x] `recent_changes` MCP tool: `LiveState.log` (a `draft_events::OperationLog`, already
+  defined in Session 1's foundation work but never wired up until now) records every
+  operation applied to the live graph — the human's (`apply_operations`, tagged
+  `Actor::User`) and the agent's (the three write tools, tagged `Actor::Agent`) alike.
+  `recent_changes` returns the tail of it (`limit`/`since_sequence` params for incremental
+  polling), gated on `allows_read()` like the other read tools. Verified for real: the
+  existing `watch_mode_denies_writes_and_build_mode_allows_them` test now also asserts
+  `recent_changes` returns the create/modify/delete sequence in order, correctly tagged
+  `agent`.
+- [ ] `selection`/`agent_state` resources (`selection` needs live selection tracking on the
+  Rust side first — selection is still frontend-only; `agent_state` is still vague pending a
+  concrete need for it)
 
 ### Session 3 — Agent Collaboration + Project Workflow
 

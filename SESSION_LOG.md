@@ -9,6 +9,55 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (also latest) — `recent_changes` MCP tool
+
+**Commit:** (pending push at time of writing)
+
+Wired up `draft-events::OperationLog` — defined in the foundation phase but never actually
+used until now — into `LiveState` as `LiveState.log`, and made every write append to it: the
+three agent write tools (tagged `Actor::Agent`) and, on the human side, `apply_operations`
+(tagged `Actor::User`, appended only after every operation in the batch applies cleanly, so a
+failed batch doesn't leave partial entries the log would misreport as having happened). Added
+a `recent_changes` MCP tool (optional `limit`/`since_sequence` for incremental polling) gated
+on `allows_read()` like the other read tools — this is Session 2/3's `recent_changes`
+resource, letting an agent see a timeline of what changed instead of only current state.
+
+**Verified for real:** extended the existing `watch_mode_denies_writes_and_build_mode_allows_them`
+test to call `recent_changes` after the create/modify/delete sequence and assert it returns
+all three operations in order, each correctly tagged `agent`.
+
+---
+
+## 2026-09-06 (latest of all) — Select tool cursor + native-selection bug fix
+
+**Commit:** (pending push at time of writing)
+
+The user sent a screen recording of the select tool "not working properly." Extracted frames
+with `ffmpeg` to see the actual gesture (video isn't directly readable) and found two real
+bugs, not one:
+
+1. `.draft-canvas`'s CSS hardcoded `cursor: crosshair` unconditionally — the select tool
+   showed the same "click to draw" crosshair as every drawing tool, with no visual cue that
+   you were actually in selection mode. Fixed by making the cursor depend on the active tool
+   (`default` for select, `crosshair` for drawing tools) via an inline style rather than a
+   static class rule.
+2. The real functional bug: no pointerdown handler called `e.preventDefault()`, so starting
+   a marquee/move/pan drag also kicked off the browser's own native text/drag-selection over
+   the page at the same time as our own drag logic. In the recording this showed up as a
+   light-blue native selection band with a dashed underline fighting our own marquee
+   rectangle (which uses the same light-blue-with-dashed-stroke styling, making the two easy
+   to mistake for each other at a glance, but the native one comes from the browser, not our
+   SVG). Fixed by calling `preventDefault()` at the top of both `handlePointerDown` (the main
+   canvas handler) and `handleResizeHandlePointerDown`, plus `user-select: none` on the
+   canvas as defense-in-depth.
+
+**Verified manually in-browser:** drew two rectangles, marquee-dragged across both with the
+select tool — selection outline appears cleanly with no native-selection artifact — and
+confirmed via `getComputedStyle` that the cursor is `default` for select and `crosshair` for
+rectangle. Also confirmed via TypeScript/lint/test (31 Vitest tests) that nothing else broke.
+
+---
+
 ## 2026-09-06 (even later still) — Visible agent connection indicator
 
 **Commit:** (pending push at time of writing)

@@ -61,9 +61,10 @@ See [docs/agent-permissions.md](agent-permissions.md).
 Accepting the socket/pipe handshake itself is not access — `tools/list` (capability
 discovery) is unrestricted, but every data-returning tool call re-checks the mode.
 
-What's *not* built yet: a visible "N agents currently connected" indicator (today a
-connection is silent until it tries a tool call), and per-connection (rather than
-whole-app) mode scoping — deferred to Session 3, per the original plan.
+A visible "N agents currently connected" indicator now exists too (`LiveState.connections`,
+a `watch<usize>` — see `crates/draft-mcp/src/local_socket.rs`'s `ConnectionGuard`), shown in
+`apps/desktop`'s header. Still not built: per-connection (rather than whole-app) mode
+scoping — deferred to Session 3, per the original plan.
 
 ## Resources/tools
 
@@ -78,11 +79,17 @@ Implemented on the **local-socket** (live) transport, both read and write:
   `AgentMode::allows_write()` (`Build` only). All three go through
   `draft_graph::Graph::apply` — the exact same code path a human's canvas edit takes, so
   there's no separate "agent wrote this" handling to keep in sync.
+- `recent_changes` (optional `limit`, default 50/max 200, and `since_sequence` for
+  incremental polling) — returns the tail of `LiveState.log`, a rolling
+  `draft_events::OperationLog` that both the human's committed canvas operations
+  (`apply_operations`, tagged `Actor::User`) and the three write tools above (tagged
+  `Actor::Agent`) append to. Gated on `AgentMode::allows_read()`, like the other read tools.
 
 Not implemented yet:
-- `selection`, `recent_changes`, `agent_state` — these only make sense for a live session
-  with real selection/history tracking, which doesn't exist on the Rust side yet (selection
-  is still frontend-only, in `@draft/canvas`'s Zustand store).
+- `selection`, `agent_state` — these only make sense for a live session with real
+  selection/history tracking, which doesn't exist on the Rust side yet for selection (still
+  frontend-only, in `@draft/canvas`'s Zustand store); `agent_state` is still vague pending a
+  concrete need for it.
 - `annotations`, `requirements`, `flows`, `assets` — wait on the real object/shape taxonomy
   in `draft-graph` (payloads are still opaque JSON; see docs/architecture.md's trade-off
   note on this).

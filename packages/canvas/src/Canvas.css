@@ -4,7 +4,8 @@
   display: block;
   touch-action: none;
   background: var(--draft-bg);
-  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .draft-text-editor {

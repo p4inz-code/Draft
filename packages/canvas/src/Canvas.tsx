@@ -77,6 +77,7 @@ export function Canvas() {
     handle: ResizeHandle,
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
   ) {
+    e.preventDefault();
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     // The anchor is the fixed opposite corner — dragging "nw" keeps "se" put.
@@ -191,6 +192,11 @@ export function Canvas() {
   }, []);
 
   function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    // Without this, a left-drag (marquee, draw, move, pan) also kicks off
+    // the browser's own native drag-selection over the page — the two
+    // visibly fight each other, showing as a stray native text-selection
+    // highlight instead of (or on top of) our own marquee rectangle.
+    e.preventDefault();
     const world = worldPointFromEvent(e);
     const state = store.getState();
 
@@ -369,10 +375,18 @@ export function Canvas() {
   const gridOffsetX = -camera.x * camera.zoom;
   const gridOffsetY = -camera.y * camera.zoom;
 
+  // The select tool points and drags shapes, so a plain arrow reads better
+  // than the crosshair every drawing tool uses to mark "click here to place
+  // a point" — showing crosshair unconditionally (the previous behavior)
+  // made the select tool look like it was in some kind of drawing mode even
+  // when it wasn't doing anything unusual.
+  const cursor = tool === "select" ? "default" : "crosshair";
+
   return (
     <svg
       ref={svgRef}
       className="draft-canvas"
+      style={{ cursor }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

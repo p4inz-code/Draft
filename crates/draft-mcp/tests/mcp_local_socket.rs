@@ -241,5 +241,19 @@ async fn watch_mode_denies_writes_and_build_mode_allows_them() {
         0
     );
 
+    // recent_changes should show all three writes (create, modify, delete),
+    // in order, each tagged as the agent's doing.
+    let result = client
+        .call_tool(CallToolRequestParams::new("recent_changes"))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    let changes = json["changes"].as_array().expect("changes array");
+    assert_eq!(changes.len(), 3);
+    assert_eq!(changes[0]["operation"]["type"], "create_object");
+    assert_eq!(changes[1]["operation"]["type"], "update_object");
+    assert_eq!(changes[2]["operation"]["type"], "delete_object");
+    assert!(changes.iter().all(|c| c["actor"] == "agent"));
+
     client.cancel().await.unwrap();
 }

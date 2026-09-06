@@ -13,7 +13,7 @@
 use std::sync::{Arc, Mutex};
 
 use draft_core::{ObjectId, PageId};
-use draft_events::Operation;
+use draft_events::{Actor, Operation, OperationLog};
 use draft_graph::Graph;
 use draft_security::AgentMode;
 use rmcp::{handler::server::wrapper::Parameters, schemars, tool, tool_router};
@@ -39,6 +39,12 @@ pub struct LiveState {
     /// permission story): accepting a connection is visible even before any
     /// tool call succeeds or is denied, not just silent until one is.
     pub connections: tokio::sync::watch::Sender<usize>,
+    /// A rolling record of every operation applied to the live graph, human
+    /// and agent alike (tagged by [`Actor`]) — what backs the `recent_changes`
+    /// MCP tool below. `apps/desktop`'s `apply_operations` command appends
+    /// the human's edits here; the write tools in this file append the
+    /// agent's.
+    pub log: Mutex<OperationLog>,
 }
 
 impl LiveState {
@@ -50,11 +56,26 @@ impl LiveState {
             mode: Mutex::new(mode),
             changes,
             connections,
+            log: Mutex::new(OperationLog::new()),
         }
     }
 
     fn current_mode(&self) -> AgentMode {
         *self.mode.lock().expect("LiveState.mode poisoned")
+    }
+
+    /// Appends an operation to the log with the current wall-clock time.
+    /// Best-effort: a poisoned log mutex just means `recent_changes` misses
+    /// an entry, not that the operation itself failed to apply.
+    fn record(&self, actor: Actor, operation: Operation) {
+        let Ok(mut log) = self.log.lock() else {
+            return;
+        };
+        let at_unix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        log.append(actor, operation, at_unix);
     }
 }
 
@@ -93,6 +114,12 @@ struct ModifyObjectParams {
 struct DeleteObjectParams {
     page_id: String,
     object_id: String,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct RecentChangesParams {
+    limit: Option<usize>,
+    since_sequence: Option<u64>,
 }
 
 fn read_denied(mode: AgentMode) -> String {
@@ -208,6 +235,7 @@ impl LiveMcpServer {
         match graph.apply(&op) {
             Ok(()) => {
                 drop(graph);
+                self.state.record(Actor::Agent, op);
                 let _ = self.state.changes.send(page);
                 serde_json::json!({ "object_id": object.to_string() }).to_string()
             }
@@ -243,6 +271,7 @@ impl LiveMcpServer {
         match graph.apply(&op) {
             Ok(()) => {
                 drop(graph);
+                self.state.record(Actor::Agent, op);
                 let _ = self.state.changes.send(page);
                 serde_json::json!({ "ok": true }).to_string()
             }
@@ -270,11 +299,37 @@ impl LiveMcpServer {
         match graph.apply(&op) {
             Ok(()) => {
                 drop(graph);
+                self.state.record(Actor::Agent, op);
                 let _ = self.state.changes.send(page);
                 serde_json::json!({ "ok": true }).to_string()
             }
             Err(err) => serde_json::json!({ "error": err.to_string() }).to_string(),
         }
+    }
+
+    #[tool(
+        description = "Get recent operations applied to the live graph (human and agent edits alike), newest last. Optional `limit` caps how many are returned (default 50, max 200); optional `since_sequence` returns only operations after that sequence number, for incremental polling. Requires the user to have granted at least Ask-level access."
+    )]
+    fn recent_changes(
+        &self,
+        Parameters(RecentChangesParams {
+            limit,
+            since_sequence,
+        }): Parameters<RecentChangesParams>,
+    ) -> String {
+        let mode = self.state.current_mode();
+        if !mode.allows_read() {
+            return read_denied(mode);
+        }
+        let limit = limit.unwrap_or(50).min(200);
+        let log = self.state.log.lock().expect("LiveState.log poisoned");
+        let filtered: Vec<_> = log
+            .iter()
+            .filter(|r| since_sequence.is_none_or(|since| r.sequence > since))
+            .collect();
+        let start = filtered.len().saturating_sub(limit);
+        let records = &filtered[start..];
+        serde_json::json!({ "changes": records, "total_logged": log.len() }).to_string()
     }
 }
 

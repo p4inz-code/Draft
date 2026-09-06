@@ -120,9 +120,23 @@ fn apply_operations(
     operations: Vec<Operation>,
     live: State<'_, Arc<LiveState>>,
 ) -> Result<(), String> {
-    let mut graph = live.graph.lock().map_err(|_| "graph lock poisoned")?;
-    for op in &operations {
-        graph.apply(op).map_err(|e| e.to_string())?;
+    {
+        let mut graph = live.graph.lock().map_err(|_| "graph lock poisoned")?;
+        for op in &operations {
+            graph.apply(op).map_err(|e| e.to_string())?;
+        }
+    }
+    // Recorded after the graph lock is released and only once every op in
+    // the batch has applied cleanly, so a failed batch doesn't leave partial
+    // entries in the log that `recent_changes` would report as having
+    // actually happened.
+    let mut log = live.log.lock().map_err(|_| "log lock poisoned")?;
+    let at_unix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    for op in operations {
+        log.append(draft_events::Actor::User, op, at_unix);
     }
     Ok(())
 }

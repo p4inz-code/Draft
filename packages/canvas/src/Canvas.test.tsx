@@ -2,7 +2,7 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Canvas } from "./Canvas";
-import { NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
+import { LETTER_KEY_TOOLS, NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
 
 // handlePointerDown reads `tool` from a render-time closure, not
 // store.getState() — correct in the browser (a real click always comes
@@ -94,6 +94,54 @@ describe("number-key tool shortcuts", () => {
   });
 });
 
+describe("Illustrator-style letter tool shortcuts", () => {
+  it("switches to each tool on its letter key, matching LETTER_KEY_TOOLS, alongside the number keys", () => {
+    const { unmount } = render(<Canvas />);
+
+    for (const [key, tool] of Object.entries(LETTER_KEY_TOOLS)) {
+      useCanvasStore.setState({ tool: "diamond" });
+      window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+      expect(useCanvasStore.getState().tool).toBe(tool);
+    }
+
+    unmount();
+  });
+
+  it("is case-insensitive (Caps Lock / Shift shouldn't matter)", () => {
+    const { unmount } = render(<Canvas />);
+    useCanvasStore.setState({ tool: "diamond" });
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "V" }));
+
+    expect(useCanvasStore.getState().tool).toBe("select");
+    unmount();
+  });
+
+  it("ignores letter keys with a modifier held (e.g. Ctrl+V, which pastes)", () => {
+    const { unmount } = render(<Canvas />);
+    useCanvasStore.setState({ tool: "diamond" });
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "v", ctrlKey: true }));
+
+    expect(useCanvasStore.getState().tool).toBe("diamond");
+    unmount();
+  });
+
+  it("ignores letter keys while typing in an input/textarea", () => {
+    const { unmount } = render(<Canvas />);
+    useCanvasStore.setState({ tool: "diamond" });
+    const input = document.createElement("textarea");
+    document.body.appendChild(input);
+    input.focus();
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true }));
+
+    expect(useCanvasStore.getState().tool).toBe("diamond");
+    document.body.removeChild(input);
+    unmount();
+  });
+});
+
 describe("marquee selection and grouping", () => {
   it("expands a marquee that only touches one group member to the whole group", () => {
     const { container, unmount } = render(<Canvas />);
@@ -145,6 +193,45 @@ describe("text tool click-away commit", () => {
       (o) => o.shape.kind === "text",
     );
     expect(committed?.shape.kind === "text" && committed.shape.text).toBe("hello");
+
+    unmount();
+  });
+
+  it("starting a second text box while the tool is still armed doesn't clone the first box's content into it", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("text");
+    pointerDownAt(svg, 50, 50);
+    let textarea = container.querySelector(".draft-text-editor") as HTMLTextAreaElement | null;
+    expect(textarea).not.toBeNull();
+    textarea?.focus();
+    fireEvent.change(textarea as HTMLTextAreaElement, { target: { value: "first box" } });
+
+    // The tool stays "text" (unlike the click-away-commit test above, which
+    // switches to "select" first) — this is the exact repro: both the
+    // outgoing shape's commit and the incoming shape's creation land in the
+    // same batched React update, so `editingTextId` never goes truthy ->
+    // falsy -> truthy in a way that unmounts the old TextEditor. Without a
+    // `key`, React reuses the same uncontrolled <textarea> DOM node across
+    // both shapes — its stale "first box" value would still be sitting in
+    // the DOM the instant the new (empty) shape's editor appears, since
+    // `defaultValue` only ever applies at mount, never on a prop update.
+    pointerDownAt(svg, 300, 300);
+    textarea = container.querySelector(".draft-text-editor") as HTMLTextAreaElement | null;
+    expect(textarea).not.toBeNull();
+    expect(textarea?.value).toBe("");
+    textarea?.focus();
+    fireEvent.change(textarea as HTMLTextAreaElement, { target: { value: "second box" } });
+
+    setTool("select");
+    pointerDownAt(svg, 500, 500);
+
+    const textShapes = Object.values(useCanvasStore.getState().shapes)
+      .filter((o) => o.shape.kind === "text")
+      .map((o) => (o.shape.kind === "text" ? o.shape.text : ""));
+    expect(textShapes.sort()).toEqual(["first box", "second box"]);
 
     unmount();
   });

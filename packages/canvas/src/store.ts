@@ -52,6 +52,23 @@ export const NUMBER_KEY_TOOLS: Record<string, Tool> = {
   "9": "eraser",
 };
 
+/**
+ * Illustrator/Photoshop-style single-letter shortcuts, additive alongside
+ * `NUMBER_KEY_TOOLS` (not a replacement — both keep working). Keys are
+ * lowercase; callers compare against `e.key.toLowerCase()`. Diamond has no
+ * real Illustrator equivalent, so it stays number-only ("4").
+ */
+export const LETTER_KEY_TOOLS: Record<string, Tool> = {
+  v: "select",
+  r: "rectangle",
+  o: "ellipse",
+  t: "text",
+  l: "line",
+  a: "arrow",
+  p: "freehand",
+  e: "eraser",
+};
+
 interface HistoryEntry {
   shapes: ShapeMap;
 }

@@ -9,6 +9,35 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (chrome plan, phases A+B) — text-duplication fix + Illustrator letter shortcuts
+
+**Commit:** (pending push at time of writing)
+
+The user's next round of real-app testing surfaced a genuine bug (screenshot: duplicated
+text across two shapes) plus a batch of feature asks — planned as a 5-phase, 7-persona-
+audited plan (`custom titlebar + visual redesign` from round 1, plus `text-dup fix` /
+`letter shortcuts` / `fill color` / `MCP cross-client audit` from round 2). Phases A and B
+land in this commit; C/D/E follow.
+
+**Phase A** — root-caused (not guessed at) via a dedicated investigation: `Canvas.tsx`'s
+`TextEditor` had no `key`. Ending one text edit by starting a *new* text shape (tool still
+armed) batches both state transitions (`editingTextId: idA → null → idB`) into one React
+commit — truthy the whole time, so the conditional-render branch never toggles false and
+React reuses the same uncontrolled `<textarea>` DOM node across two unrelated shapes. Its
+stale value (`defaultValue` only applies at mount) leaked into the next shape's edit. Fixed
+with `key={editingTextId}`. Verified the regression test actually discriminates the bug (not
+just checking end-state text, which turned out to pass even without the fix in an earlier
+draft of the test — the real tell is the *new* textarea's value being empty immediately
+after creation, before any typing): confirmed it fails on the pre-fix code and passes after.
+
+**Phase B** — `LETTER_KEY_TOOLS` (V/R/O/T/L/A/P/E) added alongside the existing 1-9, reusing
+`Canvas.tsx`'s existing modifier/editable-target guards rather than duplicating them.
+Toolbar tooltips now show both bindings.
+
+`pnpm build/lint/test` (72 tests) green.
+
+---
+
 ## 2026-09-06 (audit) — code-review + security-review on the bug-fix/toolbar commit
 
 **Commit:** (pending push at time of writing)

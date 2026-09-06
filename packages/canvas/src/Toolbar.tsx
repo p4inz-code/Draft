@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./Toolbar.css";
 import { screenToWorld } from "./camera";
-import { NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
+import { LETTER_KEY_TOOLS, NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
 import { parseSvgDimensions } from "./svg";
 import { extractVideoThumbnail } from "./video";
 
@@ -21,6 +21,21 @@ const TOOLS: Array<{ id: Tool; label: string }> = [
 const TOOL_SHORTCUT_KEYS: Partial<Record<Tool, string>> = Object.fromEntries(
   Object.entries(NUMBER_KEY_TOOLS).map(([key, tool]) => [tool, key]),
 );
+
+/** Tool -> its Illustrator-style letter shortcut, e.g. "select" -> "v" (see `LETTER_KEY_TOOLS`). */
+const TOOL_LETTER_KEYS: Partial<Record<Tool, string>> = Object.fromEntries(
+  Object.entries(LETTER_KEY_TOOLS).map(([key, tool]) => [tool, key]),
+);
+
+/** The tooltip text for a tool button: the letter shortcut first (the more
+ * familiar convention for anyone coming from Illustrator/Photoshop), the
+ * number as a secondary hint — both always work. */
+function shortcutLabel(tool: Tool): string {
+  const letter = TOOL_LETTER_KEYS[tool];
+  const number = TOOL_SHORTCUT_KEYS[tool];
+  if (letter && number) return `${letter.toUpperCase()} / ${number}`;
+  return letter?.toUpperCase() ?? number ?? "";
+}
 
 const TOOLBAR_PINNED_KEY = "draft.toolbarPinned";
 /** No revive signal for this long fades the toolbar out. */
@@ -300,7 +315,7 @@ export function Toolbar() {
             className={t.id === tool ? "draft-toolbar-btn active" : "draft-toolbar-btn"}
             onClick={() => setTool(t.id)}
             aria-pressed={t.id === tool}
-            title={`${t.label} (${TOOL_SHORTCUT_KEYS[t.id]})`}
+            title={`${t.label} (${shortcutLabel(t.id)})`}
           >
             {t.label}
           </button>

@@ -10,7 +10,7 @@ import "./Canvas.css";
 import { ShapeView } from "./ShapeView";
 import { type Point, screenToWorld } from "./camera";
 import { boundsContainPoint, boundsIntersect, shapeBounds } from "./geometry";
-import { NUMBER_KEY_TOOLS, useCanvasStore } from "./store";
+import { LETTER_KEY_TOOLS, NUMBER_KEY_TOOLS, useCanvasStore } from "./store";
 
 /** Reads a pointer event's position relative to the SVG element, in screen (pixel) space. */
 function screenPointFromEvent(e: React.PointerEvent<SVGSVGElement>): Point {
@@ -98,9 +98,13 @@ export function Canvas() {
       if (isEditableTarget) return;
 
       const numberedTool = NUMBER_KEY_TOOLS[e.key];
+      const letterTool = LETTER_KEY_TOOLS[e.key.toLowerCase()];
       if (numberedTool && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         state.setTool(numberedTool);
+      } else if (letterTool && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        state.setTool(letterTool);
       } else if ((e.key === "Delete" || e.key === "Backspace") && state.selection.length > 0) {
         e.preventDefault();
         state.beginAction();
@@ -440,6 +444,7 @@ export function Canvas() {
             if (!editingShape || editingShape.kind !== "text") return null;
             return (
               <TextEditor
+                key={editingTextId}
                 shape={editingShape}
                 onDone={(text) => finishEditingText(editingTextId, text)}
               />

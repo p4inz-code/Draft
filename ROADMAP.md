@@ -72,6 +72,24 @@ four implementation sessions below.
   `apps/web` automatically once that app is wired up to the shared canvas (still open, see
   Session 3). Verified with real tests: each key switches to its tool, a held modifier
   (Ctrl/Cmd/Alt) is ignored, and typing in a text field doesn't trigger a switch.
+- [x] Illustrator/Photoshop-style letter shortcuts (V/R/O/T/L/A/P/E), additive alongside the
+  number keys above — `LETTER_KEY_TOOLS` (`store.ts`) mirrors `NUMBER_KEY_TOOLS`'s structure
+  exactly, reusing the same modifier/editable-target guards in `Canvas.tsx`'s keydown handler
+  rather than duplicating them. Diamond has no real Illustrator equivalent, so it stays
+  number-only (`4`). Toolbar tooltips show both (e.g. "Select (V / 1)"). Verified with the
+  same test shape as the number-key suite: each letter switches its tool, case-insensitively,
+  ignoring a held modifier or typing in a text field.
+- [x] Text tool bug: creating a second text box while the tool was still armed (not switching
+  to Select first) could clone/cross-contaminate the first box's typed content into the
+  second — `TextEditor` (`Canvas.tsx`) was mounted with no `key`, so when both the outgoing
+  shape's commit and the incoming shape's creation batched into one React update,
+  `editingTextId` never went truthy → falsy → truthy in a way that actually unmounted the old
+  editor; React reused the same uncontrolled `<textarea>` DOM node across two unrelated
+  shapes, and its stale value (from `defaultValue`, which only applies at mount) leaked into
+  the next shape. Fixed with `key={editingTextId}`, forcing a real remount per edited shape.
+  Verified with a regression test asserting the fix by checking the *mechanism*, not just the
+  end state: confirmed to fail without the fix (textarea reads the stale value) and pass with
+  it (fresh, empty textarea for the new shape).
 - [x] Eraser tool (click or drag over shapes to delete)
 - [x] Zoom (wheel zoom-to-cursor, toolbar +/-/reset with a live %, Ctrl+=/Ctrl+-/Ctrl+0),
   pan (middle-mouse-drag, works regardless of active tool — no separate Pan tool needed)

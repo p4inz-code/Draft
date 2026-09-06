@@ -12,7 +12,8 @@ export function shapeBounds(shape: Shape): Bounds {
   switch (shape.kind) {
     case "rectangle":
     case "ellipse":
-    case "diamond": {
+    case "diamond":
+    case "image": {
       const x2 = shape.x + shape.width;
       const y2 = shape.y + shape.height;
       return {

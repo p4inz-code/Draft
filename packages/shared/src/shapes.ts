@@ -57,6 +57,22 @@ export interface FreehandShape extends ShapeBase {
   points: Array<[number, number]>;
 }
 
+/**
+ * An imported image. `src` is a data URL, embedded directly in the shape
+ * payload — an interim simplification, not the final design: spec §11 wants
+ * media referenced by an `asset://` ID so raw bytes don't have to cross the
+ * MCP boundary on every `get_page` call, but that needs a project directory
+ * to store the asset file in, and a fresh unsaved canvas doesn't have one
+ * yet. Revisit once project/asset lifecycle (creating a project before the
+ * first save) is wired up — see ROADMAP.md.
+ */
+export interface ImageShape extends ShapeBase {
+  kind: "image";
+  width: number;
+  height: number;
+  src: string;
+}
+
 export type Shape =
   | RectangleShape
   | EllipseShape
@@ -64,13 +80,19 @@ export type Shape =
   | TextShape
   | ArrowShape
   | LineShape
-  | FreehandShape;
+  | FreehandShape
+  | ImageShape;
 
 /** Shapes with a `width`/`height` bounding box — the ones resize handles apply to. */
-export type ResizableShape = RectangleShape | EllipseShape | DiamondShape;
+export type ResizableShape = RectangleShape | EllipseShape | DiamondShape | ImageShape;
 
 export function isResizableShape(shape: Shape): shape is ResizableShape {
-  return shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "diamond";
+  return (
+    shape.kind === "rectangle" ||
+    shape.kind === "ellipse" ||
+    shape.kind === "diamond" ||
+    shape.kind === "image"
+  );
 }
 
 export type ShapeKind = Shape["kind"];

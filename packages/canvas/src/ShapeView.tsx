@@ -92,6 +92,30 @@ export function ShapeView({ object, selected }: { object: CanvasObject; selected
         </g>
       );
     }
+    case "image":
+      return (
+        <g>
+          <image
+            href={shape.src}
+            x={shape.x}
+            y={shape.y}
+            width={Math.abs(shape.width)}
+            height={Math.abs(shape.height)}
+            preserveAspectRatio="none"
+          />
+          {selected && (
+            <rect
+              x={shape.x}
+              y={shape.y}
+              width={Math.abs(shape.width)}
+              height={Math.abs(shape.height)}
+              fill="none"
+              stroke={selectionStroke}
+              strokeWidth={2}
+            />
+          )}
+        </g>
+      );
     case "freehand": {
       const outline = getStroke(shape.points, { size: 3 });
       if (outline.length === 0) return null;

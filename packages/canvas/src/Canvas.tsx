@@ -534,6 +534,7 @@ function isZeroSize(shape: Shape): boolean {
     case "freehand":
       return shape.points.length <= 1;
     case "text":
+    case "image":
       return false;
   }
 }

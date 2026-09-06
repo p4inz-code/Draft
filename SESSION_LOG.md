@@ -9,6 +9,25 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (even later) — Image import
+
+**Commit:** (pending push at time of writing)
+
+Added image import to the canvas: `ImageShape` in `@draft/shared` (data-URL `src`, deliberately
+not the final `asset://`-reference design from spec §11 — that needs a project directory to
+hold the asset file, which a fresh unsaved canvas doesn't have yet), a Toolbar "Image" button
+that opens a native file picker and drops the shape at the current view's center, and
+`ShapeView`/`geometry.ts` support so resize handles, selection, undo/redo, and copy/paste all
+apply to images for free via the existing `ResizableShape` machinery.
+
+**Verified manually in-browser** (via the `desktop-web-preview` launch config, since
+`apps/web` doesn't have `@draft/canvas` wired in yet): dropped an image, confirmed it renders
+at the right position/size, selected it (outline + 4 resize handles appear), and confirmed a
+corner-drag resizes it anchored at the opposite corner. Also ran the full existing test suite
+(28 Vitest tests) plus TS build and Rust workspace build — all green.
+
+---
+
 ## 2026-09-06 (later still) — Security review + fix on the local socket
 
 **Commit:** (pending push at time of writing)

@@ -44,3 +44,10 @@
   min-width: 3.5rem;
   font-variant-numeric: tabular-nums;
 }
+
+.draft-toolbar-error {
+  font-family: var(--draft-font-sans);
+  font-size: 0.75rem;
+  color: var(--draft-danger, #e5484d);
+  padding: 0 0.35rem;
+}

@@ -60,7 +60,20 @@ four implementation sessions below.
 - [x] Copy/paste: Ctrl+C/Ctrl+V for the current selection, in-memory (not the OS clipboard),
   offsets each successive paste diagonally so repeats don't stack exactly on top of each
   other — verified manually in-browser
-- [ ] Image/video import onto the canvas
+- [x] Image import onto the canvas: an "Image" toolbar button opens a native file picker,
+  reads the file via `FileReader.readAsDataURL`, and drops an `ImageShape` at the current
+  view's center (large images capped at 400px on their long edge, smaller images keep native
+  size). `src` is a data URL embedded directly in the shape payload — an interim
+  simplification, not the final design (spec §11 wants `asset://`-referenced media so raw
+  bytes don't cross the MCP boundary on every `get_page` call), deferred because that needs a
+  project directory to store the asset file in, and a fresh unsaved canvas doesn't have one
+  yet. Resize handles, selection, undo/redo, and copy/paste all apply for free since image
+  reuses the existing `ResizableShape`/bounds machinery. Video import not attempted — no
+  in-canvas video playback exists to import into. Validates file type and a 15MB size cap
+  before ever reading the file, surfaces read/decode failures as a visible toolbar error
+  (not just a silent no-op) plus a `console.error`, and logs (rather than hides) the fallback
+  when natural image-size detection fails.
+- [ ] Video import onto the canvas
 - [ ] Grouping
 - [ ] Exit test: create a project, draw across multiple tools, save, close, reopen, verify
   identical state — blocked on import/grouping above for the "full" version, but the

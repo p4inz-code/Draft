@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DRAFT — Autonomous Infinite Spatial Workspace</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Geist & JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS with configuration plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "inverse-on-surface": "#303038",
+            "on-surface-variant": "#bbc9cf",
+            "on-tertiary-fixed": "#002113",
+            "surface-container": "#1f1f27",
+            "on-secondary-container": "#003055",
+            "surface-bright": "#393841",
+            "surface-container-low": "#1b1b23",
+            "on-primary-fixed-variant": "#004e60",
+            "primary-container": "#00d2ff",
+            "primary-fixed-dim": "#47d6ff",
+            "inverse-surface": "#e4e1ed",
+            "surface": "#13131b",
+            "on-secondary": "#003259",
+            "surface-dim": "#13131b",
+            "outline-variant": "#3c494e",
+            "on-surface": "#e4e1ed",
+            "on-primary-container": "#00566a",
+            "outline": "#859399",
+            "error": "#ffb4ab",
+            "on-primary-fixed": "#001f28",
+            "on-error-container": "#ffdad6",
+            "primary-fixed": "#b6ebff",
+            "on-secondary-fixed-variant": "#00497e",
+            "secondary": "#9fcaff",
+            "primary": "#a5e7ff",
+            "secondary-fixed": "#d2e4ff",
+            "inverse-primary": "#00677f",
+            "on-tertiary": "#003824",
+            "on-primary": "#003543",
+            "tertiary": "#69f6b9",
+            "on-error": "#690005",
+            "tertiary-fixed-dim": "#4edea3",
+            "error-container": "#93000a",
+            "on-tertiary-fixed-variant": "#005236",
+            "surface-variant": "#34343d",
+            "tertiary-container": "#48d99e",
+            "surface-tint": "#47d6ff",
+            "surface-container-highest": "#34343d",
+            "secondary-fixed-dim": "#9fcaff",
+            "secondary-container": "#0e9aff",
+            "on-secondary-fixed": "#001d36",
+            "on-background": "#e4e1ed",
+            "tertiary-fixed": "#6ffbbe",
+            "surface-container-lowest": "#0d0d15",
+            "background": "#13131b",
+            "surface-container-high": "#292932",
+            "on-tertiary-container": "#005b3d"
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          spacing: {
+            "space-2xs": "0.125rem",
+            "space-sm": "0.5rem",
+            "canvas-dot-spacing": "1.5rem",
+            "command-palette-width": "36rem",
+            "space-2xl": "2rem",
+            "space-md": "0.75rem",
+            "space-xl": "1.5rem",
+            "space-xs": "0.25rem",
+            "inspector-width": "18rem",
+            "space-lg": "1rem",
+            "hud-dock-offset": "1.25rem"
+          },
+          fontFamily: {
+            "body-default": ["Geist", "sans-serif"],
+            "display-hero": ["Geist", "sans-serif"],
+            "code-coords": ["JetBrains Mono", "monospace"],
+            "body-dense": ["Geist", "sans-serif"],
+            "headline-sm": ["Geist", "sans-serif"],
+            "headline-lg": ["Geist", "sans-serif"],
+            "code-default": ["JetBrains Mono", "monospace"],
+            "badge-status": ["JetBrains Mono", "monospace"],
+            "label-caps": ["JetBrains Mono", "monospace"]
+          },
+          fontSize: {
+            "body-default": ["14px", { lineHeight: "20px", letterSpacing: "-0.01em", fontWeight: "400" }],
+            "display-hero": ["40px", { lineHeight: "48px", letterSpacing: "-0.03em", fontWeight: "600" }],
+            "code-coords": ["11px", { lineHeight: "14px", letterSpacing: "0.02em", fontWeight: "500" }],
+            "body-dense": ["13px", { lineHeight: "18px", letterSpacing: "-0.005em", fontWeight: "400" }],
+            "headline-sm": ["18px", { lineHeight: "24px", letterSpacing: "-0.015em", fontWeight: "500" }],
+            "headline-lg": ["28px", { lineHeight: "36px", letterSpacing: "-0.025em", fontWeight: "600" }],
+            "code-default": ["13px", { lineHeight: "18px", letterSpacing: "-0.01em", fontWeight: "400" }],
+            "badge-status": ["11px", { lineHeight: "14px", letterSpacing: "0.01em", fontWeight: "500" }],
+            "label-caps": ["10px", { lineHeight: "12px", letterSpacing: "0.06em", fontWeight: "600" }]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    /* Precision dot matrix grid */
+    .spatial-grid {
+      background-color: #0d0d15;
+      background-image: radial-gradient(circle, #3c494e 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-position: 0 0;
+    }
+
+    /* Ambient pulse glow for live agent executions */
+    @keyframes agentPulse {
+      0%, 100% { opacity: 0.85; filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.4)); }
+      50% { opacity: 1; filter: drop-shadow(0 0 16px rgba(0, 210, 255, 0.8)); }
+    }
+    .agent-glow {
+      animation: agentPulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes dashCycle {
+      to { stroke-dashoffset: -24; }
+    }
+    .animate-laser-dash {
+      stroke-dasharray: 6 6;
+      animation: dashCycle 1.2s linear infinite;
+    }
+
+    /* Fine custom scrollbars for code inspector */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #0d0d15; }
+    ::-webkit-scrollbar-thumb { background: #3c494e; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #859399; }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface overflow-hidden select-none h-screen w-screen font-body-default antialiased">
+<!-- ================================================================= -->
+<!-- 1. TOP HEADER BAR (Strictly adhering to Shared Components JSON)   -->
+<!-- ================================================================= -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-11 bg-surface-container-lowest/80 dark:bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant/30 shadow-sm">
+<!-- Left Section: Brand Logo, Version, Navigation Menus, Breadcrumbs -->
+<div class="flex items-center space-x-3">
+<!-- Product Name & Version Tag -->
+<div class="flex items-center space-x-2 mr-1">
+<span class="text-headline-sm font-headline-sm font-bold text-primary dark:text-primary tracking-tight">DRAFT</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/40 text-on-surface-variant font-label-caps text-label-caps tracking-wider">v0.9.4-beta</span>
+</div>
+<div class="h-4 w-[1px] bg-outline-variant/30 mx-1"></div>
+<!-- Navigation Links from Shared Components JSON -->
+<nav class="flex items-center space-x-0.5">
+<button class="px-2 py-1 rounded text-primary dark:text-primary font-medium hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface dark:hover:text-on-surface transition-colors duration-150 active:scale-[0.98] font-body-dense text-body-dense">
+          File
+        </button>
+<button class="px-2 py-1 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface dark:hover:text-on-surface transition-colors duration-150 active:scale-[0.98] font-body-dense text-body-dense">
+          Edit
+        </button>
+<button class="px-2 py-1 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface dark:hover:text-on-surface transition-colors duration-150 active:scale-[0.98] font-body-dense text-body-dense">
+          View
+        </button>
+<!-- Active Agent Access Trigger -->
+<div class="relative group">
+<button class="flex items-center space-x-1.5 px-2 py-1 rounded text-primary-container hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors duration-150 active:scale-[0.98] font-body-dense text-body-dense">
+<span class="material-symbols-outlined text-[15px]" data-icon="shield">shield</span>
+<span>Agent Access</span>
+<span class="text-on-surface-variant text-[11px] ml-0.5 font-label-caps">[Assist]</span>
+<span class="material-symbols-outlined text-[13px] text-outline" data-icon="expand_more">expand_more</span>
+</button>
+<!-- Dropdown simulation -->
+<div class="absolute top-full left-0 mt-1 w-56 p-1.5 bg-surface-container-low border border-outline-variant/50 rounded-lg shadow-2xl backdrop-blur-xl hidden group-hover:block z-50">
+<div class="px-2 py-1 text-on-surface-variant font-label-caps text-label-caps uppercase border-b border-outline-variant/20 mb-1">Execution Authority</div>
+<button class="w-full text-left px-2 py-1.5 rounded flex items-center justify-between hover:bg-surface-container-high text-on-surface-variant text-body-dense font-body-dense">
+<span>Manual (Read Only)</span>
+<span class="font-code-coords text-code-coords text-outline">L0</span>
+</button>
+<button class="w-full text-left px-2 py-1.5 rounded flex items-center justify-between hover:bg-surface-container-high text-on-surface-variant text-body-dense font-body-dense">
+<span>Ask First</span>
+<span class="font-code-coords text-code-coords text-outline">L1</span>
+</button>
+<button class="w-full text-left px-2 py-1.5 rounded flex items-center justify-between bg-primary-container/15 text-primary-container text-body-dense font-body-dense">
+<span class="font-medium flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                Assist (Co-write)
+              </span>
+<span class="font-code-coords text-code-coords text-primary">Active</span>
+</button>
+<button class="w-full text-left px-2 py-1.5 rounded flex items-center justify-between hover:bg-surface-container-high text-on-surface-variant text-body-dense font-body-dense">
+<span>Full Autonomous Build</span>
+<span class="font-code-coords text-code-coords text-outline">L3</span>
+</button>
+</div>
+</div>
+</nav>
+<div class="h-4 w-[1px] bg-outline-variant/30 mx-1"></div>
+<!-- Spatial Path Breadcrumb -->
+<div class="flex items-center space-x-1.5 text-on-surface-variant font-code-coords text-code-coords">
+<span class="hover:text-on-surface cursor-pointer">project-atlas</span>
+<span class="text-outline">/</span>
+<span class="text-on-surface font-medium flex items-center space-x-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary inline-block"></span>
+<span>architecture-v2.draft</span>
+</span>
+</div>
+</div>
+<!-- Center Section: Command Search Indicator (Floating feel) -->
+<div class="flex items-center justify-center">
+<button class="flex items-center space-x-3 px-3.5 py-1 rounded-lg bg-surface-container-low/90 border border-outline-variant/40 hover:border-primary/50 text-on-surface-variant hover:text-on-surface shadow-inner transition-all w-80 justify-between group">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[15px] text-primary" data-icon="terminal">terminal</span>
+<span class="font-body-dense text-body-dense text-outline group-hover:text-on-surface-variant">Type prompt or canvas action...</span>
+</div>
+<kbd class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/50 font-code-coords text-code-coords text-on-surface-variant">⌘K</kbd>
+</button>
+</div>
+<!-- Right Section: Agent Indicator, Shared Avatars, Actions -->
+<div class="flex items-center space-x-2.5">
+<!-- Live Agent Connection Indicator (JSON trailing_secondary_action: "2 Agents Active") -->
+<div class="group relative flex items-center space-x-1.5 px-2.5 py-1 rounded bg-surface-container-low border border-outline-variant/50 hover:border-tertiary/40 transition-colors cursor-pointer">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary"></span>
+</span>
+<span class="font-badge-status text-badge-status text-tertiary">2 Agents Active</span>
+<!-- Hover detail tooltip -->
+<div class="absolute right-0 top-full mt-2 w-64 p-2 bg-surface-container-low border border-outline-variant/50 rounded-lg shadow-xl backdrop-blur-xl hidden group-hover:block z-50 pointer-events-none">
+<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-1.5 pb-1 border-b border-outline-variant/20">Active Autonomous Processes</div>
+<div class="space-y-1.5">
+<div class="flex items-center justify-between font-code-coords text-code-coords">
+<span class="text-primary-container">Claude-3.7</span>
+<span class="text-outline">writing edge routes</span>
+</div>
+<div class="flex items-center justify-between font-code-coords text-code-coords">
+<span class="text-secondary">Codex-Graph</span>
+<span class="text-outline">indexing nodes (94%)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Icon Actions (tune, history, help) from Shared Components JSON -->
+<div class="flex items-center space-x-0.5 text-on-surface-variant">
+<button class="p-1 rounded hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 active:scale-[0.98]" title="Canvas Tunings">
+<span class="material-symbols-outlined text-[18px]" data-icon="tune">tune</span>
+</button>
+<button class="p-1 rounded hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 active:scale-[0.98]" title="Version History">
+<span class="material-symbols-outlined text-[18px]" data-icon="history">history</span>
+</button>
+<button class="p-1 rounded hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 active:scale-[0.98]" title="Keyboard Shortcuts">
+<span class="material-symbols-outlined text-[18px]" data-icon="help">help</span>
+</button>
+</div>
+<div class="h-4 w-[1px] bg-outline-variant/30"></div>
+<!-- Collaborator Avatars -->
+<div class="flex items-center -space-x-1.5 mr-1">
+<div class="w-6 h-6 rounded-full border border-surface bg-surface-container-high flex items-center justify-center font-code-coords text-[10px] text-secondary" title="Sarah (Systems Lead)">SC</div>
+<div class="w-6 h-6 rounded-full border border-surface bg-surface-container-high flex items-center justify-center font-code-coords text-[10px] text-tertiary" title="Marcus (Agent Ops)">MK</div>
+<div class="w-6 h-6 rounded-full border border-surface bg-primary-container/20 flex items-center justify-center font-code-coords text-[10px] text-primary" title="Agent Hub">⚡</div>
+</div>
+<!-- Share Button (JSON trailing_primary_action: "Share") -->
+<button class="flex items-center space-x-1.5 px-3 py-1 rounded bg-primary-container text-on-primary-container font-medium font-body-dense text-body-dense hover:bg-primary-fixed-dim transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-[15px]" data-icon="share">share</span>
+<span>Share</span>
+</button>
+<!-- User Avatar -->
+<div class="w-6 h-6 rounded bg-surface-container-high border border-outline-variant/60 flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="person">person</span>
+</div>
+</div>
+</header>
+<!-- ================================================================= -->
+<!-- 2. FLOATING PRIMARY TOOL DOCK (Centered Below Header)             -->
+<!-- ================================================================= -->
+<div class="fixed top-14 left-1/2 -translate-x-1/2 z-40 flex items-center p-1 bg-surface-container-lowest/85 backdrop-blur-xl border border-outline-variant/50 rounded-xl shadow-2xl space-x-1">
+<!-- Drawing & Selection Tools -->
+<div class="flex items-center space-x-0.5">
+<!-- Select Tool (Active) -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded bg-primary-container/15 text-primary-container border border-primary-container/40" title="Select (V)">
+<span class="material-symbols-outlined text-[18px]" data-icon="near_me">near_me</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">V</span>
+</button>
+<!-- Rectangle Tool -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Rectangle (R)">
+<span class="material-symbols-outlined text-[18px]" data-icon="crop_square">crop_square</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">R</span>
+</button>
+<!-- Ellipse Tool -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Ellipse (O)">
+<span class="material-symbols-outlined text-[18px]" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">O</span>
+</button>
+<!-- Diamond Tool -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Diamond (D)">
+<span class="material-symbols-outlined text-[18px]" data-icon="change_history">change_history</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">D</span>
+</button>
+<!-- Text Tool -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Text (T)">
+<span class="material-symbols-outlined text-[18px]" data-icon="title">title</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">T</span>
+</button>
+<!-- Arrow Tool -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Arrow (A)">
+<span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">A</span>
+</button>
+<!-- Freehand / Pen -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Pen (P)">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">P</span>
+</button>
+<!-- Eraser -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Eraser (E)">
+<span class="material-symbols-outlined text-[18px]" data-icon="ink_eraser">ink_eraser</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">E</span>
+</button>
+<!-- Media / Image -->
+<button class="relative flex items-center justify-center w-8 h-8 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Image (I)">
+<span class="material-symbols-outlined text-[18px]" data-icon="image">image</span>
+<span class="absolute bottom-0.5 right-1 font-code-coords text-[8px] opacity-70">I</span>
+</button>
+</div>
+<div class="h-5 w-[1px] bg-outline-variant/40 mx-1"></div>
+<!-- Contextual Stroke / Palette Swatches -->
+<div class="flex items-center space-x-1.5 px-1">
+<!-- Stroke Weight Selectors -->
+<div class="flex items-center bg-surface-container-low p-0.5 rounded border border-outline-variant/30 space-x-1">
+<button class="px-1.5 py-0.5 rounded font-code-coords text-[10px] text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high">1px</button>
+<button class="px-1.5 py-0.5 rounded font-code-coords text-[10px] bg-surface-container-high text-primary font-medium">2px</button>
+<button class="px-1.5 py-0.5 rounded font-code-coords text-[10px] text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high">4px</button>
+</div>
+<!-- Stroke Style -->
+<button class="p-1 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Solid Line">
+<span class="material-symbols-outlined text-[17px]" data-icon="horizontal_rule">horizontal_rule</span>
+</button>
+<!-- Color Swatches -->
+<div class="flex items-center space-x-1 pl-1 border-l border-outline-variant/30">
+<button class="w-3.5 h-3.5 rounded-full bg-on-surface border border-outline-variant/50 ring-1 ring-offset-1 ring-offset-surface ring-transparent hover:scale-110 transition-transform" title="White"></button>
+<button class="w-3.5 h-3.5 rounded-full bg-primary-container border border-primary-container/80 ring-2 ring-primary-container ring-offset-1 ring-offset-surface scale-110 transition-transform" title="Electric Cyan"></button>
+<button class="w-3.5 h-3.5 rounded-full bg-outline border border-outline-variant hover:scale-110 transition-transform" title="Slate Gray"></button>
+<button class="w-3.5 h-3.5 rounded-full bg-error border border-error/80 hover:scale-110 transition-transform" title="Warning Amber"></button>
+<button class="w-3.5 h-3.5 rounded-full bg-tertiary border border-tertiary/80 hover:scale-110 transition-transform" title="Agent Emerald"></button>
+</div>
+<!-- Agent Instant Sync Toggle -->
+<div class="pl-1.5 ml-1 border-l border-outline-variant/30">
+<button class="flex items-center space-x-1 px-2 py-0.5 rounded bg-surface-container border border-outline-variant/40 hover:border-tertiary/60 text-tertiary font-code-coords text-[10px]">
+<span class="material-symbols-outlined text-[12px]" data-icon="sync_alt">sync_alt</span>
+<span>Agent-Sync: ON</span>
+</button>
+</div>
+</div>
+</div>
+<!-- ================================================================= -->
+<!-- 3. MAIN INFINITE CANVAS MATRIX & DIAGRAM SCHEMATIC                -->
+<!-- ================================================================= -->
+<main class="relative w-full h-full spatial-grid overflow-hidden cursor-crosshair">
+<!-- Active Selection Marquee Bounds (Grouping two nodes) -->
+<div class="absolute top-[210px] left-[260px] w-[690px] h-[350px] border border-dashed border-primary-container/60 bg-primary-container/[0.03] pointer-events-none rounded-lg z-10">
+<!-- Top marquee info tag -->
+<div class="absolute -top-3 left-3 px-1.5 py-0.5 rounded bg-surface-container-lowest border border-primary-container/50 text-primary-container font-code-coords text-[9px] flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]" data-icon="select_all">select_all</span>
+<span>Multi-Entity Cluster (2 Selected)</span>
+</div>
+</div>
+<!-- =============================================================== -->
+<!-- CANVAS SCHEMATIC NODES & ARROWS (SVG Connectors Layer)          -->
+<!-- =============================================================== -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-0">
+<defs>
+<!-- Arrowhead Marker: Cyan -->
+<marker id="arrow-cyan" markerheight="8" markerwidth="8" orient="auto" refx="6" refy="4">
+<polygon fill="#00d2ff" points="0 1, 8 4, 0 7"></polygon>
+</marker>
+<!-- Arrowhead Marker: Muted Outline -->
+<marker id="arrow-muted" markerheight="8" markerwidth="8" orient="auto" refx="6" refy="4">
+<polygon fill="#859399" points="0 1, 8 4, 0 7"></polygon>
+</marker>
+<!-- Arrowhead Marker: Agent Laser -->
+<marker id="arrow-laser" markerheight="8" markerwidth="8" orient="auto" refx="6" refy="4">
+<polygon fill="#69f6b9" points="0 1, 8 4, 0 7"></polygon>
+</marker>
+</defs>
+<!-- Connection: Node 1 (Client Gateway) to Node 2 (Vector Buffer Cache) -->
+<path d="M 440 340 L 530 340" fill="none" marker-end="url(#arrow-muted)" stroke="#859399" stroke-width="1.5"></path>
+<!-- Connection: Node 2 (Vector Buffer Cache) to Node 3 (Sync Engine) -->
+<path d="M 680 340 L 760 340" fill="none" marker-end="url(#arrow-cyan)" stroke="#00d2ff" stroke-width="2"></path>
+<!-- Agent Dynamic Execution Connection: Node 3 to Node 4 (Agent Coprocessor) -->
+<path class="animate-laser-dash" d="M 850 400 C 850 460, 680 460, 600 470" fill="none" marker-end="url(#arrow-laser)" stroke="#69f6b9" stroke-width="2"></path>
+<!-- Backloop to Gateway -->
+<path d="M 370 480 C 270 480, 270 340, 310 340" fill="none" stroke="#3c494e" stroke-dasharray="4 4" stroke-width="1"></path>
+</svg>
+<!-- NODE 1: Client Gateway (WebSocket) -->
+<div class="absolute top-[280px] left-[300px] w-52 p-3.5 rounded-lg bg-surface-container-low/90 border border-on-surface/80 backdrop-blur-md shadow-lg z-20 transition-transform hover:-translate-y-0.5">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-[15px] text-secondary" data-icon="cable">cable</span>
+<span class="font-code-coords text-code-coords text-on-surface font-medium">Client Gateway</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-surface-container font-code-coords text-[9px] text-outline">WS / :8080</span>
+</div>
+<p class="font-body-dense text-[12px] text-on-surface-variant leading-relaxed">
+        Full-duplex frame demuxing with local broadcast fallback.
+      </p>
+<!-- Snap handles -->
+<div class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-outline hover:border-primary-container transition-colors"></div>
+<div class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-outline hover:border-primary-container transition-colors"></div>
+</div>
+<!-- NODE 2: Vector Buffer Cache (Diamond Decision Node) -->
+<div class="absolute top-[270px] left-[540px] w-36 h-36 flex items-center justify-center z-20 group">
+<!-- Diamond rotated shape -->
+<div class="absolute inset-2 rotate-45 rounded bg-surface-container-low/90 border border-outline-variant/80 group-hover:border-primary transition-colors backdrop-blur-md shadow-md"></div>
+<!-- Diamond content un-rotated -->
+<div class="relative z-10 text-center px-2">
+<span class="material-symbols-outlined text-[16px] text-tertiary block mx-auto mb-0.5" data-icon="alt_route">alt_route</span>
+<div class="font-code-coords text-[11px] font-medium text-on-surface leading-tight">Vector Cache</div>
+<div class="font-label-caps text-[8px] text-outline mt-0.5">LRU / SNAP_8ms</div>
+</div>
+<!-- Connector points -->
+<div class="absolute -left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest border-2 border-outline z-20"></div>
+<div class="absolute -right-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest border-2 border-outline z-20"></div>
+<div class="absolute left-1/2 -bottom-1 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-surface-container-lowest border-2 border-outline z-20"></div>
+</div>
+<!-- NODE 3: PRIMARY SELECTED ACTIVE OBJECT (Canvas Sync Engine) -->
+<!-- Demonstrates Active selection, 8 resize handles, rotation stalk, dimension pill -->
+<div class="absolute top-[260px] left-[770px] w-64 p-4 rounded-xl bg-surface-container-low/95 border-2 border-primary-container shadow-[0_0_24px_rgba(0,210,255,0.22)] z-30">
+<!-- ROTATION STALK & HANDLE -->
+<div class="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center">
+<div class="w-2.5 h-2.5 rounded-full bg-primary-container border border-surface-container-lowest shadow-md cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"></div>
+<div class="w-[1.5px] h-4 bg-primary-container"></div>
+</div>
+<!-- 8 CRISP RESIZE HANDLES -->
+<!-- Top-Left -->
+<div class="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-primary-container border border-surface-container-lowest rounded-[1px] cursor-nwse-resize"></div>
+<!-- Top-Center -->
+<div class="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-primary-container border border-surface-container-lowest rounded-[1px] cursor-ns-resize"></div>
+<!-- Top-Right -->
+<div class="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-primary-container border border-surface-container-lowest rounded-[1px] cursor-nesw-resize"></div>
+<!-- Middle-Right -->
+<div class="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2.5 h-2.5 bg-primary-container border border-surface-container-lowest rounded-[1px] cursor-ew-resize"></div>
+<!-- Bottom-Right -->
+<div class="absolute -bottom-1.5 -right-1.5 w-2.5 h-2.5 bg-primary-container border border-surface-container-lowest rounded-[1px] cursor-nwse-resize"></div>
+<!-- Bottom-Center -->
+<div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-primary-container border border-surface-container-lowest rounded-[1px] cursor-ns-resize"></div>
+<!-- Bottom-Left -->
+<div class="absolute -bottom-1.5 -left-1.5 w-2.5 h-2.5 bg-primary-container border border-surface-container-lowest rounded-[1px] cursor-nesw-resize"></div>
+<!-- Middle-Left -->
+<div class="absolute top-1/2 -left-1.5 -translate-y-1/2 w-2.5 h-2.5 bg-primary-container border border-surface-container-lowest rounded-[1px] cursor-ew-resize"></div>
+<!-- Node Header & Tag -->
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary-container" data-icon="deployed_code">deployed_code</span>
+<span class="font-body-dense font-medium text-on-surface">Canvas Sync Engine</span>
+</div>
+<span class="font-code-coords text-[10px] text-primary-container bg-primary-container/10 px-1.5 py-0.5 rounded border border-primary-container/30">CRDT v4</span>
+</div>
+<p class="font-body-dense text-body-dense text-on-surface-variant leading-snug">
+        Peer-to-peer optimistic state resolution with multi-agent conflict avoidance queue.
+      </p>
+<div class="mt-3 pt-2.5 border-t border-outline-variant/30 flex items-center justify-between text-code-coords font-code-coords text-outline">
+<span>Latency: 1.4ms</span>
+<span class="text-tertiary">Snapping: 8px</span>
+</div>
+<!-- Dimension & Coordinate Pill Tag Attached to Selection -->
+<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 rounded bg-surface-container-lowest border border-primary-container/50 text-primary-container font-code-coords text-[10px] shadow-lg flex items-center space-x-1.5">
+<span>w: 256px</span>
+<span class="text-outline">·</span>
+<span>h: 148px</span>
+<span class="text-outline-variant">|</span>
+<span class="text-on-surface-variant">[x: +770, y: +260]</span>
+</div>
+</div>
+<!-- NODE 4: AI Agent Coprocessor (Agent-Generated Box with Emerald Glow) -->
+<div class="absolute top-[440px] left-[360px] w-64 p-3.5 rounded-lg bg-surface-container-low/90 border border-tertiary/60 shadow-[0_0_20px_rgba(105,246,185,0.18)] z-20">
+<div class="flex items-center justify-between mb-1.5">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-[15px] text-tertiary" data-icon="smart_toy">smart_toy</span>
+<span class="font-code-coords text-code-coords text-on-surface font-semibold">AI Agent Coprocessor</span>
+</div>
+<span class="px-1.5 py-0.5 rounded bg-tertiary/15 text-tertiary font-badge-status text-[9px] border border-tertiary/30">
+          [Agent-Generated 12s ago]
+        </span>
+</div>
+<p class="font-body-dense text-[12px] text-on-surface-variant mb-2">
+        Sub-graph synthesized autonomously via prompt: <span class="text-primary font-code-coords">"Add edge caching pipeline"</span>
+</p>
+<div class="flex items-center justify-between bg-surface-container p-1.5 rounded text-code-coords font-code-coords text-[10px]">
+<span class="text-tertiary">Model: Claude-3.7-Sonnet</span>
+<span class="text-outline">Token: 482</span>
+</div>
+<!-- Inset review approval badge -->
+<div class="mt-2 flex items-center justify-end space-x-1.5">
+<button class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-outline-variant/40 text-on-surface font-code-coords text-[10px]">Diff</button>
+<button class="px-2 py-0.5 rounded bg-tertiary/20 hover:bg-tertiary/30 text-tertiary border border-tertiary/40 font-code-coords text-[10px] font-medium">Accept Node</button>
+</div>
+</div>
+<!-- =============================================================== -->
+<!-- AGENT & HUMAN MULTIPLAYER LIVE CURSORS                          -->
+<!-- =============================================================== -->
+<!-- Cyan Live Agent Cursor (Claude-3.7 actively drawing) -->
+<div class="absolute top-[490px] left-[660px] z-50 pointer-events-none agent-glow">
+<!-- Cursor Pointer Graphic -->
+<svg fill="none" height="20" viewbox="0 0 18 20" width="18">
+<path d="M1 1L6.5 18L10 11.5L17 9.5L1 1Z" fill="#00D2FF" stroke="#0A0A0F" stroke-width="1.5"></path>
+</svg>
+<!-- Agent Execution Pill -->
+<div class="absolute top-4 left-4 whitespace-nowrap px-2 py-1 rounded bg-surface-container-lowest/90 border border-primary-container shadow-xl backdrop-blur-md flex items-center space-x-1.5">
+<span class="text-primary-container text-[11px] font-bold">⚡</span>
+<span class="font-code-coords text-[11px] text-primary font-medium">Claude-3.7</span>
+<span class="font-body-dense text-[11px] text-on-surface-variant">(Refactoring node schema...)</span>
+</div>
+</div>
+<!-- Purple / Secondary Human Collaborator Cursor -->
+<div class="absolute top-[190px] left-[880px] z-50 pointer-events-none">
+<!-- Cursor Pointer Graphic -->
+<svg fill="none" height="20" viewbox="0 0 18 20" width="18">
+<path d="M1 1L6.5 18L10 11.5L17 9.5L1 1Z" fill="#9fcaff" stroke="#0A0A0F" stroke-width="1.5"></path>
+</svg>
+<!-- Pill -->
+<div class="absolute top-4 left-4 whitespace-nowrap px-2 py-0.5 rounded bg-surface-container-lowest/90 border border-secondary/70 shadow-lg backdrop-blur-md flex items-center space-x-1">
+<span class="font-code-coords text-[10px] text-secondary font-medium">Sarah</span>
+<span class="font-body-dense text-[10px] text-outline">(Viewing)</span>
+</div>
+</div>
+</main>
+<!-- ================================================================= -->
+<!-- 4. RIGHT SIDE INSPECTOR & AGENT REASONING HUD                     -->
+<!-- ================================================================= -->
+<aside class="fixed right-5 top-16 w-72 bg-surface-container-lowest/90 backdrop-blur-xl border border-outline-variant/40 rounded-xl shadow-2xl z-40 overflow-hidden flex flex-col">
+<!-- Inspector Header -->
+<div class="flex items-center justify-between px-3 py-2.5 border-b border-outline-variant/30 bg-surface-container-low/50">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary" data-icon="tune">tune</span>
+<span class="font-body-dense text-body-dense font-medium text-on-surface">Inspector: Selection</span>
+</div>
+<span class="font-code-coords text-[10px] text-outline">ID: #node-crdt-3</span>
+</div>
+<div class="p-3 space-y-3.5 overflow-y-auto max-h-[calc(100vh-140px)]">
+<!-- Coordinate Metrics -->
+<div>
+<label class="block font-label-caps text-[9px] uppercase tracking-wider text-outline mb-1.5">Spatial Bounds</label>
+<div class="grid grid-cols-2 gap-1.5 font-code-coords text-code-coords">
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-1.5 text-[10px]">X</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:ring-0 text-code-coords" type="text" value="+770.0"/>
+</div>
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-1.5 text-[10px]">Y</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:ring-0 text-code-coords" type="text" value="+260.0"/>
+</div>
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-1.5 text-[10px]">W</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:ring-0 text-code-coords" type="text" value="256 px"/>
+</div>
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-1.5 text-[10px]">H</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:ring-0 text-code-coords" type="text" value="148 px"/>
+</div>
+</div>
+</div>
+<!-- Agent Activity Stream on Selected Node -->
+<div class="border-t border-outline-variant/30 pt-3">
+<div class="flex items-center justify-between mb-2">
+<label class="font-label-caps text-[9px] uppercase tracking-wider text-outline">Agent Trace Log</label>
+<span class="flex items-center space-x-1 text-tertiary font-code-coords text-[10px]">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+<span>Live Stream</span>
+</span>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/30 rounded-lg p-2.5 font-code-coords text-[11px] space-y-1.5 text-on-surface-variant">
+<div class="flex items-start space-x-1.5">
+<span class="text-tertiary">14:02:18</span>
+<span>Parsing node input ports...</span>
+</div>
+<div class="flex items-start space-x-1.5">
+<span class="text-primary-container">14:02:20</span>
+<span>Auto-generated route validation logic: pass.</span>
+</div>
+<div class="flex items-start space-x-1.5 text-on-surface">
+<span class="text-secondary">14:02:22</span>
+<span>Writing dynamic reverse arrow payload.</span>
+</div>
+</div>
+</div>
+<!-- Quick Agent Direct Command -->
+<div class="border-t border-outline-variant/30 pt-3">
+<label class="block font-label-caps text-[9px] uppercase tracking-wider text-outline mb-1.5">Direct Agent Prompt</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border border-outline-variant/50 rounded px-2.5 py-1.5 text-body-dense font-body-dense text-on-surface placeholder:text-outline/60 focus:border-primary-container focus:ring-0 text-[12px]" placeholder="e.g., 'Make this a pub/sub cluster'..." type="text"/>
+<button class="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded bg-primary-container/20 text-primary-container hover:bg-primary-container/30 transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</div>
+</aside>
+<!-- ================================================================= -->
+<!-- 5. BOTTOM CANVAS HUD & UTILITY CONTROLS                           -->
+<!-- ================================================================= -->
+<!-- Bottom-Left HUD: Spatial Coordinates & Grid Anchors -->
+<div class="fixed bottom-4 left-5 z-40 flex items-center space-x-2 bg-surface-container-lowest/85 backdrop-blur-xl border border-outline-variant/50 rounded-lg px-2.5 py-1.5 shadow-lg">
+<div class="flex items-center space-x-1.5 font-code-coords text-code-coords text-on-surface-variant">
+<span class="text-outline">POS</span>
+<span class="text-on-surface font-medium">X: +1,420</span>
+<span class="text-outline">/</span>
+<span class="text-on-surface font-medium">Y: -860</span>
+</div>
+<div class="h-3 w-[1px] bg-outline-variant/40 mx-0.5"></div>
+<!-- Snap to grid toggle -->
+<button class="flex items-center space-x-1 px-1.5 py-0.5 rounded bg-surface-container-high text-primary font-code-coords text-[10px]" title="Grid Snap Active (G)">
+<span class="material-symbols-outlined text-[13px]" data-icon="grid_4x4">grid_4x4</span>
+<span>Snap: 8px</span>
+</button>
+<!-- Pan Lock Toggle -->
+<button class="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface" title="Pan Lock (Space)">
+<span class="material-symbols-outlined text-[14px]" data-icon="lock_open">lock_open</span>
+</button>
+</div>
+<!-- Bottom-Center HUD: Canvas Action Keymap Dock -->
+<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center space-x-1 bg-surface-container-lowest/85 backdrop-blur-xl border border-outline-variant/50 rounded-lg px-2 py-1 shadow-xl">
+<!-- Undo -->
+<button class="flex items-center space-x-1 px-2 py-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-body-dense font-body-dense" title="Undo">
+<span class="material-symbols-outlined text-[15px]" data-icon="undo">undo</span>
+<span class="font-code-coords text-[10px] text-outline">⌘Z</span>
+</button>
+<!-- Redo -->
+<button class="flex items-center space-x-1 px-2 py-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-body-dense font-body-dense" title="Redo">
+<span class="material-symbols-outlined text-[15px]" data-icon="redo">redo</span>
+<span class="font-code-coords text-[10px] text-outline">⇧⌘Z</span>
+</button>
+<div class="h-3.5 w-[1px] bg-outline-variant/30 mx-1"></div>
+<!-- Group -->
+<button class="flex items-center space-x-1 px-2 py-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-body-dense font-body-dense" title="Group Selection">
+<span class="material-symbols-outlined text-[15px]" data-icon="workspaces">workspaces</span>
+<span class="font-code-coords text-[10px] text-outline">⌘G</span>
+</button>
+<!-- Ungroup -->
+<button class="flex items-center space-x-1 px-2 py-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-body-dense font-body-dense" title="Ungroup">
+<span class="material-symbols-outlined text-[15px]" data-icon="splitscreen">splitscreen</span>
+<span class="font-code-coords text-[10px] text-outline">⇧⌘G</span>
+</button>
+<div class="h-3.5 w-[1px] bg-outline-variant/30 mx-1"></div>
+<!-- Delete -->
+<button class="flex items-center space-x-1 px-2 py-1 rounded hover:bg-error/20 text-on-surface-variant hover:text-error text-body-dense font-body-dense" title="Delete Selection">
+<span class="material-symbols-outlined text-[15px]" data-icon="delete">delete</span>
+<span class="font-code-coords text-[10px] text-outline">Del</span>
+</button>
+</div>
+<!-- Bottom-Right HUD: Zoom Controls & Interactive Mini-Map -->
+<div class="fixed bottom-4 right-5 z-40 flex items-center space-x-2">
+<!-- Zoom Stepper Controls -->
+<div class="flex items-center space-x-1 bg-surface-container-lowest/85 backdrop-blur-xl border border-outline-variant/50 rounded-lg px-2 py-1 shadow-lg">
+<button class="w-6 h-6 rounded flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Zoom Out (-)">
+<span class="material-symbols-outlined text-[16px]" data-icon="remove">remove</span>
+</button>
+<span class="font-code-coords text-code-coords text-on-surface px-1 min-w-[48px] text-center font-medium">100%</span>
+<button class="w-6 h-6 rounded flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Zoom In (+)">
+<span class="material-symbols-outlined text-[16px]" data-icon="add">add</span>
+</button>
+<div class="h-3 w-[1px] bg-outline-variant/30 mx-0.5"></div>
+<!-- Fit to Selection -->
+<button class="px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-code-coords text-[10px]" title="Fit View to Selection">
+<span>⇧1</span>
+</button>
+</div>
+<!-- Mini-Map Toggle & Floating Canvas Radar Preview -->
+<div class="relative group">
+<button class="w-9 h-9 rounded-lg bg-surface-container-lowest/90 backdrop-blur-xl border border-outline-variant/50 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:border-primary/50 shadow-lg transition-all" title="Toggle Mini-map (M)">
+<span class="material-symbols-outlined text-[18px]" data-icon="map">map</span>
+</button>
+<!-- Mini-map radar popup preview -->
+<div class="absolute bottom-full right-0 mb-2 w-44 h-28 bg-surface-container-lowest border border-outline-variant/60 rounded-lg shadow-2xl p-1.5 hidden group-hover:block backdrop-blur-xl">
+<div class="w-full h-full bg-surface-container-low/70 rounded relative overflow-hidden border border-outline-variant/30">
+<!-- Mini diagram dots representing nodes -->
+<div class="absolute top-6 left-6 w-3 h-2 bg-secondary/60 rounded-[1px]"></div>
+<div class="absolute top-6 left-12 w-2 h-2 rotate-45 bg-outline/60"></div>
+<div class="absolute top-5 left-18 w-4 h-3 bg-primary-container rounded-[1px] border border-primary"></div>
+<div class="absolute top-12 left-8 w-4 h-3 bg-tertiary/60 rounded-[1px]"></div>
+<!-- Viewport Indicator Frustum Box -->
+<div class="absolute top-3 left-4 w-24 h-14 border border-primary-container/80 bg-primary-container/10 rounded-[1px]"></div>
+<!-- Monospace coordinates tag -->
+<div class="absolute bottom-1 right-1 font-code-coords text-[8px] text-outline">100% · 4 nodes</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

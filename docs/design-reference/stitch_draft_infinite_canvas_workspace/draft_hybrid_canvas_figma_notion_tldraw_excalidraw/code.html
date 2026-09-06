@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DRAFT — Spatial Autonomous Infinite Canvas</title>
+<!-- Material Symbols & Google Fonts (Geist, JetBrains Mono, Kalam for Excalidraw-like feel) -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Kalam:wght@300;400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-container-lowest": "#09090d",
+            "background": "#0c0c12",
+            "surface": "#12121a",
+            "surface-container-low": "#171722",
+            "surface-container": "#1d1d2b",
+            "surface-container-high": "#262638",
+            "surface-container-highest": "#323247",
+            "outline": "#7e889b",
+            "outline-variant": "#2f3142",
+            "on-surface": "#e4e5f0",
+            "on-surface-variant": "#9ca3b8",
+            "primary": "#47d6ff",
+            "primary-container": "#00b2dc",
+            "on-primary-container": "#002833",
+            "secondary": "#a78bfa",
+            "tertiary": "#4edea3",
+            "tertiary-container": "#10b981",
+            "amber-sticky": "#fef08a",
+            "mint-sticky": "#bbf7d0",
+            "coral-sticky": "#fed7aa"
+          },
+          fontFamily: {
+            "sans": ["Geist", "-apple-system", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"],
+            "hand": ["Kalam", "cursive"]
+          },
+          boxShadow: {
+            "canvas-card": "0 8px 32px -4px rgba(0, 0, 0, 0.5), 0 2px 8px -2px rgba(0, 0, 0, 0.4)",
+            "figma-select": "0 0 0 1.5px #00b2dc, 0 8px 24px -4px rgba(0, 178, 220, 0.25)",
+            "agent-pulse": "0 0 24px -2px rgba(78, 222, 163, 0.4)"
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    /* Precision spatial grid inspired by Figma & tldraw */
+    .spatial-grid {
+      background-color: #0c0c12;
+      background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+      background-size: 20px 20px;
+      background-position: 0 0;
+    }
+
+    /* Sketch / organic wiggle filter for hand-drawn sticky items */
+    .rough-border {
+      border-radius: 4px 18px 6px 14px/14px 6px 16px 4px;
+    }
+
+    /* Pulsing glow animation for autonomous agent activity */
+    @keyframes agentGlow {
+      0%, 100% { opacity: 0.9; filter: drop-shadow(0 0 8px rgba(78, 222, 163, 0.5)); }
+      50% { opacity: 0.6; filter: drop-shadow(0 0 18px rgba(78, 222, 163, 0.8)); }
+    }
+    .agent-active-glow {
+      animation: agentGlow 2.4s ease-in-out infinite;
+    }
+
+    @keyframes laserDash {
+      to { stroke-dashoffset: -28; }
+    }
+    .laser-line {
+      stroke-dasharray: 6 5;
+      animation: laserDash 1.4s linear infinite;
+    }
+
+    /* Clean custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2f3142; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4e68; }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-sans overflow-hidden select-none h-screen w-screen antialiased flex flex-col">
+<!-- ================================================================= -->
+<!-- 1. TOP GLOBAL APP HEADER (Figma + Notion + DRAFT Agent Mode)       -->
+<!-- ================================================================= -->
+<header class="h-11 border-b border-outline-variant/60 bg-surface-container-lowest/90 backdrop-blur-md px-3 flex items-center justify-between z-40 relative flex-shrink-0">
+<!-- Left: Brand, Sidebar Toggle, Workspace & Breadcrumbs -->
+<div class="flex items-center space-x-2.5">
+<!-- Main Menu Trigger -->
+<button class="w-7 h-7 rounded flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="Workspace Menu">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+<!-- App Logo -->
+<div class="flex items-center gap-1.5 pr-2 border-r border-outline-variant/40">
+<div class="w-5 h-5 rounded bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-mono font-bold text-background text-[11px]">D</div>
+<span class="font-semibold text-sm tracking-tight text-on-surface">DRAFT</span>
+<span class="text-[10px] font-mono text-primary bg-primary/10 px-1 py-0.2 rounded border border-primary/20">v2.4</span>
+</div>
+<!-- Notion-style Breadcrumb / Page Title -->
+<div class="flex items-center space-x-1.5 text-xs text-on-surface-variant">
+<span class="hover:text-on-surface cursor-pointer flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">space_dashboard</span> Core Infrastructure
+        </span>
+<span class="text-outline-variant">/</span>
+<span class="hover:text-on-surface cursor-pointer">Spec-2025</span>
+<span class="text-outline-variant">/</span>
+<div class="flex items-center gap-1.5 font-medium text-on-surface bg-surface-container-low px-2 py-0.5 rounded border border-outline-variant/40">
+<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+<span>distributed-sync-v3.draft</span>
+</div>
+</div>
+</div>
+<!-- Center: Agent Mode Selector & Command Palette -->
+<div class="flex items-center space-x-3">
+<!-- Agent Mode Switcher (Co-Pilot / Autonomous / Ask) -->
+<div class="flex items-center bg-surface-container-low p-0.5 rounded-lg border border-outline-variant/50 text-[11px] font-medium shadow-inner">
+<button class="px-2 py-1 rounded text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1">
+<span>Manual</span>
+</button>
+<button class="px-2.5 py-1 rounded bg-primary-container text-on-primary-container font-semibold shadow flex items-center gap-1">
+<span class="text-[12px]">⚡</span>
+<span>Co-Pilot</span>
+</button>
+<button class="px-2 py-1 rounded text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span>Autonomous</span>
+</button>
+</div>
+<!-- Command Quick Search -->
+<button class="flex items-center gap-2 bg-surface-container-low/80 hover:bg-surface-container border border-outline-variant/40 hover:border-outline px-2.5 py-1 rounded-lg text-xs text-on-surface-variant transition-all w-52 justify-between">
+<span class="flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+<span class="text-[11px]">Commands or prompt...</span>
+</span>
+<kbd class="font-mono text-[9px] bg-surface-container px-1 py-0.5 rounded border border-outline-variant/60 text-outline">⌘K</kbd>
+</button>
+</div>
+<!-- Right: Active Multi-Agents, Multiplayer Avatars, Zoom, Share -->
+<div class="flex items-center space-x-2.5">
+<!-- Active Agents Badge -->
+<div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-surface-container border border-tertiary/30 text-tertiary text-[11px] font-mono">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary"></span>
+</span>
+<span>2 Agents Active</span>
+<span class="text-on-surface-variant text-[10px] pl-1 border-l border-outline-variant/50">⚡Claude · 🤖GPT-4o</span>
+</div>
+<div class="h-4 w-[1px] bg-outline-variant/40"></div>
+<!-- Figma-Style Multiplayer Avatars -->
+<div class="flex items-center -space-x-1.5">
+<div class="w-6 h-6 rounded-full bg-secondary/30 text-secondary border border-surface text-[10px] font-mono font-medium flex items-center justify-center ring-1 ring-secondary/50" title="Sarah (UX Lead)">
+          S
+        </div>
+<div class="w-6 h-6 rounded-full bg-emerald-500/30 text-emerald-300 border border-surface text-[10px] font-mono font-medium flex items-center justify-center ring-1 ring-emerald-500/50" title="Alex (Dev)">
+          A
+        </div>
+<div class="w-6 h-6 rounded-full bg-primary/30 text-primary border border-surface text-[10px] font-mono font-medium flex items-center justify-center ring-1 ring-primary/60" title="AI Agent Engine">
+          ⚡
+        </div>
+</div>
+<!-- Share Button -->
+<button class="flex items-center gap-1.5 bg-primary hover:bg-primary-container text-on-primary-container font-medium text-xs px-2.5 py-1 rounded-md transition-colors shadow-sm">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8m-4-6-4-4-4 4m4-4v13" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span>Share</span>
+</button>
+</div>
+</header>
+<!-- ================================================================= -->
+<!-- MAIN WORKSPACE VIEWPORT (Left Nav + Infinite Canvas + Right HUD)  -->
+<!-- ================================================================= -->
+<div class="flex-1 flex relative overflow-hidden">
+<!-- 2. LEFT SIDEBAR (Figma Layers + Notion Spaces & Pages Hybrid) -->
+<aside class="w-60 bg-surface-container-lowest border-r border-outline-variant/40 flex flex-col z-30 flex-shrink-0">
+<!-- Tabs: Layers vs Pages -->
+<div class="flex items-center border-b border-outline-variant/40 px-2 pt-1 text-xs">
+<button class="px-2.5 py-1.5 font-medium text-on-surface border-b-2 border-primary -mb-[1px] flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span>Layers</span>
+</button>
+<button class="px-2.5 py-1.5 text-on-surface-variant hover:text-on-surface flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M4 4v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6a2 2 0 0 0-2 2z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span>Docs &amp; Pages</span>
+</button>
+</div>
+<!-- Search Filter in Layers -->
+<div class="p-2">
+<div class="relative">
+<input class="w-full bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1 pl-6 text-[11px] text-on-surface placeholder:text-outline focus:outline-none focus:border-primary/60 font-mono" placeholder="Filter layers..." type="text"/>
+<svg class="w-3 h-3 text-outline absolute left-2 top-2" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+</div>
+</div>
+<!-- Tree Items -->
+<div class="flex-1 overflow-y-auto px-1.5 space-y-0.5 text-xs text-on-surface-variant font-mono">
+<!-- Frame 1 -->
+<div class="group flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface-container cursor-pointer">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[13px] text-outline">expand_more</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">crop_free</span>
+<span class="text-on-surface font-sans text-xs truncate">Main Flow Architecture</span>
+</div>
+<span class="text-[10px] text-outline group-hover:block hidden">#F1</span>
+</div>
+<!-- Nested Elements -->
+<div class="pl-4 space-y-0.5">
+<div class="flex items-center justify-between px-1.5 py-1 rounded bg-primary/10 text-primary cursor-pointer border border-primary/20">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[14px]">layers</span>
+<span class="font-sans text-xs truncate font-medium">Canvas Sync Engine</span>
+</div>
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[14px] text-tertiary">smart_toy</span>
+<span class="font-sans text-xs truncate">AI Coprocessor Node</span>
+</div>
+<span class="text-[9px] text-tertiary bg-tertiary/10 px-1 rounded">Agent</span>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[14px] text-amber-300">sticky_note_2</span>
+<span class="font-sans text-xs truncate">Sticky: Perf Bottlenecks</span>
+</div>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[14px] text-primary">description</span>
+<span class="font-sans text-xs truncate">Doc: CRDT v4 Specs</span>
+</div>
+<span class="text-[9px] text-outline">Notion</span>
+</div>
+</div>
+<!-- Notion Pages Hierarchy Section -->
+<div class="pt-3 pb-1 px-1.5 flex items-center justify-between text-[10px] uppercase tracking-wider text-outline font-sans font-semibold">
+<span>Connected Notion DBs</span>
+<button class="hover:text-on-surface">+</button>
+</div>
+<div class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
+<span class="text-xs">📑</span>
+<span class="font-sans text-xs truncate">System RFC &amp; PRDs</span>
+</div>
+<div class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
+<span class="text-xs">⚡</span>
+<span class="font-sans text-xs truncate">Agent Sprint Backlog</span>
+</div>
+</div>
+<!-- Bottom Workspace Footer -->
+<div class="p-2 border-t border-outline-variant/40 flex items-center justify-between text-xs text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="text-[11px]">Syncing to Git</span>
+</div>
+<button class="p-1 hover:text-on-surface"><span class="material-symbols-outlined text-[15px]">settings</span></button>
+</div>
+</aside>
+<!-- =============================================================== -->
+<!-- 3. MAIN INFINITE CANVAS MATRIX & DIAGRAM SCHEMATICS             -->
+<!-- =============================================================== -->
+<main class="flex-1 relative spatial-grid overflow-hidden cursor-crosshair">
+<!-- CANVAS SVG CONNECTORS & ORGANIC PATHS LAYER -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-0">
+<defs>
+<marker id="arrow-cyan" markerheight="8" markerwidth="8" orient="auto" refx="6" refy="4">
+<path d="M1,1 L7,4 L1,7 Z" fill="#00b2dc"></path>
+</marker>
+<marker id="arrow-agent" markerheight="8" markerwidth="8" orient="auto" refx="6" refy="4">
+<path d="M1,1 L7,4 L1,7 Z" fill="#4edea3"></path>
+</marker>
+<marker id="arrow-sketch" markerheight="8" markerwidth="8" orient="auto" refx="6" refy="4">
+<path d="M1,2 L6,4 L1,6" fill="none" stroke="#fef08a" stroke-linecap="round" stroke-width="1.8"></path>
+</marker>
+</defs>
+<!-- Precision Connection: Gateway to Vector Cache -->
+<path d="M 285 240 L 380 240" fill="none" marker-end="url(#arrow-cyan)" stroke="#00b2dc" stroke-width="1.5"></path>
+<!-- Smooth Curved Connection: Vector Cache to Canvas Sync Engine -->
+<path d="M 480 240 C 530 240, 540 240, 580 240" fill="none" marker-end="url(#arrow-cyan)" stroke="#00b2dc" stroke-width="2"></path>
+<!-- Organic Excalidraw-Style Hand-Drawn Arrow from Yellow Sticky to Sync Node -->
+<path d="M 420 140 C 490 125, 540 160, 600 185" fill="none" marker-end="url(#arrow-sketch)" stroke="#fef08a" stroke-dasharray="2 3" stroke-width="2"></path>
+<!-- Agent Autonomous Pulsing Laser Stream connecting Node 3 to AI Coprocessor -->
+<path class="laser-line" d="M 700 375 C 700 450, 580 430, 480 445" fill="none" marker-end="url(#arrow-agent)" stroke="#4edea3" stroke-width="2"></path>
+<!-- Agent Ghost Branch (Diff generating live) -->
+<path d="M 850 250 C 920 250, 930 330, 950 350" fill="none" marker-end="url(#arrow-agent)" stroke="#4edea3" stroke-dasharray="5 5" stroke-width="1.5"></path>
+</svg>
+<!-- ============================================================= -->
+<!-- CANVAS CONTENT: EXCALIDRAW STICKY NOTES                       -->
+<!-- ============================================================= -->
+<!-- Sticky 1: Yellow Hand-drawn note (Excalidraw style with slight tilt) -->
+<div class="absolute top-[80px] left-[260px] w-48 p-3 bg-amber-sticky text-zinc-900 shadow-xl rough-border -rotate-2 z-10 transition-transform hover:rotate-0 hover:scale-105 cursor-move">
+<div class="flex items-center justify-between pb-1 border-b border-amber-300/80 mb-1.5">
+<span class="font-hand font-bold text-xs flex items-center gap-1">
+<span>📌</span> Architecture Note
+          </span>
+<span class="text-[10px] font-mono text-zinc-600">Alex</span>
+</div>
+<p class="font-hand text-sm font-medium leading-tight">
+          Verify memory footprint on WebSocket frame burst (&gt;10k peers)! CRDT delta compression needed here.
+        </p>
+<div class="mt-2 text-right">
+<span class="font-hand text-[11px] bg-amber-200/80 px-1.5 py-0.5 rounded text-zinc-800">#critical</span>
+</div>
+</div>
+<!-- Sticky 2: Mint Green Sticky Note (Agent Idea Card) -->
+<div class="absolute top-[90px] left-[780px] w-52 p-3 bg-mint-sticky text-emerald-950 shadow-xl rough-border rotate-1 z-10 transition-transform hover:rotate-0 hover:scale-105 cursor-move">
+<div class="flex items-center justify-between pb-1 border-b border-emerald-300/80 mb-1.5">
+<span class="font-hand font-bold text-xs flex items-center gap-1">
+<span>⚡</span> Claude AI Suggestion
+          </span>
+<span class="text-[10px] font-mono text-emerald-800 font-semibold">Autonomous</span>
+</div>
+<p class="font-hand text-sm font-medium leading-tight">
+          Can shard the vector buffer across Worker threads. Reduces main thread latency by ~42%.
+        </p>
+<div class="mt-2 flex items-center justify-between">
+<span class="font-hand text-[11px] text-emerald-800">Ready to synthesize</span>
+<button class="px-1.5 py-0.5 rounded bg-emerald-800 text-mint-sticky text-[10px] font-mono font-medium hover:bg-emerald-900">Run</button>
+</div>
+</div>
+<!-- ============================================================= -->
+<!-- CANVAS CONTENT: PRECISION DIAGRAM NODES                       -->
+<!-- ============================================================= -->
+<!-- Node 1: Client Gateway -->
+<div class="absolute top-[200px] left-[130px] w-40 p-3 rounded-lg bg-surface-container/90 border border-outline-variant/80 backdrop-blur-md shadow-canvas-card z-10 hover:border-primary/70 transition-all">
+<div class="flex items-center justify-between mb-1.5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-primary">router</span>
+<span class="text-xs font-semibold text-on-surface">Client Gateway</span>
+</div>
+<span class="text-[9px] font-mono bg-surface-container-high px-1 py-0.5 rounded text-outline">WS</span>
+</div>
+<p class="text-[11px] text-on-surface-variant font-mono">Port :8080 · Frame Demux</p>
+<div class="mt-2 flex items-center justify-between text-[10px] text-outline font-mono pt-1.5 border-t border-outline-variant/30">
+<span>Local Fallback</span>
+<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+</div>
+</div>
+<!-- Node 2: Vector Cache (Rhombus / Diamond decision node) -->
+<div class="absolute top-[190px] left-[380px] w-28 h-28 flex items-center justify-center z-10 group cursor-pointer">
+<div class="absolute inset-1 rotate-45 rounded bg-surface-container/90 border border-outline-variant group-hover:border-primary backdrop-blur-md shadow-canvas-card transition-all"></div>
+<div class="relative z-10 text-center px-2">
+<span class="material-symbols-outlined text-[16px] text-secondary block mx-auto mb-0.5">alt_route</span>
+<span class="text-[11px] font-mono font-semibold text-on-surface block leading-tight">Vector Cache</span>
+<span class="text-[9px] font-mono text-outline">LRU / 8ms</span>
+</div>
+</div>
+<!-- ============================================================= -->
+<!-- NODE 3: FIGMA-STYLE ACTIVE SELECTION WITH PRECISE HANDLES     -->
+<!-- AND FLOATING CONTEXTUAL MICRO-TOOLBAR                          -->
+<!-- ============================================================= -->
+<div class="absolute top-[180px] left-[580px] w-72 rounded-xl bg-surface-container-low/95 border-2 border-primary shadow-figma-select z-20">
+<!-- FIGMA FLOATING MICRO-TOOLBAR DIRECTLY ABOVE NODE -->
+<div class="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-surface-container-lowest/95 border border-outline-variant px-2 py-1 rounded-lg shadow-2xl backdrop-blur-md whitespace-nowrap z-30">
+<button class="p-1 hover:bg-surface-container rounded text-on-surface-variant hover:text-on-surface" title="Fill Color">
+<div class="w-3.5 h-3.5 rounded bg-surface-container-high border border-primary"></div>
+</button>
+<button class="p-1 hover:bg-surface-container rounded text-on-surface-variant hover:text-on-surface" title="Stroke Options">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M5 12h14"></path></svg>
+</button>
+<div class="h-3 w-[1px] bg-outline-variant/50"></div>
+<button class="px-1.5 py-0.5 rounded hover:bg-surface-container text-xs font-mono text-on-surface-variant hover:text-on-surface" title="Auto Layout">
+            Auto-Layout
+          </button>
+<div class="h-3 w-[1px] bg-outline-variant/50"></div>
+<!-- Agent Prompt Spark Trigger -->
+<button class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/15 text-primary text-xs font-mono hover:bg-primary/25 transition-colors">
+<span>✨</span>
+<span>Refactor</span>
+</button>
+</div>
+<!-- 8 FIGMA PRECISION RESIZE HANDLES -->
+<div class="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-background border-2 border-primary rounded-[1px] cursor-nwse-resize"></div>
+<div class="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-background border-2 border-primary rounded-[1px] cursor-ns-resize"></div>
+<div class="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-background border-2 border-primary rounded-[1px] cursor-nesw-resize"></div>
+<div class="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2.5 h-2.5 bg-background border-2 border-primary rounded-[1px] cursor-ew-resize"></div>
+<div class="absolute -bottom-1.5 -right-1.5 w-2.5 h-2.5 bg-background border-2 border-primary rounded-[1px] cursor-nwse-resize"></div>
+<div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-background border-2 border-primary rounded-[1px] cursor-ns-resize"></div>
+<div class="absolute -bottom-1.5 -left-1.5 w-2.5 h-2.5 bg-background border-2 border-primary rounded-[1px] cursor-nesw-resize"></div>
+<div class="absolute top-1/2 -left-1.5 -translate-y-1/2 w-2.5 h-2.5 bg-background border-2 border-primary rounded-[1px] cursor-ew-resize"></div>
+<!-- Figma Corner Radius Drag Control Inside Node -->
+<div class="absolute top-2 right-2 w-2 h-2 rounded-full border border-primary/70 cursor-pointer hover:scale-125 transition-transform" title="Corner Radius"></div>
+<!-- Node Content -->
+<div class="p-3.5">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">hub</span>
+<span class="text-xs font-bold text-on-surface">Canvas Sync Engine</span>
+</div>
+<span class="text-[10px] font-mono text-primary bg-primary/10 border border-primary/30 px-1.5 py-0.5 rounded font-medium">CRDT v4</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+            Optimistic peer state resolution with multi-agent conflict avoidance queue.
+          </p>
+<div class="mt-3 pt-2 border-t border-outline-variant/30 flex items-center justify-between text-[10px] font-mono text-outline">
+<span class="text-tertiary">Latency: 1.2ms</span>
+<span>Snap: 8px grid</span>
+</div>
+</div>
+<!-- Figma Dimensions / Coordinates Indicator -->
+<div class="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-primary text-background font-mono text-[10px] font-semibold tracking-wide whitespace-nowrap shadow-md">
+          W: 288  H: 140 · X: 580, Y: 180
+        </div>
+</div>
+<!-- ============================================================= -->
+<!-- CANVAS CONTENT: NOTION-STYLE RICH DOC CARD                    -->
+<!-- ============================================================= -->
+<div class="absolute top-[370px] left-[70px] w-80 p-4 rounded-xl bg-surface-container-low border border-outline-variant/60 shadow-canvas-card z-10 transition-all hover:border-outline">
+<!-- Notion Card Header with Icon & Breadcrumb -->
+<div class="flex items-center justify-between text-xs text-on-surface-variant pb-2 border-b border-outline-variant/30 mb-2.5">
+<div class="flex items-center gap-1.5">
+<span class="text-base">📑</span>
+<span class="font-semibold text-on-surface text-xs">CRDT Implementation Spec</span>
+</div>
+<span class="text-[10px] font-mono bg-surface-container px-1.5 py-0.5 rounded text-outline">Notion Doc</span>
+</div>
+<!-- Notion Blocks: Callout Box -->
+<div class="p-2 rounded bg-surface-container/70 border-l-2 border-primary flex items-start gap-2 mb-2.5 text-xs text-on-surface">
+<span class="text-sm">💡</span>
+<p class="text-[11px] text-on-surface-variant leading-snug">
+            Each canvas transaction must serialize via Yjs binary update before broadcast.
+          </p>
+</div>
+<!-- Notion Checklist -->
+<div class="space-y-1.5 mb-2.5 text-xs">
+<div class="flex items-center gap-2 text-on-surface">
+<div class="w-3.5 h-3.5 rounded border border-tertiary bg-tertiary/20 flex items-center justify-center text-tertiary text-[10px]">✓</div>
+<span class="line-through text-outline text-[11px]">Define wire binary codec</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface">
+<div class="w-3.5 h-3.5 rounded border border-outline-variant bg-surface-container"></div>
+<span class="text-[11px] text-on-surface">Multi-cursor broadcast throttling</span>
+</div>
+</div>
+<!-- Notion Slash Command Menu Simulation Overlay -->
+<div class="mt-2 pt-2 border-t border-outline-variant/30">
+<div class="flex items-center gap-1.5 text-xs text-outline font-mono bg-surface-container px-2 py-1 rounded border border-outline-variant/50">
+<span class="text-primary font-bold">/</span>
+<span class="text-[11px]">Type '/' for commands or ask AI...</span>
+</div>
+</div>
+</div>
+<!-- ============================================================= -->
+<!-- CANVAS CONTENT: AUTONOMOUS AGENT GHOST / DIFF PREVIEW         -->
+<!-- ============================================================= -->
+<!-- Node 4: AI Agent Coprocessor (Completed Autonomous Node) -->
+<div class="absolute top-[420px] left-[420px] w-64 p-3.5 rounded-lg bg-surface-container-low border border-tertiary/60 agent-active-glow z-10">
+<div class="flex items-center justify-between mb-1.5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-tertiary">smart_toy</span>
+<span class="text-xs font-mono font-bold text-tertiary">AI Edge Pipeline</span>
+</div>
+<span class="px-1.5 py-0.5 rounded bg-tertiary/15 text-tertiary font-mono text-[9px] border border-tertiary/30">
+            Synthesized
+          </span>
+</div>
+<p class="text-[11px] text-on-surface-variant font-mono mb-2">
+          Sub-graph generated via prompt: <span class="text-primary">"Add edge caching"</span>
+</p>
+<div class="flex items-center justify-between text-[10px] font-mono text-outline pt-1.5 border-t border-outline-variant/30">
+<span>Latency: 0.4ms</span>
+<span class="text-tertiary font-medium">100% Valid</span>
+</div>
+</div>
+<!-- Node 5: Real-time Live Ghost Diff (Agent actively generating flowchart branch) -->
+<div class="absolute top-[330px] left-[800px] w-64 p-3.5 rounded-xl border-2 border-dashed border-tertiary/70 bg-tertiary/5 backdrop-blur-sm z-20">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5">
+<span class="text-xs">⚡</span>
+<span class="text-xs font-mono font-semibold text-tertiary">Live Agent Generation</span>
+</div>
+<span class="flex h-2 w-2 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary"></span>
+</span>
+</div>
+<p class="text-xs text-on-surface font-mono leading-relaxed mb-3">
+          + WorkerThreadRouter<br/>
+<span class="text-outline text-[11px]">+ Dispatch queue with auto-retry</span>
+</p>
+<!-- Floating Accept / Reject Decision Pill -->
+<div class="flex items-center justify-end gap-1.5 pt-2 border-t border-tertiary/30">
+<button class="px-2 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface text-[10px] font-mono transition-colors">
+            Reject (N)
+          </button>
+<button class="px-2.5 py-0.5 rounded bg-tertiary hover:bg-tertiary-container text-background text-[10px] font-mono font-bold shadow-md transition-colors flex items-center gap-1">
+<span>Accept (Y)</span>
+<span class="text-[9px]">⏎</span>
+</button>
+</div>
+</div>
+<!-- ============================================================= -->
+<!-- MULTIPLAYER CURSORS (Figma Style named live cursors)          -->
+<!-- ============================================================= -->
+<!-- Cursor 1: Sarah (UX) -->
+<div class="absolute top-[160px] left-[720px] pointer-events-none z-30">
+<svg class="w-4 h-4 text-secondary drop-shadow" fill="currentColor" viewbox="0 0 24 24">
+<path d="M4 2l16 11-7.5 1.5L9 22z"></path>
+</svg>
+<div class="mt-0.5 ml-3 px-1.5 py-0.5 rounded bg-secondary text-background font-mono text-[10px] font-semibold whitespace-nowrap shadow-lg">
+          Sarah (UX)
+        </div>
+</div>
+<!-- Cursor 2: Autonomous Agent Cursor (⚡ Claude Sonnet 3.7) -->
+<div class="absolute top-[370px] left-[760px] pointer-events-none z-30 agent-active-glow">
+<svg class="w-4 h-4 text-tertiary drop-shadow" fill="currentColor" viewbox="0 0 24 24">
+<path d="M4 2l16 11-7.5 1.5L9 22z"></path>
+</svg>
+<div class="mt-0.5 ml-3 flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container-lowest border border-tertiary text-tertiary font-mono text-[10px] font-medium shadow-2xl backdrop-blur-md whitespace-nowrap">
+<span>⚡ Claude 3.7</span>
+<span class="text-outline text-[9px]">[Generating branch...]</span>
+</div>
+</div>
+</main>
+<!-- =============================================================== -->
+<!-- 4. RIGHT SIDE INSPECTOR PANEL (Figma Design Tabs & Properties)  -->
+<!-- =============================================================== -->
+<aside class="w-68 bg-surface-container-lowest border-l border-outline-variant/40 flex flex-col z-30 flex-shrink-0">
+<!-- Tabs: Design / Prototype / Agent Diff -->
+<div class="flex items-center border-b border-outline-variant/40 text-xs">
+<button class="flex-1 py-2 font-medium text-on-surface border-b-2 border-primary -mb-[1px] text-center">
+          Design
+        </button>
+<button class="flex-1 py-2 text-on-surface-variant hover:text-on-surface text-center">
+          Prototype
+        </button>
+<button class="flex-1 py-2 text-tertiary hover:text-tertiary-container text-center flex items-center justify-center gap-1">
+<span>Agent</span>
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto p-3 space-y-4 text-xs">
+<!-- Figma Alignment Bar -->
+<div class="flex items-center justify-between bg-surface-container-low p-1 rounded-md border border-outline-variant/40 text-on-surface-variant">
+<button class="p-1 hover:bg-surface-container rounded hover:text-on-surface" title="Align Left"><span class="material-symbols-outlined text-[15px]">align_horizontal_left</span></button>
+<button class="p-1 hover:bg-surface-container rounded hover:text-on-surface" title="Align Center"><span class="material-symbols-outlined text-[15px]">align_horizontal_center</span></button>
+<button class="p-1 hover:bg-surface-container rounded hover:text-on-surface" title="Align Right"><span class="material-symbols-outlined text-[15px]">align_horizontal_right</span></button>
+<button class="p-1 hover:bg-surface-container rounded hover:text-on-surface" title="Align Top"><span class="material-symbols-outlined text-[15px]">align_vertical_top</span></button>
+<button class="p-1 hover:bg-surface-container rounded hover:text-on-surface" title="Align Middle"><span class="material-symbols-outlined text-[15px]">align_vertical_center</span></button>
+<button class="p-1 hover:bg-surface-container rounded hover:text-on-surface" title="Distribute"><span class="material-symbols-outlined text-[15px]">reorder</span></button>
+</div>
+<!-- Transform Metrics (X, Y, W, H, Rotation, Radius) -->
+<div>
+<div class="text-[10px] font-mono uppercase tracking-wider text-outline mb-1.5">Position &amp; Size</div>
+<div class="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-2 text-[10px]">X</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:outline-none" type="text" value="580"/>
+</div>
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-2 text-[10px]">Y</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:outline-none" type="text" value="180"/>
+</div>
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-2 text-[10px]">W</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:outline-none" type="text" value="288"/>
+</div>
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-2 text-[10px]">H</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:outline-none" type="text" value="140"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-1.5 font-mono text-[11px] mt-1.5">
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-2 text-[10px]">∠</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:outline-none" type="text" value="0°"/>
+</div>
+<div class="flex items-center bg-surface-container-low border border-outline-variant/40 rounded px-2 py-1">
+<span class="text-outline mr-2 text-[10px]">⌒</span>
+<input class="w-full bg-transparent text-on-surface border-none p-0 focus:outline-none" type="text" value="12px"/>
+</div>
+</div>
+</div>
+<!-- Fill & Stroke Swatches -->
+<div class="border-t border-outline-variant/30 pt-3">
+<div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-outline mb-1.5">
+<span>Fill</span>
+<button class="hover:text-on-surface">+</button>
+</div>
+<div class="flex items-center justify-between bg-surface-container-low p-1.5 rounded border border-outline-variant/40">
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded bg-[#171722] border border-outline-variant"></div>
+<span class="font-mono text-xs text-on-surface">#171722</span>
+</div>
+<span class="font-mono text-xs text-outline">95%</span>
+</div>
+</div>
+<!-- Stroke -->
+<div>
+<div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-outline mb-1.5">
+<span>Stroke</span>
+<button class="hover:text-on-surface">+</button>
+</div>
+<div class="flex items-center justify-between bg-surface-container-low p-1.5 rounded border border-outline-variant/40">
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded bg-primary border border-primary/50"></div>
+<span class="font-mono text-xs text-on-surface">#00B2DC</span>
+</div>
+<span class="font-mono text-xs text-outline">2px · Solid</span>
+</div>
+</div>
+<!-- AI Agent Direct Command Prompt -->
+<div class="border-t border-outline-variant/30 pt-3">
+<div class="flex items-center justify-between mb-1.5">
+<span class="text-[10px] font-mono uppercase tracking-wider text-tertiary flex items-center gap-1">
+<span>⚡</span> Agent Instructions
+            </span>
+<span class="text-[9px] font-mono text-outline">Claude 3.7</span>
+</div>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg p-2 text-xs text-on-surface placeholder:text-outline/70 focus:outline-none focus:border-tertiary/60 font-mono resize-none h-16" placeholder="Direct prompt: 'Split this into two worker pipelines...'"></textarea>
+<button class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-tertiary text-background font-mono text-[10px] font-bold hover:bg-tertiary-container transition-colors">
+              Execute
+            </button>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- ================================================================= -->
+<!-- 5. FLOATING BOTTOM-CENTER ISLAND TOOLBAR (tldraw & Excalidraw)    -->
+<!-- ================================================================= -->
+<div class="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center p-1 bg-surface-container-lowest/90 backdrop-blur-xl border border-outline-variant/60 rounded-2xl shadow-2xl space-x-1">
+<!-- Select / Move (V) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-primary text-background font-medium shadow-sm transition-all" title="Select (V)">
+<span class="material-symbols-outlined text-[19px]">near_me</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-80">V</span>
+</button>
+<!-- Hand / Pan (H) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Hand / Pan (H)">
+<span class="material-symbols-outlined text-[19px]">pan_tool</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-70">H</span>
+</button>
+<!-- Frame (F) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Frame (F)">
+<span class="material-symbols-outlined text-[19px]">crop_free</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-70">F</span>
+</button>
+<div class="h-5 w-[1px] bg-outline-variant/40 mx-0.5"></div>
+<!-- Sticky Note (S - Excalidraw Style) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl text-amber-300 hover:bg-surface-container hover:text-amber-200 transition-colors" title="Sticky Note (S)">
+<span class="material-symbols-outlined text-[19px]">sticky_note_2</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-70">S</span>
+</button>
+<!-- Shapes Dropdown (R) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Shapes (R)">
+<span class="material-symbols-outlined text-[19px]">square</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-70">R</span>
+</button>
+<!-- Pen / Hand-Drawn Draw (P - Rough Excalidraw Pen) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Draw / Rough Pen (P)">
+<span class="material-symbols-outlined text-[19px]">gesture</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-70">P</span>
+</button>
+<!-- Connector Arrow (A) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Connector Arrow (A)">
+<span class="material-symbols-outlined text-[19px]">arrow_outward</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-70">A</span>
+</button>
+<!-- Notion Slash / Doc Block (D) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Doc Card / Slash Block">
+<span class="material-symbols-outlined text-[19px]">article</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-70">/</span>
+</button>
+<!-- Eraser (E) -->
+<button class="relative flex items-center justify-center w-9 h-9 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Eraser (E)">
+<span class="material-symbols-outlined text-[19px]">ink_eraser</span>
+<span class="absolute bottom-0.5 right-1 font-mono text-[8px] opacity-70">E</span>
+</button>
+<div class="h-5 w-[1px] bg-outline-variant/40 mx-0.5"></div>
+<!-- Quick Palette / Style Dot -->
+<div class="flex items-center gap-1 px-1">
+<button class="w-4 h-4 rounded-full bg-on-surface border border-outline-variant hover:scale-110 transition-transform" title="White"></button>
+<button class="w-4 h-4 rounded-full bg-primary border border-primary/80 ring-2 ring-primary ring-offset-1 ring-offset-background scale-110" title="Electric Cyan"></button>
+<button class="w-4 h-4 rounded-full bg-amber-sticky border border-amber-300 hover:scale-110 transition-transform" title="Sticky Amber"></button>
+<button class="w-4 h-4 rounded-full bg-tertiary border border-tertiary hover:scale-110 transition-transform" title="Agent Mint"></button>
+</div>
+<div class="h-5 w-[1px] bg-outline-variant/40 mx-0.5"></div>
+<!-- AI Canvas Agent Generator Trigger -->
+<button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-tertiary/15 hover:bg-tertiary/25 text-tertiary font-mono text-xs transition-colors border border-tertiary/30">
+<span>✨</span>
+<span class="font-medium">AI Generate</span>
+</button>
+</div>
+<!-- ================================================================= -->
+<!-- 6. BOTTOM HUD: COORDINATES & ZOOM CONTROLS (Left and Right docks)  -->
+<!-- ================================================================= -->
+<!-- Bottom Left: Coordinates & Snap Status -->
+<div class="fixed bottom-5 left-5 z-40 flex items-center gap-2 bg-surface-container-lowest/90 backdrop-blur-md border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-on-surface-variant shadow-lg">
+<div class="flex items-center gap-1">
+<span class="text-outline">X:</span>
+<span class="text-on-surface font-medium">+580</span>
+<span class="text-outline ml-1">Y:</span>
+<span class="text-on-surface font-medium">+180</span>
+</div>
+<div class="h-3 w-[1px] bg-outline-variant/50"></div>
+<button class="flex items-center gap-1 hover:text-on-surface text-primary">
+<span class="material-symbols-outlined text-[13px]">grid_4x4</span>
+<span>Snap: 8px</span>
+</button>
+</div>
+<!-- Bottom Right: Zoom Stepper & Canvas Viewport Actions -->
+<div class="fixed bottom-5 right-5 z-40 flex items-center gap-1.5 bg-surface-container-lowest/90 backdrop-blur-md border border-outline-variant/40 rounded-lg p-1 text-xs font-mono text-on-surface shadow-lg">
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Zoom Out (-)">
+      -
+    </button>
+<span class="px-1.5 font-medium text-center min-w-[42px]">100%</span>
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Zoom In (+)">
+      +
+    </button>
+<div class="h-3 w-[1px] bg-outline-variant/40"></div>
+<button class="px-1.5 py-0.5 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface text-[10px]" title="Fit to Screen">
+      ⇧1
+    </button>
+<button class="p-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Mini-Map">
+<span class="material-symbols-outlined text-[15px]">map</span>
+</button>
+</div>
+</body></html>

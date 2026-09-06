@@ -103,4 +103,52 @@ describe("extractVideoThumbnail", () => {
     driveToSeeked(video, 640, 360);
     await expect(promise).rejects.toThrow(/2D canvas context unavailable/);
   });
+
+  it("rejects when the seeked frame has zero dimensions instead of resolving with a blank thumbnail", async () => {
+    const file = new File(["fake-video-bytes"], "clip.mp4", { type: "video/mp4" });
+    const promise = extractVideoThumbnail(file);
+    const video = lastVideo as HTMLVideoElement;
+
+    driveToSeeked(video, 0, 0);
+    await expect(promise).rejects.toThrow(/no decodable frame/);
+    expect(drawImage).not.toHaveBeenCalled();
+  });
+
+  it("captures immediately when the seek target is already the current time, instead of waiting forever for a no-op seek", async () => {
+    // A zero/NaN-duration clip makes the seek target compute to 0, which is
+    // also jsdom's (and a real browser's) default currentTime — setting
+    // currentTime to its own value is a no-op that never fires `seeked`.
+    const file = new File(["fake-video-bytes"], "clip.mp4", { type: "video/mp4" });
+    const promise = extractVideoThumbnail(file);
+    const video = lastVideo as HTMLVideoElement;
+    Object.defineProperty(video, "videoWidth", { value: 320, configurable: true });
+    Object.defineProperty(video, "videoHeight", { value: 240, configurable: true });
+
+    video.dispatchEvent(new Event("loadedmetadata"));
+    // Deliberately no `seeked` dispatch — a real browser wouldn't fire one either.
+
+    await expect(promise).resolves.toEqual({
+      dataUrl: "data:image/png;base64,thumbnail",
+      width: 320,
+      height: 240,
+    });
+  });
+
+  it("rejects after a timeout if the video never fires loadedmetadata, seeked, or error", async () => {
+    vi.useFakeTimers();
+    try {
+      const file = new File(["fake-video-bytes"], "clip.mp4", { type: "video/mp4" });
+      const promise = extractVideoThumbnail(file);
+      const revokeObjectURL = (URL as unknown as { revokeObjectURL: ReturnType<typeof vi.fn> })
+        .revokeObjectURL;
+
+      const assertion = expect(promise).rejects.toThrow(/timed out/);
+      await vi.runAllTimersAsync();
+      await assertion;
+      // The blob URL still gets revoked on a timeout, not just on success/error.
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:fake");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -145,6 +145,42 @@ describe("Toolbar image import", () => {
     vi.unstubAllGlobals();
   });
 
+  it("still imports a video whose thumbnail can't be extracted, as a placeholder-sized shape with no preview", async () => {
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:fake"),
+      revokeObjectURL: vi.fn(),
+    });
+    let video: HTMLVideoElement | undefined;
+    const realCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const el = realCreateElement(tag);
+      if (tag === "video") video = el as HTMLVideoElement;
+      return el;
+    });
+
+    const { container } = render(<Toolbar />);
+    const file = new File(["fake-video-bytes"], "clip.mp4", { type: "video/mp4" });
+    importFile(container, file);
+
+    await vi.waitFor(() => expect(video).toBeDefined());
+    video?.dispatchEvent(new Event("error"));
+
+    await vi.waitFor(() => {
+      expect(Object.values(useCanvasStore.getState().shapes)).toHaveLength(1);
+    });
+
+    const added = Object.values(useCanvasStore.getState().shapes)[0]?.shape;
+    expect(added).toMatchObject({ kind: "image", mediaKind: "video", width: 200, height: 200 });
+    // The asset (the video's real bytes) is still saved even though no
+    // preview could be extracted — a decode failure degrades the preview,
+    // it doesn't lose the import.
+    expect(useCanvasStore.getState().assetBackend?.save).toHaveBeenCalled();
+    expect(useCanvasStore.getState().assetCache["hash-mp4"]).toBeUndefined();
+
+    vi.unstubAllGlobals();
+  });
+
   it("rejects a non-image file without calling the asset backend", async () => {
     const { container } = render(<Toolbar />);
     const file = new File(["hello"], "notes.txt", { type: "text/plain" });

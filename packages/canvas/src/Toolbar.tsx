@@ -69,8 +69,12 @@ function isSvgFile(file: File): boolean {
   return file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
 }
 
+/** MIME sniffing for video is as unreliable as it is for SVG (`isSvgFile`) —
+ * some OS/browser combos leave `file.type` empty for less common containers. */
+const VIDEO_EXTENSIONS = /^(mp4|m4v|webm|mov|ogv|avi|mkv)$/i;
+
 function isVideoFile(file: File): boolean {
-  return file.type.startsWith("video/");
+  return file.type.startsWith("video/") || VIDEO_EXTENSIONS.test(file.name.split(".").pop() ?? "");
 }
 
 /** SVG dimensions come from the markup itself (`readImageSize`'s `Image()`-based
@@ -149,13 +153,38 @@ export function Toolbar() {
       // asset (see ADR-015). For a video, this is the video's own bytes,
       // never rendered directly; `displayDataUrl` below is what the human
       // actually sees on canvas.
-      const dataUrl = await readFileAsDataUrl(file);
-      const { natural, displayDataUrl } = isVideo
-        ? await extractVideoThumbnail(file).then((thumb) => ({
-            natural: { width: thumb.width, height: thumb.height },
-            displayDataUrl: thumb.dataUrl,
-          }))
-        : { natural: await readImportedSize(file, dataUrl), displayDataUrl: dataUrl };
+      let dataUrl: string;
+      let natural: { width: number; height: number };
+      let displayDataUrl: string | null;
+      if (isVideo) {
+        // Neither read depends on the other's result, so run them
+        // concurrently rather than paying for the full base64 encode before
+        // decoding even starts (matters for large files, up to
+        // MAX_VIDEO_BYTES). A thumbnail-extraction failure (unsupported
+        // codec, corrupt file) degrades to a placeholder size and no
+        // preview rather than aborting the whole import — the same
+        // graceful-fallback philosophy `readImportedSize` already applies
+        // to an undecodable image.
+        const [rawDataUrl, thumb] = await Promise.all([
+          readFileAsDataUrl(file),
+          extractVideoThumbnail(file).catch((err) => {
+            console.warn(
+              "[draft/canvas] couldn't extract a video thumbnail, importing without a preview:",
+              err,
+            );
+            return null;
+          }),
+        ]);
+        dataUrl = rawDataUrl;
+        natural = thumb
+          ? { width: thumb.width, height: thumb.height }
+          : { width: 200, height: 200 };
+        displayDataUrl = thumb?.dataUrl ?? null;
+      } else {
+        dataUrl = await readFileAsDataUrl(file);
+        natural = await readImportedSize(file, dataUrl);
+        displayDataUrl = dataUrl;
+      }
       const maxDimension = 400;
       const scale = Math.min(1, maxDimension / Math.max(natural.width, natural.height, 1));
       const width = Math.max(1, Math.round(natural.width * scale));
@@ -168,7 +197,7 @@ export function Toolbar() {
       // file itself, see `video.ts`).
       const extension = fileExtension(file);
       const assetId = await state.assetBackend.save(extension, dataUrl);
-      state.cacheAsset(assetId, displayDataUrl);
+      if (displayDataUrl) state.cacheAsset(assetId, displayDataUrl);
 
       // The canvas SVG doesn't fill the window (header/toolbar sit above
       // it), so centering on window dimensions offsets the drop point from

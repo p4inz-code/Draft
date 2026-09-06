@@ -53,7 +53,43 @@ fn mime_for_extension(extension: &str) -> &'static str {
         "gif" => "image/gif",
         "webp" => "image/webp",
         "svg" => "image/svg+xml",
+        "mp4" | "m4v" => "video/mp4",
+        "webm" => "video/webm",
+        "mov" => "video/quicktime",
+        "ogv" => "video/ogg",
         _ => "application/octet-stream",
+    }
+}
+
+#[cfg(test)]
+mod mime_for_extension_tests {
+    use super::mime_for_extension;
+
+    #[test]
+    fn recognizes_every_format_import_actually_produces() {
+        assert_eq!(mime_for_extension("png"), "image/png");
+        assert_eq!(mime_for_extension("jpg"), "image/jpeg");
+        assert_eq!(mime_for_extension("jpeg"), "image/jpeg");
+        assert_eq!(mime_for_extension("svg"), "image/svg+xml");
+        // Found by code review: video import (ADR-015's plan) shipped with no
+        // video branch here at all, so `load_asset` reconstructed every
+        // reopened video as `application/octet-stream` — a MIME browsers
+        // refuse to decode as `<video>`, silently breaking every video
+        // thumbnail on project reload.
+        assert_eq!(mime_for_extension("mp4"), "video/mp4");
+        assert_eq!(mime_for_extension("webm"), "video/webm");
+        assert_eq!(mime_for_extension("mov"), "video/quicktime");
+    }
+
+    #[test]
+    fn is_case_insensitive() {
+        assert_eq!(mime_for_extension("PNG"), "image/png");
+        assert_eq!(mime_for_extension("MP4"), "video/mp4");
+    }
+
+    #[test]
+    fn falls_back_to_octet_stream_for_an_unrecognized_extension() {
+        assert_eq!(mime_for_extension("xyz"), "application/octet-stream");
     }
 }
 

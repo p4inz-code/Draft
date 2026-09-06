@@ -9,6 +9,60 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (latest, part 2) — code-review pass on video import: 5 confirmed bugs, all fixed
+
+**Commit:** (pending push at time of writing)
+
+Ran an 8-angle `code-review` pass over the video-import commit before moving on, matching
+this session's practice of reviewing each feature chunk rather than assuming a green test
+suite means done. Found and fixed 5 real bugs, all independently confirmed by 2+ of the 8
+finder angles (line-by-line scan, cross-file tracer, altitude, simplification, and
+removed-behavior all separately flagged the same seek-hang issue):
+
+- **`packages/canvas/src/video.ts`**: `extractVideoThumbnail` could hang forever with no
+  error, no timeout, and a leaked blob URL. `video.currentTime = Math.min(0.1, video.duration
+  / 2 || 0)` computes `0` for a zero/NaN-duration clip — but setting `currentTime` to the
+  value it's already at is a no-op per the HTML spec, so `seeked` never fires. Fixed by
+  capturing the frame immediately when the computed target equals the current time, plus an
+  8-second overall timeout as a safety net for any other stuck-decode case (unsupported
+  codec that doesn't cleanly error). Also added a guard against a zero-dimension decoded
+  frame (an audio-only file mislabeled `video/*`, or dimensions not ready yet) — previously
+  this silently produced an invisible 1×1 shape instead of a clear error.
+- **`apps/desktop/src-tauri/src/lib.rs`**: `mime_for_extension` — added when `save_asset`/
+  `load_asset` shipped under ADR-015, before video import existed — had no video branch at
+  all, so `load_asset` reconstructed every reopened video as
+  `data:application/octet-stream;base64,...`. Browsers refuse to decode a `<video>` src
+  declared as `application/octet-stream`, so every video's thumbnail silently vanished on
+  save/reload — a real regression that had already shipped and passed CI, since nothing
+  tested the actual reload path (only the browser-preview import path was manually checked).
+  Fixed by adding `mp4`/`webm`/`mov`/`ogv` to the match, with a new unit test (this file's
+  first ever) covering the fix and the existing image types.
+- **`packages/canvas/src/Toolbar.tsx`**: `isVideoFile` had no filename-extension fallback the
+  way `isSvgFile` already does — a legitimate video whose MIME type comes back empty (common
+  for some OS/picker/container combos) was rejected outright. Fixed with the same extension
+  regex pattern `isSvgFile` uses. Also: a thumbnail-extraction failure aborted the entire
+  import (no asset saved, no shape created), unlike an undecodable image, which
+  `readImportedSize` already degrades gracefully to a 200×200 placeholder. Fixed by catching
+  the failure and falling back the same way, so a video with an unsupported codec still
+  imports as a reference (just without a preview) instead of failing outright.
+- Also applied one efficiency finding while touching this code: `readFileAsDataUrl` and
+  `extractVideoThumbnail` don't depend on each other's result, so they now run via
+  `Promise.all` instead of sequentially — matters for large files near the 50MB video cap.
+
+Two findings were deliberately left unfixed: no visual distinction between a video reference
+and a plain image on canvas (a play-icon badge, say) — that's UI polish, held per the
+standing instruction to defer visual work until just before the final audit; and
+`mediaKind` as an optional field on `ImageShape` rather
+than a first-class reference-asset shape kind — a defensible read of ADR-014's explicit
+scoping to drawing kinds only, revisit if a second non-image reference type ever needs it.
+
+Added 4 new tests (`video.test.ts`: same-value-seek immediate capture, timeout, zero-
+dimension rejection; `Toolbar.test.tsx`: graceful fallback on thumbnail-extraction failure)
+plus `apps/desktop/src-tauri/src/lib.rs`'s first unit tests ever, covering `mime_for_extension`.
+`pnpm build/lint/test` (59 tests) and `cargo build/clippy/test --workspace` all green.
+
+---
+
 ## 2026-09-06 (latest) — video import: reference-only, thumbnail on canvas
 
 **Commit:** (pending push at time of writing)

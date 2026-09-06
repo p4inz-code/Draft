@@ -143,11 +143,29 @@ four implementation sessions below.
   template video, not a full production). A new `ImageShape.mediaKind?: "video"` field (mirrored
   in `draft-graph::shape::KnownShape::Image` as `Option<MediaKind>`, per ADR-014's manual-mirror
   rule) marks the reference as a video so an agent reading it via `get_object` knows not to
-  expect the bytes to decode as a still image. Verified for real: `video.test.ts` (4 tests)
+  expect the bytes to decode as a still image. Verified for real: `video.test.ts` (7 tests)
   drives the video/canvas sequencing with mocked `getContext`/`toDataURL` (jsdom has neither
   real video decoding nor a 2D canvas context without the optional `canvas` package), and
-  `Toolbar.test.tsx` gained an end-to-end import test asserting the video's own bytes reach
+  `Toolbar.test.tsx` gained end-to-end import tests asserting the video's own bytes reach
   `assetBackend.save` while the cached, human-visible asset is the extracted thumbnail.
+  A follow-up `code-review` pass (8 finder angles) over this feature found and fixed 5
+  confirmed bugs before it was considered done: `extractVideoThumbnail` could hang forever
+  with no timeout when a zero/NaN-duration clip made the seek target equal the video's
+  already-current time (no-op seeks never fire `seeked`); `apps/desktop/src-tauri`'s
+  `mime_for_extension` had no video branch at all, so a reopened video was rebuilt as
+  `application/octet-stream` and silently failed to re-thumbnail on every save/reload;
+  a zero-dimension decoded frame (audio-only file mislabeled `video/*`) produced an
+  invisible 1×1 shape with no error instead of a clear failure; `isVideoFile` had no
+  filename-extension fallback the way `isSvgFile` does, rejecting legitimate videos with
+  an empty/unrecognized MIME type; and a thumbnail-extraction failure aborted the whole
+  import instead of degrading to a placeholder size the way an undecodable image already
+  does. Two lower-severity findings (no visual video/image distinction on canvas, and
+  `mediaKind` as an optional field rather than a first-class reference-asset shape kind)
+  were deliberately not fixed this pass — the first is UI polish (deferred per the
+  standing instruction to hold visual work until just before the final audit), the second
+  is a defensible architectural choice consistent with ADR-014's explicit scoping of the
+  typed taxonomy to drawing kinds only, revisit if a second non-image reference type
+  actually needs it.
 - [x] Grouping: a shared `groupId` on the shape payload (not a new graph/operation concept —
   `draft-graph` already treats payloads as opaque JSON), a `Group`/`Ungroup` toolbar pair
   gated on selection state, and click-to-select expanding to every group sibling

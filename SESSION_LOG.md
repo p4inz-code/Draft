@@ -9,6 +9,45 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (web architecture) — ADR-016: apps/web attaches to a live desktop session
+
+**Commit:** (pending push at time of writing)
+
+Researched and decided how `apps/web` should reach feature parity with desktop — the
+question ROADMAP's Session 3 has flagged as genuinely open since `docs/web.md` was written.
+Dispatched a research pass covering: `apps/web`'s actual current state (confirmed: a bare
+shell, zero canvas/IPC wiring, exactly as documented); every command
+`packages/project-client` exposes and its Rust backing (14 functions, a clean 1:1 mapping
+onto `apps/desktop/src-tauri`'s `#[tauri::command]`s); ADR-004/007/008's relevant prior
+decisions; `draft-platform`'s `PlatformPaths` trait (confirmed: one native impl, zero WASM
+work anywhere in the workspace); and — the deciding constraint — whether
+`crates/draft-mcp`'s live local-socket transport could ever run from a browser tab. It can't:
+`local_socket.rs`'s primary transport is a raw OS named pipe/Unix socket, and a browser's
+sandboxed networking stack has no way to open either directly.
+
+Presented three options to the user (desktop-hosted HTTP/WebSocket bridge; standalone WASM +
+browser storage; a scoped-down view-only web build) with the trade-off that only the
+bridge approach preserves live agent access from a web session — a pure-WASM standalone
+build could never host the OS-level socket transport no matter how it's built. The user
+deferred to "whatever's best without sacrificing quality," confirming the bridge approach.
+
+Wrote [ADR-016](docs/decisions/adr-016-web-desktop-bridge.md): `apps/web` attaches to an
+already-running desktop instance over a new local HTTP+WebSocket server (spawned alongside
+the existing MCP socket in `apps/desktop/src-tauri`'s `setup` hook), mirroring
+`project-client`'s existing 14-function command surface behind the same signatures — a
+transport swap, not a new API. This gives real cross-platform value (open DRAFT on a
+phone/tablet while desktop runs, same live project, same connected agent) without inventing a
+WASM toolchain or a browser-storage layer this codebase has never touched. A fully
+standalone, no-companion browser mode stays explicitly deferred, not ruled out — noted in the
+ADR as a real future option once there's an actual need for it.
+
+Implementation not started this session — the decision is locked (this is what "lock all
+plans" meant for this half of the day's asks) and its 5 action items are the plan; building
+the bridge server itself is next, sequenced behind the desktop bug fixes and toolbar redesign
+the user asked to prioritize first.
+
+---
+
 ## 2026-09-06 (real-app testing) — first real bugs from the actual app, not the browser preview
 
 **Commit:** (pending push at time of writing)

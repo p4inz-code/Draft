@@ -364,9 +364,18 @@ longer than "foundation + canvas" sounds like it should.
   client and asserts the count goes 0 → 1 → 0; the header render itself was only checked
   against the Tauri-less browser preview (shows the "…" loading state without crashing) — the
   live count needs a real Tauri window with a real MCP client attached to see end to end.
-- [ ] `apps/web` gains `@draft/canvas` and reaches feature parity with desktop
+- [ ] `apps/web` gains `@draft/canvas` and reaches feature parity with desktop —
+  architecture decided: [ADR-016](docs/decisions/adr-016-web-desktop-bridge.md).
+  `apps/web` attaches to an already-running desktop session over a new local HTTP/WebSocket
+  bridge (mirroring `packages/project-client`'s existing command surface), rather than a
+  standalone WASM+browser-storage build — the live MCP transport (OS named pipe/Unix socket)
+  fundamentally cannot run in a browser tab, so only a desktop-hosted approach keeps live
+  agent access working from a web session. Implementation not started; ADR's action items
+  are the plan.
 - [ ] Existing repository/project filesystem integration
-- [ ] `draft-platform`'s browser/WASM implementation
+- [ ] `draft-platform`'s browser/WASM implementation (deferred per ADR-016 — a standalone,
+  no-desktop-companion browser mode stays possible later, not ruled out, just not the
+  approach being built now)
 - [ ] Exit test: create a real design, connect an agent, have it work on a real project,
   change the design, confirm the agent picks up the change
 

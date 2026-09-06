@@ -111,7 +111,33 @@ four implementation sessions below.
   `get_object_never_returns_raw_asset_bytes_for_an_image` in
   `crates/draft-mcp/tests/mcp_local_socket.rs` asserts the MCP response for an image object
   is small and contains neither `"base64"` nor a `"src"` field, only the `assetId` reference.
-- [ ] Video import onto the canvas
+- [x] Import format breadth, on top of the now-fixed asset-reference architecture (the one
+  area the user explicitly wants real feature strength — see
+  [ADR-015](docs/decisions/adr-015-asset-privacy-content-addressed-store.md)'s plan):
+  - **SVG (vector)**: sized from the SVG markup's own `width`/`height` or `viewBox`
+    (`packages/canvas/src/svg.ts::parseSvgDimensions`), not from `Image().naturalWidth` —
+    browsers don't reliably derive an intrinsic size from a viewBox-only SVG, so that path
+    would silently mis-size vector imports. Stored through the same asset-reference path as
+    raster images; no separate MCP/graph representation needed. Verified with 9 unit tests
+    covering explicit dimensions, unit-suffixed dimensions, viewBox fallback, percentage
+    dimensions falling back to viewBox, malformed/non-SVG/non-numeric input.
+  - **JPG/JPEG**: was already accepted by the existing `accept="image/*"` picker but had zero
+    test coverage (only PNG was ever exercised) — added a real import test.
+  - **Animated GIF**: already works with no code change — `image/gif` passes the existing
+    `image/*` type check and both `<img>`/`Image()` natural-size detection and the SVG
+    `<image href="data:...">` renderer handle animated GIFs the same as any other raster
+    format, so it needed verifying, not building.
+  - Verified for real: `packages/canvas/src/Toolbar.test.tsx` (new — the import flow had no
+    test file before this) covers PNG/JPEG/SVG import through the injected `assetBackend`,
+    a rejected non-image file, and the "no backend wired in" error path, using a fake
+    `Image` global since jsdom never decodes real image bytes.
+- [ ] Video import onto the canvas (reference-only, per ADR-015's plan: a thumbnail frame
+  shown on canvas, full file kept as an asset reference — not video playback). Not attempted
+  yet: needs its own small design decision (how a thumbnail gets extracted, and how a shape
+  distinguishes "this reference is a video" from a still image) before implementing, and
+  reliably testing frame-extraction under jsdom needs the same kind of `HTMLVideoElement`/
+  `<canvas>` mocking `Toolbar.test.tsx` just proved is needed for `Image()` — not something
+  to rush alongside the other three formats above.
 - [x] Grouping: a shared `groupId` on the shape payload (not a new graph/operation concept —
   `draft-graph` already treats payloads as opaque JSON), a `Group`/`Ungroup` toolbar pair
   gated on selection state, and click-to-select expanding to every group sibling

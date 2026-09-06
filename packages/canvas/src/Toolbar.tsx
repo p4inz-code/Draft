@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import "./Toolbar.css";
 import { screenToWorld } from "./camera";
 import { NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
+import { parseSvgDimensions } from "./svg";
 
 const TOOLS: Array<{ id: Tool; label: string }> = [
   { id: "select", label: "Select" },
@@ -48,6 +49,39 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(reader.error ?? new Error("failed to read the file"));
     reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("failed to read the file"));
+    reader.readAsText(file);
+  });
+}
+
+function isSvgFile(file: File): boolean {
+  return file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+}
+
+/** SVG dimensions come from the markup itself (`readImageSize`'s `Image()`-based
+ * detection is unreliable for viewBox-only SVGs — see `svg.ts`); every other
+ * format keeps using natural raster decoding. */
+async function readImportedSize(
+  file: File,
+  dataUrl: string,
+): Promise<{ width: number; height: number }> {
+  if (isSvgFile(file)) {
+    const text = await readFileAsText(file).catch(() => null);
+    const parsed = text ? parseSvgDimensions(text) : null;
+    if (parsed) return parsed;
+    console.warn("[draft/canvas] couldn't parse SVG dimensions, using a default");
+    return { width: 200, height: 200 };
+  }
+  return readImageSize(dataUrl).catch((err) => {
+    console.warn("[draft/canvas] couldn't read natural image size, using a default:", err);
+    return { width: 200, height: 200 };
   });
 }
 
@@ -102,10 +136,7 @@ export function Toolbar() {
       }
 
       const dataUrl = await readFileAsDataUrl(file);
-      const natural = await readImageSize(dataUrl).catch((err) => {
-        console.warn("[draft/canvas] couldn't read natural image size, using a default:", err);
-        return { width: 200, height: 200 };
-      });
+      const natural = await readImportedSize(file, dataUrl);
       const maxDimension = 400;
       const scale = Math.min(1, maxDimension / Math.max(natural.width, natural.height, 1));
       const width = Math.max(1, Math.round(natural.width * scale));

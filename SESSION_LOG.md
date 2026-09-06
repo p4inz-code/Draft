@@ -9,6 +9,46 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (even later) — import format breadth: SVG, verified JPEG, GIF
+
+**Commit:** (pending push at time of writing)
+
+Continued the approved plan's second item, now that ADR-015 closed the asset-privacy
+architecture problem: broadened import formats on top of it, since the import flow's own
+test file (`Toolbar.test.tsx`) didn't exist before this — image import had shipped and been
+manually verified in-browser, but had zero automated coverage.
+
+Added `packages/canvas/src/svg.ts::parseSvgDimensions`: SVG import now sizes itself from the
+markup's own `width`/`height` or `viewBox`, not `Image().naturalWidth` — confirmed by reading
+into how browsers handle a viewBox-only SVG (no `width`/`height` attributes) that they fall
+back to an arbitrary default intrinsic size rather than reliably deriving one from the
+viewBox, which would have silently mis-sized vector imports. JPEG needed no code change —
+`accept="image/*"` and the existing `FileReader`/`Image()` path already covered it — but had
+never actually been exercised by a test, only PNG. Animated GIF needed no code change either
+and no design decision: `image/gif` already passes the `image/*` check, and browsers decode
+and render animated GIFs the same as any other raster format through both `Image()`
+size-detection and the SVG `<image>` element used for on-canvas rendering.
+
+Wrote `packages/canvas/src/Toolbar.test.tsx` (new) to actually prove all of this rather than
+relying on manual browser checks going forward: PNG/JPEG/SVG import through the injected
+`assetBackend`, the non-image-file rejection path, and the "no backend wired in" error.
+jsdom doesn't decode real image bytes, so `Image()`'s `onload` never fires for a real
+`<img>` — worked around with a fake `Image` global whose `src` setter synchronously resolves
+`onload`, the same category of jsdom gap `Canvas.test.tsx` hit earlier with `PointerEvent`.
+Also had to add `cleanup()` in the test's `afterEach` — Testing Library doesn't auto-clean
+between tests in this project's vitest setup (no `globals: true`), so back-to-back
+`render(<Toolbar />)` calls without it left multiple copies of the toolbar (and its error
+banner) in the DOM, breaking `getByRole` queries in later tests with "found multiple
+elements." `pnpm build/lint/test` green (50 tests).
+
+Video import (reference-only: a thumbnail on canvas, the actual file kept as an asset
+reference, no playback) is deliberately not attempted in this pass — it needs a small design
+decision first (how the thumbnail gets extracted, and how a shape marks itself as "this
+reference is video" for an agent reading it) and the same category of DOM-mocking effort as
+the `Image()` fake above, this time for `HTMLVideoElement`/`<canvas>` frame capture. Next.
+
+---
+
 ## 2026-09-06 (later) — ADR-015 implementation + a CI failure that went unnoticed for 6 hours
 
 **Commit:** (pending push at time of writing)

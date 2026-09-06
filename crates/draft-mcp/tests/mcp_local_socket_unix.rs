@@ -14,10 +14,18 @@ use draft_security::AgentMode;
 
 #[tokio::test]
 async fn the_socket_file_is_owner_only() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join(format!(
-        "draft-mcp-test-{}.sock",
-        ObjectId::new().as_uuid().simple()
+    // Deliberately not `tempfile::tempdir()`: a Unix domain socket path is
+    // capped at `sizeof(sockaddr_un.sun_path)` — 104 bytes on macOS/BSD,
+    // 108 on Linux — and `tempfile::tempdir()`'s already-long macOS runner
+    // base path (`/private/var/folders/.../T/.tmpXXXXXXXX/`) plus a verbose
+    // filename with a full UUID silently exceeded that limit in CI: `bind`
+    // failed, the accept loop's `let _ =` swallowed the error, and the
+    // socket file was simply never created. A short name straight under
+    // the OS temp dir (no extra nested tempdir) stays well under the limit
+    // on every platform this runs on.
+    let path = std::env::temp_dir().join(format!(
+        "dm-{}.sock",
+        &ObjectId::new().as_uuid().simple().to_string()[..8]
     ));
 
     let state = Arc::new(LiveState::new(Graph::new(), AgentMode::Manual));
@@ -39,4 +47,6 @@ async fn the_socket_file_is_owner_only() {
 
     let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
     assert_eq!(mode, 0o600, "socket file should be owner-read-write-only");
+
+    let _ = std::fs::remove_file(&path);
 }

@@ -30,6 +30,7 @@ tracing = "0.1"
 time = { version = "0.3", features = ["serde-well-known", "formatting", "parsing"] }
 dirs = "5"
 sha2 = "0.10"
+base64 = "0.22"
 
 draft-core = { path = "crates/draft-core" }
 draft-project = { path = "crates/draft-project" }

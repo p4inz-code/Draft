@@ -111,3 +111,27 @@ export async function onAgentConnectionsChanged(
     handler(event.payload);
   });
 }
+
+/**
+ * Imports a file (as a data URL — what `FileReader.readAsDataURL` already
+ * produces) into the content-addressed asset store (ADR-015), returning a
+ * reference to store on the shape — never the file's bytes. Writes into
+ * `projectDir` if a project has been saved, otherwise into a scratch
+ * directory that gets migrated in on first save.
+ */
+export async function saveAsset(
+  extension: string,
+  dataUrl: string,
+  projectDir?: string,
+): Promise<string> {
+  return invoke<string>("save_asset", { projectDir, extension, dataUrl });
+}
+
+/**
+ * Reads an asset back as a data URL for the human's own canvas to render —
+ * local display for the person who already has the file, not the MCP
+ * boundary ADR-015 is about.
+ */
+export async function loadAsset(assetId: string, projectDir?: string): Promise<string> {
+  return invoke<string>("load_asset", { projectDir, assetId });
+}

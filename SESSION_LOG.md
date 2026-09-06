@@ -9,6 +9,50 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (later) — ADR-015 implementation + a CI failure that went unnoticed for 6 hours
+
+**Commit:** (pending push at time of writing)
+
+Implemented the plan approved in the previous entry
+([ADR-015](docs/decisions/adr-015-asset-privacy-content-addressed-store.md)). Rust:
+`draft-media::hash_bytes` (hashes an in-memory buffer, for bytes arriving over Tauri IPC
+rather than already on disk); `draft-project::save_asset`/`load_asset`/`copy_asset`
+(content-addressed read/write against any directory with an `assets/` subfolder, plus
+migration between two such directories); `draft-graph::shape::KnownShape::Image`'s `src`
+field renamed to `asset_id` (`#[serde(rename = "assetId")]`). Tauri: `save_asset`/`load_asset`
+commands, backed by a scratch directory (`draft-platform::PlatformPaths`) when no project has
+been saved yet, and `save_snapshot` now migrates any scratch-held assets referenced by the
+page into the real project's `assets/` before persisting. Frontend: `ImageShape.assetId`
+replaces `.src`; the canvas store gained an injectable `assetBackend` (set by `apps/desktop`,
+keeping `@draft/canvas` free of Tauri/IPC awareness per `docs/development.md`), a `projectDir`,
+and an `assetCache` (`assetId -> data URL`, local-only, for the human's own rendering);
+`Toolbar.tsx`'s import flow now calls the backend and commits a reference, never bytes;
+`App.tsx` wires the backend and loads/caches assets on save/load/agent-write. Verified with a
+new test, `get_object_never_returns_raw_asset_bytes_for_an_image`
+(`crates/draft-mcp/tests/mcp_local_socket.rs`): creates an image object with an `assetId`
+payload and asserts the `get_object` response is under 300 bytes and contains neither
+`"base64"` nor a `"src"` field. Full `pnpm build/lint/test` (36 tests) and
+`cargo build/clippy/test --workspace` both green locally.
+
+**A process failure worth recording honestly:** mid-way through the above, the user surfaced
+(via a screenshot of GitHub's commit list) that CI had been showing a red X on every commit —
+checked with `gh run list`/`gh run view --log-failed` and found it had been failing on macOS
+only, on *every* commit, for the past 6 hours of session time, starting from the local-socket
+access-control fix. Nobody had checked, including this assistant, which had explicitly written
+in an earlier log entry that a change was "verified by CI's Linux/macOS legs" without ever
+actually confirming the run passed. Root cause:
+`crates/draft-mcp/tests/mcp_local_socket_unix.rs`'s `the_socket_file_is_owner_only` test built
+its socket path from `tempfile::tempdir()` (whose macOS base path is already long) plus a
+verbose UUID filename, exceeding macOS's 104-byte `sockaddr_un.sun_path` limit (Linux's is
+108, which is why only macOS failed). `bind()` failed silently — the accept loop's
+`let _ = draft_mcp::local_socket::serve_forever_on(...).await;` swallowed the error — so the
+socket file was simply never created, failing the test's own existence assertion. Fixed by
+building the path from `std::env::temp_dir()` directly with a short 8-hex-char filename
+instead of a nested tempdir and a full UUID. This machine is Windows-only so the fix can't be
+exercised locally; it needs CI itself to confirm.
+
+---
+
 ## 2026-09-06 (past midnight) — security-review fix + a real product-direction correction
 
 **Commit:** (pending push at time of writing)

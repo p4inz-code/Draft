@@ -91,16 +91,26 @@ four implementation sessions below.
 - [x] Image import onto the canvas: an "Image" toolbar button opens a native file picker,
   reads the file via `FileReader.readAsDataURL`, and drops an `ImageShape` at the current
   view's center (large images capped at 400px on their long edge, smaller images keep native
-  size). `src` is a data URL embedded directly in the shape payload — an interim
-  simplification, not the final design (spec §11 wants `asset://`-referenced media so raw
-  bytes don't cross the MCP boundary on every `get_page` call), deferred because that needs a
-  project directory to store the asset file in, and a fresh unsaved canvas doesn't have one
-  yet. Resize handles, selection, undo/redo, and copy/paste all apply for free since image
+  size). Resize handles, selection, undo/redo, and copy/paste all apply for free since image
   reuses the existing `ResizableShape`/bounds machinery. Video import not attempted — no
   in-canvas video playback exists to import into. Validates file type and a 15MB size cap
   before ever reading the file, surfaces read/decode failures as a visible toolbar error
   (not just a silent no-op) plus a `console.error`, and logs (rather than hides) the fallback
   when natural image-size detection fails.
+- [x] Asset privacy: imported images no longer embed a data URL in the shape payload —
+  [ADR-015](docs/decisions/adr-015-asset-privacy-content-addressed-store.md). `ImageShape.src`
+  became `ImageShape.assetId`, a content-addressed (SHA-256) filename reference written via
+  `draft-media`/`draft-project`'s new `save_asset`/`load_asset`/`copy_asset`, exposed to the
+  frontend as Tauri commands. Import always writes through this path immediately — even
+  before a project's first save, via a scratch asset directory
+  (`draft-platform::PlatformPaths`) — that `save_snapshot` migrates into the real project's
+  `assets/` on save, so an agent with live read access never sees raw image bytes at any
+  point, not just after the human happens to save. `@draft/canvas` stays host-agnostic: the
+  store takes an injectable `assetBackend`, set by `apps/desktop`, rather than importing
+  `@draft/project-client` directly. Verified for real:
+  `get_object_never_returns_raw_asset_bytes_for_an_image` in
+  `crates/draft-mcp/tests/mcp_local_socket.rs` asserts the MCP response for an image object
+  is small and contains neither `"base64"` nor a `"src"` field, only the `assetId` reference.
 - [ ] Video import onto the canvas
 - [x] Grouping: a shared `groupId` on the shape payload (not a new graph/operation concept —
   `draft-graph` already treats payloads as opaque JSON), a `Group`/`Ungroup` toolbar pair
@@ -220,6 +230,16 @@ longer than "foundation + canvas" sounds like it should.
   agent (or any read-access agent) see what the human is actually looking at, not just what
   objects exist on the page. Verified for real: `get_selection_reflects_the_humans_current_selection`
   connects a client before and after setting a selection and asserts both states.
+- [x] CI had been red on macOS only, on every commit, for 6 hours straight before anyone
+  (including the assistant, despite an earlier session-log entry wrongly claiming a test was
+  "verified by CI's Linux/macOS legs") noticed — surfaced by the user from a GitHub screenshot,
+  not caught proactively. Root cause (via `gh run view --log-failed`):
+  `mcp_local_socket_unix.rs`'s `the_socket_file_is_owner_only` test built its socket path from
+  `tempfile::tempdir()` plus a verbose UUID filename, exceeding macOS's 104-byte
+  `sockaddr_un.sun_path` limit (Linux's is 108, so Ubuntu passed while macOS silently failed —
+  `bind()`'s error was swallowed by the accept loop's `let _ = ...`, so the socket file was
+  simply never created). Fixed by using `std::env::temp_dir()` directly with a short 8-hex-char
+  filename instead of a nested tempdir and a full UUID.
 - [ ] `agent_state` resource — still vague pending a concrete need for it
 
 ### Session 3 — Agent Collaboration + Project Workflow

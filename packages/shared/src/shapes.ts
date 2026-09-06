@@ -67,19 +67,20 @@ export interface FreehandShape extends ShapeBase {
 }
 
 /**
- * An imported image. `src` is a data URL, embedded directly in the shape
- * payload — an interim simplification, not the final design: spec §11 wants
- * media referenced by an `asset://` ID so raw bytes don't have to cross the
- * MCP boundary on every `get_page` call, but that needs a project directory
- * to store the asset file in, and a fresh unsaved canvas doesn't have one
- * yet. Revisit once project/asset lifecycle (creating a project before the
- * first save) is wired up — see ROADMAP.md.
+ * An imported image. `assetId` is a reference into the project's
+ * content-addressed asset store (ADR-015) — a filename like
+ * `"<sha256>.png"`, resolved to actual bytes via `@draft/project-client`'s
+ * `loadAsset`/`saveAsset` — never the raw file data itself. This is what
+ * keeps `get_page`/`get_object` from handing an MCP agent the user's actual
+ * image: the payload that crosses the graph/MCP boundary only ever carries
+ * this reference, matching the project's "no raw assets to an agent"
+ * principle (the same one that already applies to canvas screenshots).
  */
 export interface ImageShape extends ShapeBase {
   kind: "image";
   width: number;
   height: number;
-  src: string;
+  assetId: string;
 }
 
 export type Shape =

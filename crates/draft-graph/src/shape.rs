@@ -77,15 +77,18 @@ pub enum KnownShape {
         /// Points relative to `x`/`y`, in drawing order.
         points: Vec<(f64, f64)>,
     },
-    /// `src` is a data URL embedded directly in the payload — see the
-    /// matching comment on `ImageShape` in `shapes.ts` for why (no
-    /// `asset://` reference yet; needs a project directory to exist).
+    /// `asset_id` is a reference into the project's content-addressed asset
+    /// store (`draft-project::save_asset`/`load_asset`), never the raw file
+    /// bytes — the whole point being that `get_page`/`get_object` can hand
+    /// this to an MCP agent without ever uploading the user's actual image.
+    /// See ADR-015 for why this replaced an embedded data URL.
     Image {
         #[serde(flatten)]
         base: ShapeBase,
         width: f64,
         height: f64,
-        src: String,
+        #[serde(rename = "assetId")]
+        asset_id: String,
     },
 }
 
@@ -166,12 +169,12 @@ impl KnownShape {
                 base,
                 width,
                 height,
-                src,
+                asset_id,
             } => KnownShape::Image {
                 base,
                 width: width.abs(),
                 height: height.abs(),
-                src,
+                asset_id,
             },
             other => other,
         }
@@ -316,7 +319,7 @@ mod tests {
     #[test]
     fn negative_width_and_height_normalize_to_non_negative() {
         let shape = roundtrip(serde_json::json!({
-            "kind": "image", "x": 0.0, "y": 0.0, "width": -50.0, "height": -25.0, "src": "data:,"
+            "kind": "image", "x": 0.0, "y": 0.0, "width": -50.0, "height": -25.0, "assetId": "abc123.png"
         }));
         match shape {
             Shape::Known(KnownShape::Image { width, height, .. }) => {

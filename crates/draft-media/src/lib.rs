@@ -55,6 +55,15 @@ pub fn hash_file(path: &Path) -> Result<String, MediaError> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
+/// Hashes an in-memory buffer with SHA-256 — the entry point for assets
+/// that arrive over Tauri IPC (a browser file picker's bytes) rather than
+/// already existing as a file on disk, which is what [`hash_file`] is for.
+pub fn hash_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
+}
+
 impl AssetMetadata {
     /// Builds metadata for a newly imported file by hashing and stat-ing it.
     pub fn from_file(path: &Path, kind: AssetKind) -> Result<Self, MediaError> {
@@ -89,6 +98,15 @@ mod tests {
         let first = hash_file(&path).unwrap();
         let second = hash_file(&path).unwrap();
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn hash_bytes_matches_hash_file_for_the_same_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ref.png");
+        fs::write(&path, b"same bytes").unwrap();
+
+        assert_eq!(hash_file(&path).unwrap(), hash_bytes(b"same bytes"));
     }
 
     #[test]

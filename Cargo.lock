@@ -904,10 +904,12 @@ dependencies = [
 name = "draft-desktop"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "draft-core",
  "draft-events",
  "draft-graph",
  "draft-mcp",
+ "draft-platform",
  "draft-project",
  "draft-security",
  "serde",
@@ -992,6 +994,7 @@ name = "draft-project"
 version = "0.1.0"
 dependencies = [
  "draft-core",
+ "draft-media",
  "draft-security",
  "serde",
  "serde_json",

@@ -1,11 +1,18 @@
 import type { CanvasObject } from "@draft/shared";
 import { getStroke } from "perfect-freehand";
+import { useCanvasStore } from "./store";
 
 /** Renders one shape as an SVG element, in the shape's own local (x/y-relative) coordinates. */
 export function ShapeView({ object, selected }: { object: CanvasObject; selected: boolean }) {
   const { shape } = object;
   const stroke = "var(--draft-text)";
   const selectionStroke = selected ? "var(--draft-accent)" : stroke;
+  // Only ever a local, per-viewer lookup (ADR-015) — `shape.assetId` is the
+  // reference that actually gets synced/sent over MCP; this cache is purely
+  // for the human's own rendering and never leaves the frontend.
+  const assetDataUrl = useCanvasStore((s) =>
+    shape.kind === "image" ? s.assetCache[shape.assetId] : undefined,
+  );
 
   switch (shape.kind) {
     case "rectangle":
@@ -93,10 +100,11 @@ export function ShapeView({ object, selected }: { object: CanvasObject; selected
       );
     }
     case "image":
+      if (!assetDataUrl) return null;
       return (
         <g>
           <image
-            href={shape.src}
+            href={assetDataUrl}
             x={shape.x}
             y={shape.y}
             width={Math.abs(shape.width)}

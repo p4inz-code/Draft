@@ -1,12 +1,93 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+use base64::Engine;
 use draft_core::{ObjectId, PageId};
 use draft_events::Operation;
 use draft_graph::Graph;
 use draft_mcp::live::LiveState;
+use draft_platform::PlatformPaths;
 use draft_project::{PageDocument, ProjectManifest};
 use draft_security::AgentMode;
 use tauri::{Emitter, Manager, State};
+
+/// Where imported assets live before a project has ever been saved (ADR-015)
+/// — a plain directory with an `assets/` subfolder, not a full project
+/// bundle, so `draft-project::save_asset`/`load_asset` work against it the
+/// same way they work against a real `.draft` project.
+fn scratch_assets_dir() -> Result<PathBuf, String> {
+    let base = draft_platform::NativePlatform
+        .app_data_dir()
+        .ok_or("could not determine the app data directory")?;
+    let dir = base.join("scratch");
+    std::fs::create_dir_all(dir.join("assets")).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// Resolves which asset directory a `save_asset`/`load_asset` call should
+/// use: the real project if one has been saved (`project_dir` is `Some`),
+/// otherwise the scratch directory.
+fn resolve_asset_dir(project_dir: Option<String>) -> Result<PathBuf, String> {
+    match project_dir {
+        Some(dir) => Ok(PathBuf::from(dir)),
+        None => scratch_assets_dir(),
+    }
+}
+
+/// Splits a `data:<mime>;base64,<payload>` URL into its base64 payload and
+/// decodes it. The frontend already builds this via `FileReader.readAsDataURL`
+/// for local preview; reusing it here avoids a second encoding path.
+fn decode_data_url(data_url: &str) -> Result<Vec<u8>, String> {
+    let payload = data_url
+        .split_once(",")
+        .map(|(_, payload)| payload)
+        .ok_or("not a data URL")?;
+    base64::engine::general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|e| e.to_string())
+}
+
+fn mime_for_extension(extension: &str) -> &'static str {
+    match extension.to_ascii_lowercase().as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        _ => "application/octet-stream",
+    }
+}
+
+/// Imports a file (as the data URL the frontend's `FileReader` already
+/// produces) into the content-addressed asset store, returning a reference
+/// — never the bytes themselves — to store on the object (ADR-015). Writes
+/// to the given project directory if one exists yet, otherwise to a scratch
+/// directory that gets migrated in on first save (see `save_snapshot`).
+#[tauri::command]
+fn save_asset(
+    project_dir: Option<String>,
+    extension: String,
+    data_url: String,
+) -> Result<String, String> {
+    let dir = resolve_asset_dir(project_dir)?;
+    let bytes = decode_data_url(&data_url)?;
+    draft_project::save_asset(&dir, &extension, &bytes).map_err(|e| e.to_string())
+}
+
+/// Reads an asset back as a data URL for the human's own canvas to display
+/// — this is local rendering for the person who already has the file, not
+/// the MCP boundary ADR-015 is about, so re-encoding it as a data URL here
+/// is fine.
+#[tauri::command]
+fn load_asset(project_dir: Option<String>, asset_id: String) -> Result<String, String> {
+    let dir = resolve_asset_dir(project_dir)?;
+    let bytes = draft_project::load_asset(&dir, &asset_id).map_err(|e| e.to_string())?;
+    let extension = asset_id.rsplit_once('.').map(|(_, ext)| ext).unwrap_or("");
+    let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(format!(
+        "data:{};base64,{encoded}",
+        mime_for_extension(extension)
+    ))
+}
 
 /// Reports the `draft-core` version, proving both the Tauri IPC round-trip
 /// and the Rust workspace wiring (desktop -> crates/) work end to end.
@@ -51,6 +132,19 @@ fn save_snapshot(dir: String, project_name: String, page: PageSnapshot) -> Resul
     } else {
         draft_project::create_project(&project_dir, &project_name).map_err(|e| e.to_string())?
     };
+
+    // Any asset imported before this save landed in the scratch directory
+    // (ADR-015) — migrate whatever this page actually references into the
+    // real project now that one exists. Best-effort: a source that isn't in
+    // scratch either doesn't exist (a stale/foreign reference) or is already
+    // in this project from an earlier save, either way not fatal to saving.
+    if let Ok(scratch_dir) = scratch_assets_dir() {
+        for shape in page.objects.values() {
+            if let Some(asset_id) = shape.get("assetId").and_then(|v| v.as_str()) {
+                let _ = draft_project::copy_asset(&scratch_dir, &project_dir, asset_id);
+            }
+        }
+    }
 
     let document = PageDocument {
         id: page.page_id,
@@ -258,6 +352,8 @@ pub fn run() {
             get_agent_connection_count,
             get_page_snapshot,
             set_selection,
+            save_asset,
+            load_asset,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

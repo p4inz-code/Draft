@@ -184,6 +184,66 @@ pub fn resolve_asset_path(project_dir: &Path, relative: &str) -> Result<PathBuf,
     Ok(candidate)
 }
 
+/// A short alphanumeric allowlist for an asset's file extension — unlike
+/// the hash half of the stored filename (which this crate computes itself
+/// and is always safe hex), the extension can originate from a
+/// user-supplied filename, so it's validated before ever touching a path.
+fn sanitize_extension(extension: &str) -> Result<&str, ProjectError> {
+    let valid = !extension.is_empty()
+        && extension.len() <= 10
+        && extension.chars().all(|c| c.is_ascii_alphanumeric());
+    if valid {
+        Ok(extension)
+    } else {
+        Err(ProjectError::UnsafeAssetPath(extension.to_string()))
+    }
+}
+
+/// Writes `bytes` into `<dir>/assets/<sha256-hash>.<extension>` — content-
+/// addressed, so re-importing identical bytes reuses the existing file
+/// instead of writing a duplicate — and returns that relative filename to
+/// store as the object's asset *reference*. The reference, never the bytes
+/// themselves, is what's meant to cross into the Project Graph and MCP
+/// (spec's "no raw assets to an agent" principle, extended from screenshots
+/// to imported media generally). `dir` doesn't need to be a full project
+/// bundle — a scratch directory with just an `assets/` subfolder works too,
+/// for asset storage before a project has been saved anywhere yet.
+pub fn save_asset(dir: &Path, extension: &str, bytes: &[u8]) -> Result<String, ProjectError> {
+    let extension = sanitize_extension(extension)?;
+    let hash = draft_media::hash_bytes(bytes);
+    let filename = format!("{hash}.{extension}");
+    let assets_dir = dir.join("assets");
+    std::fs::create_dir_all(&assets_dir).map_err(|e| io_err(&assets_dir, e))?;
+    let path = assets_dir.join(&filename);
+    if !path.exists() {
+        std::fs::write(&path, bytes).map_err(|e| io_err(&path, e))?;
+    }
+    Ok(filename)
+}
+
+/// Reads an asset's bytes back by the relative filename [`save_asset`]
+/// returned, rejecting anything that would escape `dir`.
+pub fn load_asset(dir: &Path, relative: &str) -> Result<Vec<u8>, ProjectError> {
+    let path = resolve_asset_path(dir, relative)?;
+    std::fs::read(&path).map_err(|e| io_err(&path, e))
+}
+
+/// Copies one asset from one asset-storage directory to another by its
+/// relative filename — used to migrate assets imported into a scratch
+/// directory (before a project existed) into the real project bundle once
+/// the human saves it. A no-op if the destination already has the same
+/// content-addressed file.
+pub fn copy_asset(from_dir: &Path, to_dir: &Path, relative: &str) -> Result<(), ProjectError> {
+    let source = resolve_asset_path(from_dir, relative)?;
+    let dest_assets_dir = to_dir.join("assets");
+    std::fs::create_dir_all(&dest_assets_dir).map_err(|e| io_err(&dest_assets_dir, e))?;
+    let dest = dest_assets_dir.join(relative);
+    if !dest.exists() {
+        std::fs::copy(&source, &dest).map_err(|e| io_err(&dest, e))?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,6 +319,48 @@ mod tests {
             resolve_asset_path(&project_dir, "../../secret.txt"),
             Err(ProjectError::UnsafeAssetPath(_))
         ));
+    }
+
+    #[test]
+    fn save_asset_is_content_addressed_and_deduplicates_reimports() {
+        let root = tempfile::tempdir().unwrap();
+        let project_dir = root.path().join("Assets.draft");
+        create_project(&project_dir, "Assets").unwrap();
+
+        let first = save_asset(&project_dir, "png", b"pixels").unwrap();
+        let second = save_asset(&project_dir, "png", b"pixels").unwrap();
+        assert_eq!(first, second, "identical bytes must reuse the same file");
+
+        let loaded = load_asset(&project_dir, &first).unwrap();
+        assert_eq!(loaded, b"pixels");
+
+        // Different content gets a different reference.
+        let different = save_asset(&project_dir, "png", b"other pixels").unwrap();
+        assert_ne!(first, different);
+    }
+
+    #[test]
+    fn save_asset_rejects_an_unsafe_extension() {
+        let root = tempfile::tempdir().unwrap();
+        let project_dir = root.path().join("Unsafe.draft");
+        create_project(&project_dir, "Unsafe").unwrap();
+
+        let err = save_asset(&project_dir, "png/../../evil", b"x").unwrap_err();
+        assert!(matches!(err, ProjectError::UnsafeAssetPath(_)));
+    }
+
+    #[test]
+    fn copy_asset_migrates_a_scratch_asset_into_a_real_project() {
+        let root = tempfile::tempdir().unwrap();
+        let scratch_dir = root.path().join("scratch");
+        std::fs::create_dir_all(scratch_dir.join("assets")).unwrap();
+        let relative = save_asset(&scratch_dir, "png", b"pixels").unwrap();
+
+        let project_dir = root.path().join("Migrated.draft");
+        create_project(&project_dir, "Migrated").unwrap();
+        copy_asset(&scratch_dir, &project_dir, &relative).unwrap();
+
+        assert_eq!(load_asset(&project_dir, &relative).unwrap(), b"pixels");
     }
 
     #[test]

@@ -6,9 +6,11 @@ import {
   getAgentMode,
   getCoreVersion,
   getPageSnapshot,
+  loadAsset,
   loadSnapshot,
   onAgentConnectionsChanged,
   onGraphChanged,
+  saveAsset,
   saveSnapshot,
   setAgentMode,
   setSelection,
@@ -28,6 +30,33 @@ function toShapeMap(objects: Record<ObjectId, unknown>): ShapeMap {
   ) as any;
 }
 
+/**
+ * Reads each image object's asset bytes back (as a data URL, purely for
+ * this viewer's own rendering — see ADR-015) and caches any not already
+ * cached. Best-effort per asset: one bad/missing reference (e.g. an agent
+ * wrote a fabricated `assetId`) shouldn't stop the rest of the page from
+ * rendering.
+ */
+function loadImageAssets(objects: Record<string, unknown>, projectDir: string | null) {
+  const cache = useCanvasStore.getState().assetCache;
+  for (const shape of Object.values(objects)) {
+    if (
+      typeof shape === "object" &&
+      shape !== null &&
+      "kind" in shape &&
+      shape.kind === "image" &&
+      "assetId" in shape &&
+      typeof shape.assetId === "string" &&
+      !(shape.assetId in cache)
+    ) {
+      const assetId = shape.assetId;
+      loadAsset(assetId, projectDir ?? undefined)
+        .then((dataUrl) => useCanvasStore.getState().cacheAsset(assetId, dataUrl))
+        .catch((err) => console.warn(`[App] couldn't load asset ${assetId}:`, err));
+    }
+  }
+}
+
 function App() {
   const [coreVersion, setCoreVersion] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -44,6 +73,17 @@ function App() {
     getAgentConnectionCount()
       .then(setAgentConnections)
       .catch(() => {});
+  }, []);
+
+  // @draft/canvas has no Tauri/IPC awareness by design — image import calls
+  // through this injected backend rather than depending on
+  // @draft/project-client directly (see the matching comment on
+  // CanvasState.assetBackend).
+  useEffect(() => {
+    useCanvasStore.getState().setAssetBackend({
+      save: (extension, dataUrl) =>
+        saveAsset(extension, dataUrl, useCanvasStore.getState().projectDir ?? undefined),
+    });
   }, []);
 
   // The spec's "explicit, visible" permission story means a connection
@@ -88,6 +128,7 @@ function App() {
       getPageSnapshot(pageId)
         .then((page) => {
           useCanvasStore.getState().applyRemoteObjects(toShapeMap(page.objects));
+          loadImageAssets(page.objects, useCanvasStore.getState().projectDir);
           setStatus("Agent updated the canvas");
         })
         .catch((err) => setStatus(`Couldn't load agent's change: ${String(err)}`));
@@ -127,6 +168,10 @@ function App() {
         pageName: "Page 1",
         objects: Object.fromEntries(Object.entries(shapes).map(([id, o]) => [id, o.shape])),
       });
+      // Any asset imported before this save landed in the scratch directory
+      // (ADR-015) and just got migrated into `dir` by the save command —
+      // future saves/loads for this session now target the real project.
+      useCanvasStore.getState().setProjectDir(dir);
       setStatus(`Saved to ${dir}`);
     } catch (err) {
       setStatus(`Save failed: ${String(err)}`);
@@ -143,7 +188,9 @@ function App() {
         setStatus(`${dir} has no pages yet`);
         return;
       }
+      useCanvasStore.getState().setProjectDir(dir);
       useCanvasStore.getState().loadPage(page.pageId, toShapeMap(page.objects));
+      loadImageAssets(page.objects, dir);
       setStatus(`Loaded ${dir}`);
     } catch (err) {
       setStatus(`Load failed: ${String(err)}`);

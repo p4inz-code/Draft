@@ -406,3 +406,91 @@ async fn watch_mode_denies_writes_and_build_mode_allows_them() {
 
     client.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn get_object_never_returns_raw_asset_bytes_for_an_image() {
+    // ADR-015: an image object's payload only ever carries a reference
+    // (`assetId`) into the content-addressed asset store, never the file's
+    // actual bytes — this is what keeps get_page/get_object from handing a
+    // connected agent the user's real image. Simulate what would have been
+    // a large embedded data URL under the old design, and confirm it's
+    // structurally impossible now: the field doesn't exist to carry it.
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let mut graph = Graph::new();
+    let page_id = PageId::new();
+    graph.ensure_page(page_id, "Level 1");
+    let state = Arc::new(LiveState::new(graph, AgentMode::Build));
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    let client = connect_client(&pipe_name).await;
+    let create_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "payload".to_string(),
+            serde_json::json!({
+                "kind": "image", "x": 0.0, "y": 0.0, "width": 100.0, "height": 50.0,
+                "assetId": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.png"
+            }),
+        ),
+    ]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("create_object").with_arguments(create_args))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    let object_id: draft_core::ObjectId = json["object_id"]
+        .as_str()
+        .expect("object_id in response")
+        .parse()
+        .expect("valid object id");
+
+    let get_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "object_id".to_string(),
+            serde_json::Value::String(object_id.to_string()),
+        ),
+    ]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_object").with_arguments(get_args))
+        .await
+        .unwrap();
+    let raw_text = result
+        .content
+        .first()
+        .and_then(|c| c.as_text())
+        .expect("first content block is text");
+
+    // The whole response is small and has no field resembling embedded
+    // media (a data URL always contains "base64,"; the old field name was
+    // "src") — structurally guaranteed now, not just true by coincidence.
+    assert!(
+        raw_text.text.len() < 300,
+        "response unexpectedly large: {}",
+        raw_text.text
+    );
+    assert!(!raw_text.text.contains("base64"));
+    assert!(!raw_text.text.contains("\"src\""));
+    let json: serde_json::Value = serde_json::from_str(&raw_text.text).unwrap();
+    assert_eq!(
+        json["assetId"],
+        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.png"
+    );
+
+    client.cancel().await.unwrap();
+}

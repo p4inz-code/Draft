@@ -33,6 +33,15 @@ function readImageSize(dataUrl: string): Promise<{ width: number; height: number
   });
 }
 
+/** A short, filesystem-safe extension for the content-addressed asset store. */
+function fileExtension(file: File): string {
+  const fromName = file.name.split(".").pop();
+  if (fromName && /^[a-zA-Z0-9]{1,10}$/.test(fromName)) return fromName.toLowerCase();
+  const fromMime = file.type.split("/")[1];
+  if (fromMime && /^[a-zA-Z0-9]{1,10}$/.test(fromMime)) return fromMime.toLowerCase();
+  return "bin";
+}
+
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -87,6 +96,11 @@ export function Toolbar() {
         );
       }
 
+      const state = useCanvasStore.getState();
+      if (!state.assetBackend) {
+        throw new Error("image import isn't available in this environment");
+      }
+
       const dataUrl = await readFileAsDataUrl(file);
       const natural = await readImageSize(dataUrl).catch((err) => {
         console.warn("[draft/canvas] couldn't read natural image size, using a default:", err);
@@ -97,7 +111,13 @@ export function Toolbar() {
       const width = Math.max(1, Math.round(natural.width * scale));
       const height = Math.max(1, Math.round(natural.height * scale));
 
-      const state = useCanvasStore.getState();
+      // The reference (assetId), not `dataUrl`, is what ends up on the
+      // shape and crosses into the graph/MCP — see ADR-015. `dataUrl` stays
+      // local, cached only for this viewer's own rendering.
+      const extension = fileExtension(file);
+      const assetId = await state.assetBackend.save(extension, dataUrl);
+      state.cacheAsset(assetId, dataUrl);
+
       // The canvas SVG doesn't fill the window (header/toolbar sit above
       // it), so centering on window dimensions offsets the drop point from
       // what's actually visible — use the canvas element's own rect, like
@@ -114,7 +134,7 @@ export function Toolbar() {
         y: center.y - height / 2,
         width,
         height,
-        src: dataUrl,
+        assetId,
       });
       state.commitAction();
     } catch (err) {

@@ -31,5 +31,7 @@ draft-graph = { path = "../../../crates/draft-graph" }
 draft-mcp = { path = "../../../crates/draft-mcp" }
 draft-security = { path = "../../../crates/draft-security" }
 draft-events = { path = "../../../crates/draft-events" }
+draft-platform = { path = "../../../crates/draft-platform" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
+base64.workspace = true
 

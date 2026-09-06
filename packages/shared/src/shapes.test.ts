@@ -6,7 +6,7 @@ describe("isResizableShape", () => {
     const rectangle: Shape = { kind: "rectangle", x: 0, y: 0, width: 10, height: 10 };
     const ellipse: Shape = { kind: "ellipse", x: 0, y: 0, width: 10, height: 10 };
     const diamond: Shape = { kind: "diamond", x: 0, y: 0, width: 10, height: 10 };
-    const image: Shape = { kind: "image", x: 0, y: 0, width: 10, height: 10, src: "data:," };
+    const image: Shape = { kind: "image", x: 0, y: 0, width: 10, height: 10, assetId: "abc.png" };
 
     expect(isResizableShape(rectangle)).toBe(true);
     expect(isResizableShape(ellipse)).toBe(true);

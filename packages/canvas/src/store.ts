@@ -65,6 +65,19 @@ interface CanvasState {
   operations: OperationRecord[];
   past: HistoryEntry[];
   future: HistoryEntry[];
+  /** The currently open project's directory, or `null` before the first save
+   * — read by the image-import flow to decide whether an asset can go
+   * straight into the real project or needs the scratch directory
+   * (ADR-015). Set by `apps/desktop`'s save/load handlers. */
+  projectDir: string | null;
+  /**
+   * `assetId -> data URL`, purely for the human's own rendering — never
+   * sent anywhere as part of a `Shape` (that's the whole point of
+   * `ImageShape.assetId` being a reference, not the bytes: see ADR-015).
+   * Populated on import and when a page loads an object this session
+   * hasn't seen the bytes for yet.
+   */
+  assetCache: Record<string, string>;
 
   setTool: (tool: Tool) => void;
   pan: (dxScreen: number, dyScreen: number) => void;
@@ -100,6 +113,19 @@ interface CanvasState {
   /** Replaces the whole page with loaded content (open project) — resets history. */
   loadPage: (pageId: PageId, shapes: ShapeMap) => void;
 
+  setProjectDir: (dir: string | null) => void;
+  cacheAsset: (assetId: string, dataUrl: string) => void;
+
+  /**
+   * How image import actually persists a file — injected by the host app
+   * (e.g. `apps/desktop`, backed by `@draft/project-client`'s `saveAsset`),
+   * since `@draft/canvas` itself has no Tauri/IPC awareness (it's meant to
+   * be host-agnostic — see `docs/development.md`'s note on where IPC calls
+   * belong). `null` in a host that hasn't wired one in (e.g. a test render).
+   */
+  assetBackend: { save: (extension: string, dataUrl: string) => Promise<string> } | null;
+  setAssetBackend: (backend: CanvasState["assetBackend"]) => void;
+
   /**
    * Merges an agent's write (via an MCP write tool) into the live shapes map
    * without touching selection/undo history — unlike `loadPage`, this is a
@@ -132,6 +158,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   operations: [],
   past: [],
   future: [],
+  projectDir: null,
+  assetCache: {},
+  assetBackend: null,
 
   setTool: (tool) => set({ tool, selection: tool === "select" ? get().selection : [] }),
 
@@ -269,6 +298,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   // content from the Rust side (fetched after a change notification), so
   // this is also how a remote delete_object shows up locally.
   applyRemoteObjects: (objects) => set({ shapes: objects }),
+
+  setProjectDir: (dir) => set({ projectDir: dir }),
+  cacheAsset: (assetId, dataUrl) =>
+    set((s) => ({ assetCache: { ...s.assetCache, [assetId]: dataUrl } })),
+  setAssetBackend: (backend) => set({ assetBackend: backend }),
 }));
 
 export type { CanvasObject, ShapeMap };

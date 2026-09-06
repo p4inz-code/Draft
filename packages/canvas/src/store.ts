@@ -32,6 +32,26 @@ export type Tool =
   | "freehand"
   | "eraser";
 
+/**
+ * Number-key shortcuts, one per tool, in the same left-to-right order the
+ * toolbar renders them — "1" is always the leftmost tool, "9" the
+ * rightmost, matching the convention most drawing apps use (tldraw,
+ * Figma, Excalidraw). "Image" isn't included: it opens a file picker
+ * rather than arming a persistent tool mode, so it doesn't fit the same
+ * numbering scheme.
+ */
+export const NUMBER_KEY_TOOLS: Record<string, Tool> = {
+  "1": "select",
+  "2": "rectangle",
+  "3": "ellipse",
+  "4": "diamond",
+  "5": "text",
+  "6": "line",
+  "7": "arrow",
+  "8": "freehand",
+  "9": "eraser",
+};
+
 interface HistoryEntry {
   shapes: ShapeMap;
 }

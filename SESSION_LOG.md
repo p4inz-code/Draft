@@ -9,6 +9,36 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (truly latest) — Numbered tool shortcuts + a self-caught regression
+
+**Commit:** (pending push at time of writing)
+
+While re-verifying the select-tool fix in the browser, hit a wall of confusing coordinate
+behavior in the browser automation tooling itself (clicks landing on the wrong toolbar
+button, a batch of stray empty text shapes accumulating on the shared preview from repeated
+misfired test clicks). That mess was purely a test-tooling artifact — confirmed by checking
+`aria-pressed`/`elementFromPoint` state directly rather than trusting screenshot pixel
+positions — not a product bug, and none of it reached the codebase. Abandoned further manual
+pixel-clicking for this pass in favor of `@testing-library/react` component tests, which
+exercise the real keydown/pointerdown handlers deterministically without depending on the
+browser automation's coordinate mapping.
+
+That more careful pass caught a real regression, though: the previous entry's
+`preventDefault()` fix (for the native-selection bug) also silently broke the text tool's
+click-away-to-commit flow, since blurring the previously-focused element is normally part of
+the same default browser action `preventDefault()` suppresses. Fixed by blurring the active
+textarea explicitly, first, before calling `preventDefault()`. Also implemented the user's
+request for numbered tool shortcuts (1–9, left-to-right matching the toolbar), defined once
+in `NUMBER_KEY_TOOLS` and shared between the keydown handler and the toolbar's tooltips.
+
+**Verified for real**, via new `Canvas.test.tsx`: each number key switches to its tool, a
+held modifier is ignored, typing in a text field doesn't trigger a switch, and — the
+regression test — typing text then clicking elsewhere on the canvas correctly closes the
+editor and commits the text instead of leaving it stranded. 35 Vitest tests total now. Full
+TS + Rust build also green.
+
+---
+
 ## 2026-09-06 (also latest) — `recent_changes` MCP tool
 
 **Commit:** (pending push at time of writing)

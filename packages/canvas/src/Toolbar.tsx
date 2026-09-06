@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import "./Toolbar.css";
 import { screenToWorld } from "./camera";
-import { type Tool, useCanvasStore } from "./store";
+import { NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
 
 const TOOLS: Array<{ id: Tool; label: string }> = [
   { id: "select", label: "Select" },
@@ -14,6 +14,11 @@ const TOOLS: Array<{ id: Tool; label: string }> = [
   { id: "freehand", label: "Draw" },
   { id: "eraser", label: "Eraser" },
 ];
+
+/** Tool -> its number-key shortcut, e.g. "select" -> "1" (see `NUMBER_KEY_TOOLS`). */
+const TOOL_SHORTCUT_KEYS: Partial<Record<Tool, string>> = Object.fromEntries(
+  Object.entries(NUMBER_KEY_TOOLS).map(([key, tool]) => [tool, key]),
+);
 
 /** Rejects anything past this before it's ever read into memory as a data URL. */
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -128,6 +133,7 @@ export function Toolbar() {
           className={t.id === tool ? "draft-toolbar-btn active" : "draft-toolbar-btn"}
           onClick={() => setTool(t.id)}
           aria-pressed={t.id === tool}
+          title={`${t.label} (${TOOL_SHORTCUT_KEYS[t.id]})`}
         >
           {t.label}
         </button>

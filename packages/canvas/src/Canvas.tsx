@@ -10,7 +10,7 @@ import "./Canvas.css";
 import { ShapeView } from "./ShapeView";
 import { type Point, screenToWorld } from "./camera";
 import { boundsContainPoint, boundsIntersect, shapeBounds } from "./geometry";
-import { useCanvasStore } from "./store";
+import { NUMBER_KEY_TOOLS, useCanvasStore } from "./store";
 
 /** Reads a pointer event's position relative to the SVG element, in screen (pixel) space. */
 function screenPointFromEvent(e: React.PointerEvent<SVGSVGElement>): Point {
@@ -97,7 +97,11 @@ export function Canvas() {
         (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA");
       if (isEditableTarget) return;
 
-      if ((e.key === "Delete" || e.key === "Backspace") && state.selection.length > 0) {
+      const numberedTool = NUMBER_KEY_TOOLS[e.key];
+      if (numberedTool && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        state.setTool(numberedTool);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && state.selection.length > 0) {
         e.preventDefault();
         state.beginAction();
         state.deleteShapes(state.selection);
@@ -192,6 +196,14 @@ export function Canvas() {
   }, []);
 
   function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    // Blurring the active text editor (if any) is normally a side effect of
+    // the browser's own default mousedown handling — but preventDefault()
+    // below suppresses that default handling too, which would otherwise
+    // strand the textarea focused and never commit its text. Do it
+    // ourselves first so it doesn't depend on that default action.
+    if (document.activeElement instanceof HTMLTextAreaElement) {
+      document.activeElement.blur();
+    }
     // Without this, a left-drag (marquee, draw, move, pan) also kicks off
     // the browser's own native drag-selection over the page — the two
     // visibly fight each other, showing as a stray native text-selection

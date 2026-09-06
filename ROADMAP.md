@@ -55,6 +55,23 @@ four implementation sessions below.
   and adding `user-select: none` to the canvas as defense-in-depth. Verified manually
   in-browser: marquee-selecting two shapes now shows only the intended selection outline,
   no native selection artifact.
+- [x] Caught and fixed a regression from that same `preventDefault()` fix before it shipped:
+  `preventDefault()` on pointerdown also suppresses the browser's default "blur the
+  currently-focused element" behavior, which the text tool's click-away-to-commit flow
+  depended on implicitly — so a text box could no longer be finished by clicking elsewhere.
+  Fixed by blurring the active `<textarea>` ourselves (if any) *before* calling
+  `preventDefault()`, so committing text no longer depends on that default action. Verified
+  with a real test (`Canvas.test.tsx`, `text tool click-away commit`) that types into a text
+  box, clicks elsewhere on the canvas, and asserts the editor closes and the text commits.
+- [x] Number-key tool shortcuts (1–9, matching the toolbar's left-to-right order: Select,
+  Rect, Ellipse, Diamond, Text, Line, Arrow, Draw, Eraser — `Image` isn't included since it
+  opens a file picker rather than arming a persistent mode), defined once in
+  `NUMBER_KEY_TOOLS` (`store.ts`) and consumed by both `Canvas.tsx`'s keydown handler and
+  `Toolbar.tsx`'s button tooltips, so there's one source of truth instead of two lists that
+  could drift. Lives in `@draft/canvas`, so it's already live on desktop and will apply to
+  `apps/web` automatically once that app is wired up to the shared canvas (still open, see
+  Session 3). Verified with real tests: each key switches to its tool, a held modifier
+  (Ctrl/Cmd/Alt) is ignored, and typing in a text field doesn't trigger a switch.
 - [x] Eraser tool (click or drag over shapes to delete)
 - [x] Zoom (wheel zoom-to-cursor, toolbar +/-/reset with a live %, Ctrl+=/Ctrl+-/Ctrl+0),
   pan (middle-mouse-drag, works regardless of active tool — no separate Pan tool needed)

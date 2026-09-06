@@ -54,15 +54,15 @@ four implementation sessions below.
   textarea's `focus()` against the browser's native click handling, causing an instant blur
   that (via the "discard empty text" cleanup) deleted the shape before typing could happen;
   fixed by skipping pointer capture for the text tool and deferring focus a frame
+- [x] Pages persisted through `draft-project`/`draft-graph`: `PageDocument` +
+  `save_page`/`load_page`/`load_all_pages`, Tauri `save_snapshot`/`load_snapshot` commands,
+  a Save/Open UI in `apps/desktop` — real round-trip, not just an in-memory store
 - [ ] Copy/paste
 - [ ] Image/video import onto the canvas
-- [ ] Pages actually persisted through `draft-project` (today the canvas store is
-  in-memory-only in the frontend; nothing round-trips through Tauri IPC to
-  `draft-graph`/`draft-project` yet — that's the next Session 1 slice)
 - [ ] Grouping
-- [ ] Inline text editing (currently a `window.prompt()` shim — see `packages/canvas/src/Canvas.tsx`)
-- [ ] Exit test: create a project, draw across multiple tools, import media, save, close,
-  reopen, verify identical state — blocked on the persistence item above
+- [ ] Exit test: create a project, draw across multiple tools, save, close, reopen, verify
+  identical state — blocked on import/grouping above for the "full" version, but the
+  save/close/reopen core already works (see `crates/draft-project`'s round-trip test)
 
 Scoped heavier than the original product spec assumed, because the canvas is being built
 from scratch rather than adopting tldraw (see ADR-004) — expect this session to take
@@ -70,21 +70,47 @@ longer than "foundation + canvas" sounds like it should.
 
 ### Session 2 — Project Intelligence + MCP
 
+- [x] `rmcp` (v3) added to `draft-mcp`, real server on **both** transports from ADR-007:
+  - `draft-mcp` CLI binary (stdio) reads a saved `.draft` project directory — for
+    headless/CI use with no desktop instance running
+  - a local-socket server (Windows named pipe; Unix domain socket path exists via `#[cfg(unix)]`
+    but is untested on this Windows dev machine) hosted **inside the running desktop app**,
+    reading the *live* in-memory `Graph` as the human edits — this is the actually-important
+    half: an agent reading a live session, not just a stale file
+- [x] Read-only MCP tools: `get_project`, `get_page`, `get_object` (both transports).
+  `selection`/`recent_changes`/`agent_state` deliberately not exposed yet — they only make
+  sense for a live session with real selection/history tracking, which doesn't exist on the
+  Rust side yet (selection is still frontend-only); `annotations`/`requirements`/`assets`
+  wait on the real object/shape taxonomy below
+- [x] Agent permission gate wired for real, not just typed: every live-socket tool call
+  checks `AgentMode::allows_read()` against a shared `Arc<Mutex<AgentMode>>`; `Manual`
+  (default) returns a clear "no access" response instead of data. `apps/desktop` has a
+  real "Agent access" dropdown (Manual/Ask/Watch/Assist/Build) wired to `set_agent_mode` —
+  this *is* the spec's "explicit, visible, revocable" grant, not a placeholder
+- [x] The canvas's committed operations now flow to the live graph for real: `apply_operations`
+  (Tauri command) + `ensure_page`, wired from `@draft/canvas`'s store via a subscription in
+  `apps/desktop/src/App.tsx` — closes the "operations, not snapshots" loop docs/architecture.md
+  already described
+- [x] Exit test, both transports, passing for real (spawned server + real client, not
+  mocked): `crates/draft-mcp/tests/mcp_stdio.rs` (saved-file path) and
+  `crates/draft-mcp/tests/mcp_local_socket.rs` (live path — proves `Manual` denies reads and
+  raising the mode allows them)
 - [ ] The real object/shape taxonomy in `draft-graph` (replacing today's untyped JSON
   payloads)
 - [ ] Annotations, requirements, relationships, media references, regions
-- [ ] `rmcp` added to `draft-mcp`; the local-socket listener actually implemented
-- [ ] Read-only MCP resources/tools (`project`, `pages`, `objects`, `selection`, `assets`,
-  `annotations`, `recent_changes`, ...) — see [docs/mcp.md](docs/mcp.md)
-- [ ] Exit test: an MCP-compatible agent connects, queries the workspace, and correctly
-  describes a real visual design back
+- [ ] `selection`/`recent_changes`/`agent_state` resources (need live selection/history
+  tracking on the Rust side first — Session 3 territory per the original plan)
 
 ### Session 3 — Agent Collaboration + Project Workflow
 
-- [ ] Watch mode, agent observation of live changes
-- [ ] Agent write permissions (`Build` mode) wired to real MCP write tools, gated through
-  `PermissionGrant::check_write()`
-- [ ] Permission UI (grant/revoke, visible connection indicator)
+- [x] Permission UI (grant/revoke): the "Agent access" dropdown shipped in Session 2, ahead
+  of schedule, since the live MCP server needed a real gate to test against
+- [ ] Watch mode, agent observation of live changes (no `recent_changes` resource yet)
+- [ ] Write MCP tools (`create_object`/`modify_object`/`delete_object`) gated through
+  `AgentMode::allows_write()`/`PermissionGrant::check_write()` — today every MCP tool is
+  read-only regardless of mode; `Build` mode exists as a value but nothing checks for it yet
+- [ ] Visible connection indicator (today a connection is silent until a tool call succeeds
+  or is denied — no "N agents connected" UI)
 - [ ] `apps/web` gains `@draft/canvas` and reaches feature parity with desktop
 - [ ] Existing repository/project filesystem integration
 - [ ] `draft-platform`'s browser/WASM implementation

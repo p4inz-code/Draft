@@ -93,6 +93,20 @@ impl Graph {
         self.pages.insert(id, Page { id, name, objects });
     }
 
+    /// Creates a page under a caller-supplied ID only if it doesn't already
+    /// exist — idempotent, unlike `insert_page` (which always overwrites).
+    /// Used when the frontend generates a page ID client-side and needs the
+    /// Rust-owned graph to have a matching page before any `CreateObject`
+    /// operation for it can apply, without risking clobbering objects a
+    /// concurrent/earlier call already added.
+    pub fn ensure_page(&mut self, id: PageId, name: impl Into<String>) {
+        self.pages.entry(id).or_insert_with(|| Page {
+            id,
+            name: name.into(),
+            objects: HashMap::new(),
+        });
+    }
+
     /// Applies one operation from the log, mutating graph state. Rejects
     /// operations that target a page/object that doesn't exist rather than
     /// silently creating one — the log is expected to be well-formed by the
@@ -237,5 +251,28 @@ mod tests {
         graph.apply(&op).unwrap();
         let err = graph.apply(&op).unwrap_err();
         assert!(matches!(err, GraphError::DuplicateObject(_)));
+    }
+
+    #[test]
+    fn ensure_page_is_idempotent_and_does_not_clobber_existing_objects() {
+        let mut graph = Graph::new();
+        let id = PageId::new();
+
+        graph.ensure_page(id, "Level 1");
+        let object = ObjectId::new();
+        graph
+            .apply(&Operation::CreateObject {
+                page: id,
+                object,
+                payload: json!({"kind": "note"}),
+            })
+            .unwrap();
+
+        // Calling ensure_page again (e.g. the frontend re-registering the
+        // same page) must not wipe out the object just created.
+        graph.ensure_page(id, "Level 1 renamed");
+
+        assert_eq!(graph.page(id).unwrap().object_count(), 1);
+        assert_eq!(graph.page(id).unwrap().name, "Level 1");
     }
 }

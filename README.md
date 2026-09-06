@@ -89,6 +89,8 @@ cargo fmt --all
 - [docs/agent-permissions.md](docs/agent-permissions.md) — the agent permission model
 - [docs/decisions/](docs/decisions/) — ADRs for the significant technical decisions
 - [ROADMAP.md](ROADMAP.md) — what's built, what's next
+- [SESSION_LOG.md](SESSION_LOG.md) — dated narrative of each work session: decisions, bugs
+  found and fixed, what got verified and how
 - [CONTRIBUTING.md](CONTRIBUTING.md) — development workflow
 - [SECURITY.md](SECURITY.md) — reporting a vulnerability
 

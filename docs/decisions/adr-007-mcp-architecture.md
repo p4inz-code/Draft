@@ -59,19 +59,21 @@ not supporting a real, spec'd use case (headless/CI access). Both transports sha
 ## Consequences
 
 - The desktop app becomes a long-lived local server, which is new attack surface — mitigated
-  by binding loopback-only and requiring explicit per-connection approval (see
-  [docs/agent-permissions.md](../agent-permissions.md), [SECURITY.md](../../SECURITY.md)).
-- `crates/draft-mcp` doesn't take `rmcp` as a dependency yet at foundation stage — adding it
-  before there's a real Project Graph to expose would mean a server with nothing genuine
-  behind it. Session 2 adds the dependency alongside the first real resources/tools.
+  by binding loopback-only and gating every read behind `AgentMode::allows_read()` (`Manual`
+  by default; see [docs/agent-permissions.md](../agent-permissions.md),
+  [SECURITY.md](../../SECURITY.md)).
+- `rmcp` v3 is a real dependency of `draft-mcp` as of Session 2, backing both transports.
 - The MCP resource/tool list from the product spec (`project`, `pages`, `objects`,
   `recent_changes`, etc., and write tools gated to `Build` mode) is documented in
-  [docs/mcp.md](../mcp.md) as the Session 2 target.
+  [docs/mcp.md](../mcp.md); `get_project`/`get_page`/`get_object` are implemented on both
+  transports, the rest remain Session 2/3 work as detailed there.
 
 ## Action Items
 
 1. [x] Define `Transport` (`LocalSocket`/`Stdio`) and `AgentConnection` (defaults to
    `AgentMode::Manual`) types.
-2. [ ] Session 2: add `rmcp`, implement the local-socket listener, implement read-only
-   resources/tools.
-3. [ ] Session 2/3: implement the `draft-mcp` stdio CLI binary.
+2. [x] Session 2: added `rmcp`, implemented the local-socket listener (Windows named pipe,
+   tested; Unix domain socket, implemented but not yet tested on Linux/macOS), implemented
+   `get_project`/`get_page`/`get_object` as read-only tools gated on `AgentMode::allows_read()`.
+3. [x] Session 2: implemented the `draft-mcp` stdio CLI binary, same three tools, reading a
+   saved `.draft` project directory.

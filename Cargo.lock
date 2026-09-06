@@ -905,12 +905,17 @@ name = "draft-desktop"
 version = "0.1.0"
 dependencies = [
  "draft-core",
+ "draft-events",
+ "draft-graph",
+ "draft-mcp",
  "draft-project",
+ "draft-security",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
+ "tokio",
 ]
 
 [[package]]

@@ -11,6 +11,9 @@
 use draft_security::AgentMode;
 use serde::{Deserialize, Serialize};
 
+pub mod live;
+pub mod local_socket;
+
 /// How an agent is connected to a running DRAFT instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

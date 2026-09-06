@@ -53,6 +53,24 @@ body {
   border-color: var(--draft-accent);
 }
 
+.agent-mode-control {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--draft-text-muted);
+}
+
+.agent-mode-control select {
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--draft-border);
+  background: var(--draft-surface);
+  color: var(--draft-text);
+}
+
 .status {
   font-size: 0.75rem;
   color: var(--draft-text-muted);

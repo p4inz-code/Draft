@@ -16,6 +16,7 @@
     "@tauri-apps/plugin-opener": "^2",
     "@draft/canvas": "workspace:*",
     "@draft/project-client": "workspace:*",
+    "@draft/shared": "workspace:*",
     "@draft/ui": "workspace:*"
   },
   "devDependencies": {

@@ -26,6 +26,15 @@ impl AgentMode {
     pub fn allows_write(self) -> bool {
         matches!(self, AgentMode::Build)
     }
+
+    /// Whether this mode permits the agent to read the workspace at all.
+    /// Only `Manual` denies it — every mode above that is at least
+    /// read-capable (spec §13's `Ask` nuance — read "only when the user
+    /// explicitly asks" — is a UI-level distinction this crate doesn't
+    /// enforce; once in `Ask` mode or above, MCP tools may read).
+    pub fn allows_read(self) -> bool {
+        !matches!(self, AgentMode::Manual)
+    }
 }
 
 /// A recorded grant of agent access, visible to the user and revocable at
@@ -77,6 +86,19 @@ mod tests {
             assert!(!mode.allows_write(), "{mode:?} must not allow writes");
         }
         assert!(AgentMode::Build.allows_write());
+    }
+
+    #[test]
+    fn only_manual_denies_reads() {
+        assert!(!AgentMode::Manual.allows_read());
+        for mode in [
+            AgentMode::Ask,
+            AgentMode::Watch,
+            AgentMode::Assist,
+            AgentMode::Build,
+        ] {
+            assert!(mode.allows_read(), "{mode:?} must allow reads");
+        }
     }
 
     #[test]

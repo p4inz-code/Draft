@@ -29,6 +29,9 @@ importers:
       '@draft/project-client':
         specifier: workspace:*
         version: link:../../packages/project-client
+      '@draft/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@draft/ui':
         specifier: workspace:*
         version: link:../../packages/ui

@@ -1,5 +1,14 @@
 import { Canvas, Toolbar, useCanvasStore } from "@draft/canvas";
-import { getCoreVersion, loadSnapshot, saveSnapshot } from "@draft/project-client";
+import {
+  applyOperations,
+  ensurePage,
+  getAgentMode,
+  getCoreVersion,
+  loadSnapshot,
+  saveSnapshot,
+  setAgentMode,
+} from "@draft/project-client";
+import { AGENT_MODES, type AgentMode } from "@draft/shared";
 import { Logo } from "@draft/ui";
 import { useEffect, useState } from "react";
 import "./App.css";
@@ -9,12 +18,43 @@ const LAST_PROJECT_DIR_KEY = "draft.lastProjectDir";
 function App() {
   const [coreVersion, setCoreVersion] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [agentMode, setAgentModeState] = useState<AgentMode>("manual");
 
   useEffect(() => {
     getCoreVersion()
       .then(setCoreVersion)
       .catch(() => setCoreVersion(null));
+    getAgentMode()
+      .then(setAgentModeState)
+      .catch(() => {});
   }, []);
+
+  // Keeps the live MCP graph (apps/desktop/src-tauri's `LiveState`) in sync
+  // with the canvas as the human edits, so an agent connected over the local
+  // socket sees changes as they happen — not just whatever was last saved.
+  useEffect(() => {
+    const store = useCanvasStore;
+    ensurePage(store.getState().pageId, "Page 1").catch(() => {});
+
+    return store.subscribe((state, prev) => {
+      if (state.pageId !== prev.pageId) {
+        ensurePage(state.pageId, "Page 1").catch(() => {});
+      }
+      if (state.operations.length > prev.operations.length) {
+        const newOps = state.operations.slice(prev.operations.length).map((r) => r.operation);
+        applyOperations(newOps).catch((err) => setStatus(`Live sync failed: ${String(err)}`));
+      }
+    });
+  }, []);
+
+  async function handleAgentModeChange(mode: AgentMode) {
+    try {
+      await setAgentMode(mode);
+      setAgentModeState(mode);
+    } catch (err) {
+      setStatus(`Couldn't change agent access: ${String(err)}`);
+    }
+  }
 
   function promptForDir(): string | null {
     const last = localStorage.getItem(LAST_PROJECT_DIR_KEY) ?? "";
@@ -75,6 +115,19 @@ function App() {
           <button type="button" className="app-header-btn" onClick={handleLoad}>
             Open
           </button>
+          <label className="agent-mode-control">
+            Agent access:
+            <select
+              value={agentMode}
+              onChange={(e) => handleAgentModeChange(e.target.value as AgentMode)}
+            >
+              {AGENT_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {mode}
+                </option>
+              ))}
+            </select>
+          </label>
           {status && <span className="status">{status}</span>}
           <span className="status">
             core <strong>{coreVersion ?? "…"}</strong>

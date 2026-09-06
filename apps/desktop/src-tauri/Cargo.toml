@@ -27,4 +27,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 draft-core = { path = "../../../crates/draft-core" }
 draft-project = { path = "../../../crates/draft-project" }
+draft-graph = { path = "../../../crates/draft-graph" }
+draft-mcp = { path = "../../../crates/draft-mcp" }
+draft-security = { path = "../../../crates/draft-security" }
+draft-events = { path = "../../../crates/draft-events" }
+tokio = { version = "1", features = ["rt-multi-thread"] }
 

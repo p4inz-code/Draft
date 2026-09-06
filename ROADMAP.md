@@ -82,6 +82,13 @@ longer than "foundation + canvas" sounds like it should.
   sense for a live session with real selection/history tracking, which doesn't exist on the
   Rust side yet (selection is still frontend-only); `annotations`/`requirements`/`assets`
   wait on the real object/shape taxonomy below
+- [x] Write MCP tools on the live transport: `create_object`/`modify_object`/`delete_object`,
+  gated on `AgentMode::allows_write()` (`Build` only — every other mode gets a clear "no
+  write access" response). A successful write fires a change notification
+  (`LiveState.changes`, a `tokio::sync::broadcast::Sender<PageId>`) that `apps/desktop`
+  forwards as a `draft-graph-changed` Tauri event; the frontend refetches and merges the
+  affected page (`getPageSnapshot` + `@draft/canvas`'s new `applyRemoteObjects`) so the human
+  actually sees what the agent built, not just that the Rust state changed underneath them
 - [x] Agent permission gate wired for real, not just typed: every live-socket tool call
   checks `AgentMode::allows_read()` against a shared `Arc<Mutex<AgentMode>>`; `Manual`
   (default) returns a clear "no access" response instead of data. `apps/desktop` has a
@@ -105,10 +112,16 @@ longer than "foundation + canvas" sounds like it should.
 
 - [x] Permission UI (grant/revoke): the "Agent access" dropdown shipped in Session 2, ahead
   of schedule, since the live MCP server needed a real gate to test against
+- [x] Write MCP tools (`create_object`/`modify_object`/`delete_object`) gated through
+  `AgentMode::allows_write()`, shipped in Session 2 alongside the read tools — also ahead of
+  schedule. `PermissionGrant::check_write()` (the richer, timestamped grant type) is still
+  unused; the live gate checks `AgentMode::allows_write()` directly, which is simpler and
+  sufficient for a whole-app (not yet per-connection) grant.
+- [x] Human sees agent writes: a successful write fires `LiveState.changes`, forwarded as a
+  `draft-graph-changed` Tauri event, refetched and merged into the canvas
+  (`applyRemoteObjects`) — this wasn't in the original plan but is necessary for write tools
+  to be useful at all (a write nobody sees isn't "collaboration")
 - [ ] Watch mode, agent observation of live changes (no `recent_changes` resource yet)
-- [ ] Write MCP tools (`create_object`/`modify_object`/`delete_object`) gated through
-  `AgentMode::allows_write()`/`PermissionGrant::check_write()` — today every MCP tool is
-  read-only regardless of mode; `Build` mode exists as a value but nothing checks for it yet
 - [ ] Visible connection indicator (today a connection is silent until a tool call succeeds
   or is denied — no "N agents connected" UI)
 - [ ] `apps/web` gains `@draft/canvas` and reaches feature parity with desktop

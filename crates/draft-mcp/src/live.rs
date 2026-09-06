@@ -5,15 +5,20 @@
 //! socket/pipe handshake is never itself access — see docs/agent-permissions.md.
 //!
 //! `apps/desktop` owns the actual `Graph`/`AgentMode` and passes them in via
-//! [`LiveState`]; this crate doesn't know about Tauri.
+//! [`LiveState`]; this crate doesn't know about Tauri. Writes go through the
+//! same `Operation` vocabulary the canvas itself uses (ADR-012) — an agent's
+//! edit and a human's edit are indistinguishable once applied, which is the
+//! point: the graph doesn't have a separate "agent wrote this" code path.
 
 use std::sync::{Arc, Mutex};
 
 use draft_core::{ObjectId, PageId};
+use draft_events::Operation;
 use draft_graph::Graph;
 use draft_security::AgentMode;
 use rmcp::{handler::server::wrapper::Parameters, schemars, tool, tool_router};
 use serde::Deserialize;
+use tokio::sync::broadcast;
 
 /// The live graph and current agent-access grant, shared between the Tauri
 /// app (which mutates them as the human edits and as the mode changes) and
@@ -21,13 +26,21 @@ use serde::Deserialize;
 pub struct LiveState {
     pub graph: Mutex<Graph>,
     pub mode: Mutex<AgentMode>,
+    /// Fires the affected page's ID whenever a *write* tool successfully
+    /// mutates the graph, so a host app (the desktop app) can refresh its
+    /// own view — the canvas has no other way to learn an agent changed
+    /// something out from under it. Sending is best-effort: no receivers
+    /// (e.g. running the stdio binary, which has no UI to refresh) is fine.
+    pub changes: broadcast::Sender<PageId>,
 }
 
 impl LiveState {
     pub fn new(graph: Graph, mode: AgentMode) -> Self {
+        let (changes, _) = broadcast::channel(64);
         Self {
             graph: Mutex::new(graph),
             mode: Mutex::new(mode),
+            changes,
         }
     }
 
@@ -52,13 +65,47 @@ struct GetObjectParams {
     object_id: String,
 }
 
-fn denied(mode: AgentMode) -> String {
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct CreateObjectParams {
+    page_id: String,
+    /// Arbitrary object data — e.g. `{"kind": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10}`.
+    /// See `@draft/shared`'s `Shape` union for the shapes the canvas itself understands.
+    payload: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct ModifyObjectParams {
+    page_id: String,
+    object_id: String,
+    payload: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct DeleteObjectParams {
+    page_id: String,
+    object_id: String,
+}
+
+fn read_denied(mode: AgentMode) -> String {
     serde_json::json!({
         "error": "no read access",
         "current_mode": mode,
         "hint": "the DRAFT user needs to raise the agent access mode above Manual in the app",
     })
     .to_string()
+}
+
+fn write_denied(mode: AgentMode) -> String {
+    serde_json::json!({
+        "error": "no write access",
+        "current_mode": mode,
+        "hint": "the DRAFT user needs to grant Build mode in the app before an agent can write",
+    })
+    .to_string()
+}
+
+fn invalid_ids() -> String {
+    serde_json::json!({ "error": "invalid page or object id" }).to_string()
 }
 
 #[tool_router(server_handler)]
@@ -69,7 +116,7 @@ impl LiveMcpServer {
     fn get_project(&self) -> String {
         let mode = self.state.current_mode();
         if !mode.allows_read() {
-            return denied(mode);
+            return read_denied(mode);
         }
         let graph = self.state.graph.lock().expect("LiveState.graph poisoned");
         let pages: Vec<_> = graph
@@ -89,7 +136,7 @@ impl LiveMcpServer {
     fn get_page(&self, Parameters(GetPageParams { page_id }): Parameters<GetPageParams>) -> String {
         let mode = self.state.current_mode();
         if !mode.allows_read() {
-            return denied(mode);
+            return read_denied(mode);
         }
         let Ok(id) = page_id.parse::<PageId>() else {
             return serde_json::json!({ "error": format!("invalid page id: {page_id}") })
@@ -114,17 +161,110 @@ impl LiveMcpServer {
     ) -> String {
         let mode = self.state.current_mode();
         if !mode.allows_read() {
-            return denied(mode);
+            return read_denied(mode);
         }
         let (Ok(page_id), Ok(object_id)) =
             (page_id.parse::<PageId>(), object_id.parse::<ObjectId>())
         else {
-            return serde_json::json!({ "error": "invalid page or object id" }).to_string();
+            return invalid_ids();
         };
         let graph = self.state.graph.lock().expect("LiveState.graph poisoned");
         match graph.page(page_id).and_then(|p| p.object(object_id)) {
             Some(object) => object.to_string(),
             None => serde_json::json!({ "error": "no such object on that page" }).to_string(),
+        }
+    }
+
+    #[tool(
+        description = "Create a new object on a page. Requires the user to have granted Build-mode access."
+    )]
+    fn create_object(
+        &self,
+        Parameters(CreateObjectParams { page_id, payload }): Parameters<CreateObjectParams>,
+    ) -> String {
+        let mode = self.state.current_mode();
+        if !mode.allows_write() {
+            return write_denied(mode);
+        }
+        let Ok(page) = page_id.parse::<PageId>() else {
+            return invalid_ids();
+        };
+        let object = ObjectId::new();
+        let op = Operation::CreateObject {
+            page,
+            object,
+            payload,
+        };
+        let mut graph = self.state.graph.lock().expect("LiveState.graph poisoned");
+        match graph.apply(&op) {
+            Ok(()) => {
+                drop(graph);
+                let _ = self.state.changes.send(page);
+                serde_json::json!({ "object_id": object.to_string() }).to_string()
+            }
+            Err(err) => serde_json::json!({ "error": err.to_string() }).to_string(),
+        }
+    }
+
+    #[tool(
+        description = "Replace an existing object's data. Requires the user to have granted Build-mode access."
+    )]
+    fn modify_object(
+        &self,
+        Parameters(ModifyObjectParams {
+            page_id,
+            object_id,
+            payload,
+        }): Parameters<ModifyObjectParams>,
+    ) -> String {
+        let mode = self.state.current_mode();
+        if !mode.allows_write() {
+            return write_denied(mode);
+        }
+        let (Ok(page), Ok(object)) = (page_id.parse::<PageId>(), object_id.parse::<ObjectId>())
+        else {
+            return invalid_ids();
+        };
+        let op = Operation::UpdateObject {
+            page,
+            object,
+            payload,
+        };
+        let mut graph = self.state.graph.lock().expect("LiveState.graph poisoned");
+        match graph.apply(&op) {
+            Ok(()) => {
+                drop(graph);
+                let _ = self.state.changes.send(page);
+                serde_json::json!({ "ok": true }).to_string()
+            }
+            Err(err) => serde_json::json!({ "error": err.to_string() }).to_string(),
+        }
+    }
+
+    #[tool(
+        description = "Delete an object from a page. Requires the user to have granted Build-mode access."
+    )]
+    fn delete_object(
+        &self,
+        Parameters(DeleteObjectParams { page_id, object_id }): Parameters<DeleteObjectParams>,
+    ) -> String {
+        let mode = self.state.current_mode();
+        if !mode.allows_write() {
+            return write_denied(mode);
+        }
+        let (Ok(page), Ok(object)) = (page_id.parse::<PageId>(), object_id.parse::<ObjectId>())
+        else {
+            return invalid_ids();
+        };
+        let op = Operation::DeleteObject { page, object };
+        let mut graph = self.state.graph.lock().expect("LiveState.graph poisoned");
+        match graph.apply(&op) {
+            Ok(()) => {
+                drop(graph);
+                let _ = self.state.changes.send(page);
+                serde_json::json!({ "ok": true }).to_string()
+            }
+            Err(err) => serde_json::json!({ "error": err.to_string() }).to_string(),
         }
     }
 }

@@ -1,19 +1,29 @@
-import { Canvas, Toolbar, useCanvasStore } from "@draft/canvas";
+import { Canvas, type ShapeMap, Toolbar, useCanvasStore } from "@draft/canvas";
 import {
   applyOperations,
   ensurePage,
   getAgentMode,
   getCoreVersion,
+  getPageSnapshot,
   loadSnapshot,
+  onGraphChanged,
   saveSnapshot,
   setAgentMode,
 } from "@draft/project-client";
-import { AGENT_MODES, type AgentMode } from "@draft/shared";
+import { AGENT_MODES, type AgentMode, type ObjectId } from "@draft/shared";
 import { Logo } from "@draft/ui";
 import { useEffect, useState } from "react";
 import "./App.css";
 
 const LAST_PROJECT_DIR_KEY = "draft.lastProjectDir";
+
+/** `page.objects` (from the Rust side) into the canvas store's `ShapeMap` shape. */
+function toShapeMap(objects: Record<ObjectId, unknown>): ShapeMap {
+  return Object.fromEntries(
+    Object.entries(objects).map(([id, shape]) => [id, { id, shape }]),
+    // biome-ignore lint/suspicious/noExplicitAny: shapes reconstructed from untyped JSON
+  ) as any;
+}
 
 function App() {
   const [coreVersion, setCoreVersion] = useState<string | null>(null);
@@ -45,6 +55,25 @@ function App() {
         applyOperations(newOps).catch((err) => setStatus(`Live sync failed: ${String(err)}`));
       }
     });
+  }, []);
+
+  // The reverse direction: an agent wrote something via an MCP write tool
+  // (Build mode granted) — refresh the canvas if it's the page we're
+  // currently looking at, so the human sees what the agent built.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    onGraphChanged((pageId) => {
+      if (pageId !== useCanvasStore.getState().pageId) return;
+      getPageSnapshot(pageId)
+        .then((page) => {
+          useCanvasStore.getState().applyRemoteObjects(toShapeMap(page.objects));
+          setStatus("Agent updated the canvas");
+        })
+        .catch((err) => setStatus(`Couldn't load agent's change: ${String(err)}`));
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
   }, []);
 
   async function handleAgentModeChange(mode: AgentMode) {
@@ -93,11 +122,7 @@ function App() {
         setStatus(`${dir} has no pages yet`);
         return;
       }
-      const shapes = Object.fromEntries(
-        Object.entries(page.objects).map(([id, shape]) => [id, { id, shape }]),
-      );
-      // biome-ignore lint/suspicious/noExplicitAny: shapes reconstructed from untyped JSON on load
-      useCanvasStore.getState().loadPage(page.pageId, shapes as any);
+      useCanvasStore.getState().loadPage(page.pageId, toShapeMap(page.objects));
       setStatus(`Loaded ${dir}`);
     } catch (err) {
       setStatus(`Load failed: ${String(err)}`);

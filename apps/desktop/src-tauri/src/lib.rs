@@ -6,7 +6,7 @@ use draft_graph::Graph;
 use draft_mcp::live::LiveState;
 use draft_project::{PageDocument, ProjectManifest};
 use draft_security::AgentMode;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 /// Reports the `draft-core` version, proving both the Tauri IPC round-trip
 /// and the Rust workspace wiring (desktop -> crates/) work end to end.
@@ -140,6 +140,23 @@ fn get_agent_mode(live: State<'_, Arc<LiveState>>) -> Result<AgentMode, String> 
     Ok(*live.mode.lock().map_err(|_| "mode lock poisoned")?)
 }
 
+/// Fetches one page's current live content — used by the frontend to
+/// refresh after a `draft-graph-changed` event (an agent wrote something
+/// via an MCP write tool while Build mode was granted).
+#[tauri::command]
+fn get_page_snapshot(
+    page_id: PageId,
+    live: State<'_, Arc<LiveState>>,
+) -> Result<PageSnapshotOut, String> {
+    let graph = live.graph.lock().map_err(|_| "graph lock poisoned")?;
+    let page = graph.page(page_id).ok_or("no such page")?;
+    Ok(PageSnapshotOut {
+        page_id: page.id,
+        page_name: page.name.clone(),
+        objects: page.objects().clone(),
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let live_state = Arc::new(LiveState::new(Graph::new(), AgentMode::default()));
@@ -149,11 +166,25 @@ pub fn run() {
         .manage(live_state)
         .setup(|app| {
             let live_state = app.state::<Arc<LiveState>>().inner().clone();
+
+            let listener_state = live_state.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(err) = draft_mcp::local_socket::serve_forever(live_state).await {
+                if let Err(err) = draft_mcp::local_socket::serve_forever(listener_state).await {
                     eprintln!("draft-mcp local-socket listener stopped: {err}");
                 }
             });
+
+            // Forwards an MCP write tool's change notification (see
+            // draft_mcp::live::LiveState.changes) to the frontend, so the
+            // canvas can refresh a page an agent just wrote to.
+            let app_handle = app.handle().clone();
+            let mut changes = live_state.changes.subscribe();
+            tauri::async_runtime::spawn(async move {
+                while let Ok(page_id) = changes.recv().await {
+                    let _ = app_handle.emit("draft-graph-changed", page_id.to_string());
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -164,6 +195,7 @@ pub fn run() {
             apply_operations,
             set_agent_mode,
             get_agent_mode,
+            get_page_snapshot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

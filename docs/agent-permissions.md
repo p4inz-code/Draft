@@ -17,18 +17,20 @@ Implemented in `crates/draft-security`. See [ADR-010](decisions/adr-010-agent-pe
 handshake is not the same as granting any access, and moving to `Build` is always a
 deliberate, visible user action, never a default.
 
-## Enforcement point (real, for reads; not yet wired for writes)
+## Enforcement point (real, for both reads and writes)
 
-`AgentMode::allows_read()` is the actual gate every live MCP tool checks today
-(`LiveMcpServer::get_project`/`get_page`/`get_object` in `crates/draft-mcp/src/live.rs`) —
-`Manual` gets a clear "no access" JSON response instead of data, every other mode reads.
-Verified by `crates/draft-mcp/tests/mcp_local_socket.rs`.
+`AgentMode::allows_read()` gates the read tools (`get_project`/`get_page`/`get_object`) and
+`AgentMode::allows_write()` gates the write tools (`create_object`/`modify_object`/
+`delete_object`) — all in `LiveMcpServer` (`crates/draft-mcp/src/live.rs`). `Manual` denies
+every read tool; anything short of `Build` denies every write tool. Both return a clear JSON
+error naming the current mode instead of silently no-op'ing. Verified by
+`crates/draft-mcp/tests/mcp_local_socket.rs` (one test per gate).
 
-`AgentMode::allows_write()` and `PermissionGrant::check_write()` exist and are unit-tested
-in isolation, but **nothing calls them yet** — there are no write MCP tools
-(`create_object`/`modify_object`/`delete_object`) to gate. `check_write()` is meant to be the
-single choke point once those tools exist, so a new write tool can't accidentally skip the
-check, but that's a design intent for Session 3, not something enforced today.
+`PermissionGrant::check_write()` — the richer, timestamped grant type — exists and is
+unit-tested in isolation, but the live gate calls `AgentMode::allows_write()` directly
+instead. `check_write()` would matter once grants are per-connection with their own
+`granted_at_unix`; today there's one whole-app `AgentMode`, so the simpler direct check is
+what's actually wired.
 
 ## What "visible and revocable" means today vs. planned
 

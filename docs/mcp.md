@@ -16,10 +16,13 @@ alone is the wrong default here.
 - **Local socket** — a Windows named pipe (`\\.\pipe\draft-mcp`) or Unix domain socket,
   **loopback-only**, hosted *inside* the running desktop app (`crates/draft-mcp/src/
   local_socket.rs`, spawned from `apps/desktop/src-tauri`'s `setup` hook). This is the live
-  path: the server reads the same `Arc<Mutex<Graph>>` the canvas writes to via the
-  `apply_operations` Tauri command, so an agent sees edits as they happen. The Unix path
-  exists and compiles (`#[cfg(unix)]`) but hasn't been exercised on Linux/macOS yet — this
-  has been built and tested on Windows only so far.
+  path: the server reads and writes the same `Arc<Mutex<Graph>>` the canvas writes to via the
+  `apply_operations` Tauri command, so an agent sees edits as they happen — and, since an
+  agent can write too (Build mode), the human sees the agent's edits back: a successful write
+  fires `LiveState.changes`, forwarded as a `draft-graph-changed` Tauri event that the
+  frontend uses to refetch and merge the affected page. The Unix path exists and compiles
+  (`#[cfg(unix)]`) but hasn't been exercised on Linux/macOS yet — this has been built and
+  tested on Windows only so far.
 - **Stdio**, via the `draft-mcp` CLI binary (`crates/draft-mcp/src/bin/main.rs`) operating
   directly on a saved `.draft` project directory — for headless/CI use where no desktop
   instance is running. Loads the project once at startup; doesn't see later edits.
@@ -35,10 +38,11 @@ a real dependency of `draft-mcp` (not aspirational — both servers above are bu
 
 ## Connection permission (enforced, not just typed)
 
-Every local-socket tool call checks `AgentMode::allows_read()` against a shared
-`Arc<Mutex<AgentMode>>` before returning anything; `Manual` (the default — every session
-starts here) gets a clear `{"error": "no read access", "current_mode": "manual", ...}`
-response instead of data. The user raises this via a real "Agent access" dropdown in
+Every read tool call checks `AgentMode::allows_read()`; every write tool call checks
+`AgentMode::allows_write()` (`Build` only) — both against the same shared
+`Arc<Mutex<AgentMode>>`. `Manual` (the default — every session starts here) gets a clear
+`{"error": "no read access", "current_mode": "manual", ...}` (or "no write access") response
+instead of data or a mutation. The user raises this via a real "Agent access" dropdown in
 `apps/desktop`'s header (`Manual`/`Ask`/`Watch`/`Assist`/`Build`), wired to the
 `set_agent_mode` Tauri command — this *is* the spec's "explicit, visible, revocable" grant.
 See [docs/agent-permissions.md](agent-permissions.md).
@@ -52,8 +56,17 @@ whole-app) mode scoping — deferred to Session 3, per the original plan.
 
 ## Resources/tools
 
-Implemented today, both transports: `get_project` (manifest + page list), `get_page` (one
-page's objects by ID), `get_object` (one object by page + object ID) — all read-only.
+Implemented on the **stdio** transport (read-only — a saved file has nothing to write back
+to live): `get_project`, `get_page`, `get_object`.
+
+Implemented on the **local-socket** (live) transport, both read and write:
+- `get_project` (manifest + page list), `get_page` (one page's objects by ID), `get_object`
+  (one object by page + object ID) — gated on `AgentMode::allows_read()`.
+- `create_object` (page ID + arbitrary payload -> new object ID), `modify_object` (page +
+  object ID + replacement payload), `delete_object` (page + object ID) — gated on
+  `AgentMode::allows_write()` (`Build` only). All three go through
+  `draft_graph::Graph::apply` — the exact same code path a human's canvas edit takes, so
+  there's no separate "agent wrote this" handling to keep in sync.
 
 Not implemented yet:
 - `selection`, `recent_changes`, `agent_state` — these only make sense for a live session
@@ -62,6 +75,8 @@ Not implemented yet:
 - `annotations`, `requirements`, `flows`, `assets` — wait on the real object/shape taxonomy
   in `draft-graph` (payloads are still opaque JSON; see docs/architecture.md's trade-off
   note on this).
-- Write tools (`create_object`/`modify_object`/`delete_object`/`request_user_permission`) —
-  `AgentMode::Build`/`allows_write()` exist as values but nothing checks for them yet; every
-  MCP tool today is read-only regardless of mode. Session 3 work.
+- `request_user_permission` as an MCP tool an agent can call to ask for elevated access —
+  today the user has to notice and change the dropdown themselves.
+- Per-connection write scoping (`PermissionGrant`'s richer, timestamped grant type is defined
+  and tested but unused — the live gate checks `AgentMode::allows_write()` directly against
+  one whole-app mode, not a per-connection grant).

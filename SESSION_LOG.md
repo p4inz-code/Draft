@@ -9,6 +9,36 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (later) — Write MCP tools + bidirectional sync
+
+**Commit:** (pending push at time of writing)
+
+Continued straight from the live-read MCP work: added `create_object`/`modify_object`/
+`delete_object` to `LiveMcpServer`, gated on `AgentMode::allows_write()` (`Build` only).
+Originally scoped as Session 3 work, but shipped now since read-only access is only half of
+"connect human creativity to AI" — an agent that can see a design but never help build it
+falls short of the stated goal.
+
+**A real gap caught while building this:** a write nobody sees isn't useful. Added
+`LiveState.changes` (a `tokio::sync::broadcast::Sender<PageId>`) that fires on every
+successful write; `apps/desktop` forwards it as a `draft-graph-changed` Tauri event, and the
+frontend refetches the affected page (`getPageSnapshot`) and merges it into the canvas
+(`@draft/canvas`'s new `applyRemoteObjects`, which replaces the shapes map without touching
+undo history — an agent's write isn't something the human should be able to "undo" through
+their own history stack). This closes the loop in both directions: human edits reach the
+agent (Session 2's earlier work), agent edits reach the human (this).
+
+**Verified for real:** `crates/draft-mcp/tests/mcp_local_socket.rs` gained a second test —
+`Watch` mode denies `create_object` (names the mode in the response), raising to `Build`
+lets the same call through, a change notification fires with the right page ID, and
+`modify_object`/`delete_object` are confirmed against actual graph state afterward.
+
+**Still not done** (see ROADMAP.md): `request_user_permission` as a callable MCP tool,
+per-connection (rather than whole-app) mode scoping, a visible "N agents connected"
+indicator.
+
+---
+
 ## 2026-09-06 — Foundation phase
 
 **Commits:** `633a3e3`..`4b238dc` (repo init through CI toolchain pin)

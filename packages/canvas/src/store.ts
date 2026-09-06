@@ -72,6 +72,16 @@ interface CanvasState {
 
   /** Replaces the whole page with loaded content (open project) — resets history. */
   loadPage: (pageId: PageId, shapes: ShapeMap) => void;
+
+  /**
+   * Merges an agent's write (via an MCP write tool) into the live shapes map
+   * without touching selection/undo history — unlike `loadPage`, this is a
+   * partial, incremental update, not "replace everything." Deliberately
+   * does *not* go through `beginAction`/`commitAction`: the change already
+   * happened on the Rust side, so re-diffing and re-sending it back via
+   * `apply_operations` would just echo it needlessly.
+   */
+  applyRemoteObjects: (objects: ShapeMap) => void;
 }
 
 function recordOps(state: Pick<CanvasState, "operations">, ops: Operation[]): OperationRecord[] {
@@ -192,6 +202,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       past: [],
       future: [],
     }),
+
+  // A full replace, not a merge: `objects` is the page's complete current
+  // content from the Rust side (fetched after a change notification), so
+  // this is also how a remote delete_object shows up locally.
+  applyRemoteObjects: (objects) => set({ shapes: objects }),
 }));
 
 export type { CanvasObject, ShapeMap };

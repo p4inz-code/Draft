@@ -6,6 +6,7 @@
  */
 import type { AgentMode, ObjectId, Operation, PageId } from "@draft/shared";
 import { invoke } from "@tauri-apps/api/core";
+import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 
 /** Returns the running `draft-core` version (see `apps/desktop`'s `app_version` command). */
 export async function getCoreVersion(): Promise<string> {
@@ -65,4 +66,21 @@ export async function setAgentMode(mode: AgentMode): Promise<void> {
 
 export async function getAgentMode(): Promise<AgentMode> {
   return invoke<AgentMode>("get_agent_mode");
+}
+
+/** Fetches one page's current live content — used after `onGraphChanged` fires. */
+export async function getPageSnapshot(pageId: PageId): Promise<PageSnapshot> {
+  return invoke<PageSnapshot>("get_page_snapshot", { pageId });
+}
+
+/**
+ * Subscribes to `draft-graph-changed`, fired whenever an MCP write tool
+ * mutates the live graph (an agent created/modified/deleted an object while
+ * Build mode was granted) — see `apps/desktop/src-tauri`'s `setup` hook.
+ * Returns an unsubscribe function.
+ */
+export async function onGraphChanged(handler: (pageId: PageId) => void): Promise<UnlistenFn> {
+  return listen<string>("draft-graph-changed", (event) => {
+    handler(event.payload as PageId);
+  });
 }

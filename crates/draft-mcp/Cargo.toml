@@ -16,6 +16,7 @@ draft-security.workspace = true
 draft-project.workspace = true
 draft-graph.workspace = true
 draft-core.workspace = true
+draft-events.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["io-std"] }

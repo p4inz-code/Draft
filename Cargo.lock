@@ -955,6 +955,7 @@ name = "draft-mcp"
 version = "0.1.0"
 dependencies = [
  "draft-core",
+ "draft-events",
  "draft-graph",
  "draft-project",
  "draft-security",

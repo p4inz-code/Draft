@@ -86,3 +86,134 @@ async fn manual_mode_denies_reads_and_a_higher_mode_allows_them() {
     assert_eq!(json["live"], true);
     client.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn watch_mode_denies_writes_and_build_mode_allows_them() {
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let mut graph = Graph::new();
+    let page_id = PageId::new();
+    graph.ensure_page(page_id, "Level 1");
+
+    // Watch: reads allowed, writes not.
+    let state = Arc::new(LiveState::new(graph, AgentMode::Watch));
+    let mut changes = state.changes.subscribe();
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    let client = connect_client(&pipe_name).await;
+    let create_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "payload".to_string(),
+            serde_json::json!({"kind": "rectangle"}),
+        ),
+    ]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("create_object").with_arguments(create_args.clone()))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert_eq!(json["current_mode"], "watch");
+    assert!(json["error"].is_string());
+    client.cancel().await.unwrap();
+
+    // Raise to Build: the same call now actually creates the object, and a
+    // change notification fires for the affected page.
+    *state.mode.lock().unwrap() = AgentMode::Build;
+
+    let client = connect_client(&pipe_name).await;
+    let result = client
+        .call_tool(CallToolRequestParams::new("create_object").with_arguments(create_args))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    let object_id: draft_core::ObjectId = json["object_id"]
+        .as_str()
+        .expect("object_id in response")
+        .parse()
+        .expect("valid object id");
+
+    assert_eq!(
+        changes.recv().await.expect("a change notification fired"),
+        page_id
+    );
+    assert_eq!(
+        state
+            .graph
+            .lock()
+            .unwrap()
+            .page(page_id)
+            .unwrap()
+            .object_count(),
+        1
+    );
+
+    // modify_object and delete_object go through the same gate.
+    let modify_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "object_id".to_string(),
+            serde_json::Value::String(object_id.to_string()),
+        ),
+        (
+            "payload".to_string(),
+            serde_json::json!({"kind": "rectangle", "moved": true}),
+        ),
+    ]);
+    client
+        .call_tool(CallToolRequestParams::new("modify_object").with_arguments(modify_args))
+        .await
+        .unwrap();
+    assert_eq!(
+        state
+            .graph
+            .lock()
+            .unwrap()
+            .page(page_id)
+            .unwrap()
+            .object(object_id)
+            .unwrap()["moved"],
+        true
+    );
+
+    let delete_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "object_id".to_string(),
+            serde_json::Value::String(object_id.to_string()),
+        ),
+    ]);
+    client
+        .call_tool(CallToolRequestParams::new("delete_object").with_arguments(delete_args))
+        .await
+        .unwrap();
+    assert_eq!(
+        state
+            .graph
+            .lock()
+            .unwrap()
+            .page(page_id)
+            .unwrap()
+            .object_count(),
+        0
+    );
+
+    client.cancel().await.unwrap();
+}

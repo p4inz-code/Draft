@@ -279,4 +279,29 @@ describe("Toolbar auto-hide dock", () => {
     });
     expect(dock(remounted).className).not.toMatch(/idle/);
   });
+
+  it("unpinning gives a fresh grace period instead of instantly snapping to idle", () => {
+    const { container } = render(<Toolbar />);
+    fireEvent.click(screen.getByRole("button", { name: /pin toolbar/i }));
+
+    // The idle timer keeps running in the background while pinned — only
+    // masked from the class list, not paused — so this must not leave the
+    // dock idle the instant it's unpinned.
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /unpin toolbar/i }));
+    expect(dock(container).className).not.toMatch(/idle/);
+  });
+
+  it("hovering the faded dock directly revives it, not just approaching the top of the window", () => {
+    const { container } = render(<Toolbar />);
+    act(() => {
+      vi.advanceTimersByTime(3001);
+    });
+    expect(dock(container).className).toMatch(/idle/);
+
+    fireEvent.pointerEnter(dock(container));
+    expect(dock(container).className).not.toMatch(/idle/);
+  });
 });

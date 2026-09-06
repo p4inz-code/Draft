@@ -27,6 +27,29 @@ import { useEffect, useState } from "react";
 import "./App.css";
 
 const LAST_PROJECT_DIR_KEY = "draft.lastProjectDir";
+/** A stuck IPC call (Rust-side lock contention, a lost response) must not
+ * wedge the sync queue forever — every queued call gets this long to
+ * settle before the queue gives up on it and moves on. */
+const SYNC_TIMEOUT_MS = 10000;
+
+function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${SYNC_TIMEOUT_MS}ms`)),
+      SYNC_TIMEOUT_MS,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 /** `page.objects` (from the Rust side) into the canvas store's `ShapeMap` shape. */
 function toShapeMap(objects: Record<ObjectId, unknown>): ShapeMap {
@@ -117,33 +140,38 @@ function App() {
   useEffect(() => {
     const store = useCanvasStore;
 
-    // `ensurePage`/`applyOperations` are each a separate Tauri IPC round
-    // trip with no ordering guarantee between concurrent calls — firing
-    // them independently (as this used to) let a later-generated operation
-    // reach the Rust graph before an earlier one (e.g. a quick draw
-    // immediately followed by Ctrl+Z), producing a real "object ... does
-    // not exist" error even though the human's own actions were perfectly
-    // ordered. Chaining every call through one promise queue guarantees
-    // they land in the same order they were generated, matching how a
-    // single in-process graph is meant to be driven.
-    let syncQueue = ensurePage(store.getState().pageId, "Page 1").catch(() => {});
+    // `ensurePage`/`applyOperations`/`setSelection` are each a separate
+    // Tauri IPC round trip with no ordering guarantee between concurrent
+    // calls — firing them independently (as this used to) let a
+    // later-generated call reach the Rust graph before an earlier one
+    // (e.g. a quick draw immediately followed by Ctrl+Z, or a page switch's
+    // `ensurePage` racing a selection change on the new page), producing a
+    // real "object/page ... does not exist" error even though the human's
+    // own actions were perfectly ordered. Chaining every call through one
+    // promise queue guarantees they land in the same order they were
+    // generated. Each call is timeout-wrapped so a single stuck IPC round
+    // trip can't wedge every future sync silently for the rest of the
+    // session — it times out, surfaces a status, and the queue moves on.
+    let syncQueue = withTimeout(ensurePage(store.getState().pageId, "Page 1"), "ensurePage").catch(
+      (err) => setStatus(`Live sync failed: ${String(err)}`),
+    );
 
     const unsubscribe = store.subscribe((state, prev) => {
       if (state.pageId !== prev.pageId) {
-        syncQueue = syncQueue.then(() => ensurePage(state.pageId, "Page 1")).catch(() => {});
+        syncQueue = syncQueue
+          .then(() => withTimeout(ensurePage(state.pageId, "Page 1"), "ensurePage"))
+          .catch((err) => setStatus(`Live sync failed: ${String(err)}`));
       }
       if (state.operations.length > prev.operations.length) {
         const newOps = state.operations.slice(prev.operations.length).map((r) => r.operation);
         syncQueue = syncQueue
-          .then(() => applyOperations(newOps))
+          .then(() => withTimeout(applyOperations(newOps), "applyOperations"))
           .catch((err) => setStatus(`Live sync failed: ${String(err)}`));
       }
       if (state.selection !== prev.selection) {
-        // Selection has no ordering dependency on the object graph (a
-        // stale/out-of-order selection is harmless and self-corrects on
-        // the next change), so it stays off the queue rather than waiting
-        // behind slower operation syncs.
-        setSelection(state.pageId, state.selection).catch(() => {});
+        syncQueue = syncQueue
+          .then(() => withTimeout(setSelection(state.pageId, state.selection), "setSelection"))
+          .catch((err) => setStatus(`Live sync failed: ${String(err)}`));
       }
     });
     return unsubscribe;

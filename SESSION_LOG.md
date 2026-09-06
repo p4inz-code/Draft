@@ -9,6 +9,47 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (audit) — code-review + security-review on the bug-fix/toolbar commit
+
+**Commit:** (pending push at time of writing)
+
+Ran the requested "audit everything" pass (8-angle code-review + security-review) over the
+text-tool/live-sync/toolbar commit before moving on. Found and fixed 9 real issues, several
+confirmed independently by 3-4 finder angles:
+
+- **`Canvas.tsx`'s focus retry was checking success in the same synchronous tick as
+  `focus()`** — since `focus()` takes effect synchronously, the check almost always passed on
+  the very first frame, meaning the "retry for 10 frames" fix didn't actually protect against
+  the async steal-back race it was written for. Fixed by re-asserting focus on every frame for
+  the whole window instead of stopping at first success, so a later steal still gets reclaimed.
+- **`App.tsx`'s sync queue had no timeout** — a stuck (not rejected) IPC call would wedge
+  every future sync silently forever. Added a `withTimeout` wrapper (10s) around every queued
+  call. Also folded `setSelection` into the same queue (it was deliberately left out, but that
+  let a page-switch's selection race ahead of its own queued `ensurePage`) and made
+  `ensurePage` failures surface a status instead of being silently swallowed.
+- **Toolbar's hover-to-revive was dead code** — `pointer-events: none` on the whole dock while
+  idle also blocked the `onPointerEnter` handler meant to revive it by hovering. Moved
+  `pointer-events: none` down to the islands/pin button so the dock itself stays hoverable.
+- **Unpinning could instantly fade the toolbar** — the idle timer kept running in the
+  background even while pinned (only masked from the CSS class), so unpinning after a long
+  pinned session snapped straight to idle with no grace period. Fixed by calling `revive()` in
+  `togglePinned`.
+- Smaller fixes: `flex-wrap` on the dock (it could overflow on a narrow window with 3 islands
+  + pin), moved the import-error alert back next to the Media button instead of behind Pin,
+  and reworded a test comment that quoted the user's verbatim bug report instead of describing
+  the mechanism (an established local-convention deviation the conventions-angle agent caught).
+
+Security-review found nothing — the diff has no new IPC surface, no new untrusted-input
+parsing, and no injection-sink usage (the new `localStorage` read/write is a plain boolean,
+never interpolated anywhere dangerous).
+
+Added 2 new tests (`Canvas.test.tsx`'s frame-stepped steal-back reclaim, using a manually
+controlled `requestAnimationFrame` mock since real jsdom rAF fires too fast to reliably
+interleave a focus steal mid-retry-window) and 2 more (`Toolbar.test.tsx`'s unpin-resets-idle,
+hover-to-revive). `pnpm build/lint/test` (67 tests) and `cargo build/clippy` green.
+
+---
+
 ## 2026-09-06 (web architecture) — ADR-016: apps/web attaches to a live desktop session
 
 **Commit:** (pending push at time of writing)

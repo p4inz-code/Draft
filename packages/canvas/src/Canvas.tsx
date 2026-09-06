@@ -542,26 +542,30 @@ function TextEditor({ shape, onDone }: { shape: TextShape; onDone: (text: string
     // Deferred a frame: focusing synchronously on mount raced the browser's
     // own native click/focus handling for the pointerdown that created this
     // element, causing an immediate blur (see handlePointerDown's text
-    // branch for the pointer-capture half of this fix). One rAF isn't
-    // guaranteed to land after that native handling has actually settled in
-    // every environment (a real regression the desktop WebView hit — one
-    // frame was enough in a browser tab but not always there), so this
-    // keeps retrying for a few frames rather than assuming the first one
-    // worked — bounded, so a genuinely unfocusable element (e.g. this
-    // textarea unmounting mid-flight) can't spin forever.
+    // branch for the pointer-capture half of this fix). That native
+    // handling doesn't always finish settling within a single frame, and it
+    // can steal focus back on a *later* frame than the one this effect
+    // first runs on — checking success only once, immediately after calling
+    // focus(), can't detect a steal that hasn't happened yet. So this
+    // re-asserts focus on every frame for a bounded window instead of
+    // checking once: if something else has taken focus by the time a given
+    // frame runs, it's reclaimed and re-verified again next frame, rather
+    // than declaring victory the moment a single focus() call returns.
     let rafId: number;
-    let attemptsLeft = 10;
-    const tryFocus = () => {
+    let framesLeft = 10;
+    const ensureFocused = () => {
       const el = ref.current;
       if (!el) return;
-      el.focus();
-      el.select();
-      attemptsLeft -= 1;
-      if (document.activeElement !== el && attemptsLeft > 0) {
-        rafId = requestAnimationFrame(tryFocus);
+      if (document.activeElement !== el) {
+        el.focus();
+        el.select();
+      }
+      framesLeft -= 1;
+      if (framesLeft > 0) {
+        rafId = requestAnimationFrame(ensureFocused);
       }
     };
-    rafId = requestAnimationFrame(tryFocus);
+    rafId = requestAnimationFrame(ensureFocused);
     return () => cancelAnimationFrame(rafId);
   }, []);
 

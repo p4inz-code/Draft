@@ -169,6 +169,10 @@ export function Toolbar() {
       }
       return next;
     });
+    // Without this, unpinning after the idle timer has already elapsed in
+    // the background (masked until now by `dockClass`'s `!pinned` check)
+    // would instantly snap the toolbar to idle with no fresh grace period.
+    revive();
   }
 
   function handleGroup() {
@@ -342,6 +346,12 @@ export function Toolbar() {
         </button>
       </div>
 
+      {imageError && (
+        <span className="draft-toolbar-error" role="alert">
+          {imageError}
+        </span>
+      )}
+
       <div className="draft-toolbar-island" role="toolbar" aria-label="View and history">
         <button type="button" className="draft-toolbar-btn" onClick={undo} disabled={!canUndo}>
           Undo
@@ -386,12 +396,6 @@ export function Toolbar() {
       >
         Pin
       </button>
-
-      {imageError && (
-        <span className="draft-toolbar-error" role="alert">
-          {imageError}
-        </span>
-      )}
     </div>
   );
 }

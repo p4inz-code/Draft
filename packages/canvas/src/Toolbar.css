@@ -1,5 +1,6 @@
 .draft-toolbar-dock {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
   padding: 0.5rem 0.75rem;
@@ -11,11 +12,20 @@
 /* Idle fade (auto-hide): tools become unclickable rather than just faint,
  * so a faded toolbar can't intercept a click meant for the canvas beneath
  * it. Reviving is driven from Toolbar.tsx (pointer near the top of the
- * window, a tool shortcut key, or hovering the dock itself) — pinning
- * (`.pinned`, applied via not adding `.idle` at all while pinned) skips
- * this entirely. */
+ * window, a tool shortcut key, or hovering the dock itself) — pinning skips
+ * this entirely (`dockClass` never adds `.idle` while pinned).
+ *
+ * `pointer-events: none` lives on the islands/pin button, not the dock
+ * itself: the dock needs to keep receiving pointer events while idle so
+ * `onPointerEnter`'s hover-to-revive can actually fire — putting it on the
+ * dock would make it un-hoverable in exactly the state it needs to be
+ * hoverable in. */
 .draft-toolbar-dock.idle {
   opacity: 0.15;
+}
+
+.draft-toolbar-dock.idle .draft-toolbar-island,
+.draft-toolbar-dock.idle .draft-toolbar-pin {
   pointer-events: none;
 }
 

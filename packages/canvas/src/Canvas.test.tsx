@@ -164,10 +164,8 @@ describe("text tool focus retry", () => {
     if (!textarea) throw new Error("text editor not found");
 
     // Real jsdom's focus() always succeeds immediately, so the only way to
-    // exercise the retry path (added after this exact bug reached a real
-    // user: "only a box appears, typing does nothing" — one rAF wasn't
-    // always enough in the desktop WebView) is to simulate an environment
-    // where the first attempt doesn't "take".
+    // exercise the retry path is to simulate an environment where the first
+    // attempt doesn't "take".
     const realFocus = textarea.focus.bind(textarea);
     let focusCalls = 0;
     textarea.focus = () => {
@@ -181,6 +179,52 @@ describe("text tool focus retry", () => {
     expect(focusCalls).toBeGreaterThan(1);
 
     unmount();
+  });
+
+  it("reclaims focus if something steals it away on a later frame, not just the first one", () => {
+    // jsdom's real requestAnimationFrame can burn through the whole retry
+    // budget faster than a test can interleave a focus steal in between —
+    // stepping frames manually makes "steal it back after frame 1" testable
+    // at all, which is the exact scenario checking success only once (right
+    // after the first focus() call) could never catch.
+    const frames: FrameRequestCallback[] = [];
+    const originalRAF = window.requestAnimationFrame;
+    window.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    }) as typeof window.requestAnimationFrame;
+
+    try {
+      const { container, unmount } = render(<Canvas />);
+      const svg = container.querySelector('[role="application"]');
+      if (!svg) throw new Error("canvas svg not found");
+
+      setTool("text");
+      pointerDownAt(svg, 50, 50);
+
+      const textarea = container.querySelector(".draft-text-editor") as HTMLTextAreaElement | null;
+      if (!textarea) throw new Error("text editor not found");
+
+      act(() => {
+        frames.shift()?.(0);
+      });
+      expect(document.activeElement).toBe(textarea);
+
+      const decoy = document.createElement("input");
+      document.body.appendChild(decoy);
+      decoy.focus();
+      expect(document.activeElement).toBe(decoy);
+
+      act(() => {
+        frames.shift()?.(0);
+      });
+      expect(document.activeElement).toBe(textarea);
+
+      document.body.removeChild(decoy);
+      unmount();
+    } finally {
+      window.requestAnimationFrame = originalRAF;
+    }
   });
 });
 

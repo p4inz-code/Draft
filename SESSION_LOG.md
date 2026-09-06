@@ -9,6 +9,27 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (the actual latest) — `get_selection` MCP tool
+
+**Commit:** (pending push at time of writing)
+
+Closed the last named gap from Session 2's plan: `selection` was listed as needing "live
+selection tracking on the Rust side first." Added it — a `set_selection` Tauri command that
+`apps/desktop/src/App.tsx` calls from the same store-subscription effect that already
+forwards canvas operations (fires whenever `@draft/canvas`'s selection array changes),
+writing into a new `LiveState.selection: Mutex<SelectionState>` (page ID + object IDs). The
+new `get_selection` MCP tool reads it back, gated on `allows_read()` like the other read
+tools. Combined with last entry's `recent_changes`, a `Watch`-mode agent now has a real way
+to observe both *what changed* and *what the human is currently looking at* — not just
+current graph state.
+
+**Verified for real:** `get_selection_reflects_the_humans_current_selection` connects a
+client, confirms an empty selection initially, sets one directly on `LiveState` (standing in
+for what the Tauri command does), reconnects, and confirms the tool reflects it. Full
+cargo build/clippy/test and TS build/lint/test all green.
+
+---
+
 ## 2026-09-06 (truly latest) — Numbered tool shortcuts + a self-caught regression
 
 **Commit:** (pending push at time of writing)

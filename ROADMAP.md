@@ -174,9 +174,13 @@ longer than "foundation + canvas" sounds like it should.
   existing `watch_mode_denies_writes_and_build_mode_allows_them` test now also asserts
   `recent_changes` returns the create/modify/delete sequence in order, correctly tagged
   `agent`.
-- [ ] `selection`/`agent_state` resources (`selection` needs live selection tracking on the
-  Rust side first — selection is still frontend-only; `agent_state` is still vague pending a
-  concrete need for it)
+- [x] `get_selection` MCP tool: a `set_selection` Tauri command mirrors `@draft/canvas`'s
+  store selection into `LiveState.selection` (page ID + object IDs) on every change, and the
+  new tool returns it, gated on `allows_read()` like the other read tools — lets a `Watch`-mode
+  agent (or any read-access agent) see what the human is actually looking at, not just what
+  objects exist on the page. Verified for real: `get_selection_reflects_the_humans_current_selection`
+  connects a client before and after setting a selection and asserts both states.
+- [ ] `agent_state` resource — still vague pending a concrete need for it
 
 ### Session 3 — Agent Collaboration + Project Workflow
 
@@ -191,7 +195,10 @@ longer than "foundation + canvas" sounds like it should.
   `draft-graph-changed` Tauri event, refetched and merged into the canvas
   (`applyRemoteObjects`) — this wasn't in the original plan but is necessary for write tools
   to be useful at all (a write nobody sees isn't "collaboration")
-- [ ] Watch mode, agent observation of live changes (no `recent_changes` resource yet)
+- [x] Watch mode (an `AgentMode` since Session 2) plus agent observation of live changes: the
+  `recent_changes` MCP tool (see Session 2's entry above) now gives a `Watch`-mode agent a
+  real way to see what changed without write access — polling `recent_changes` is how an
+  agent that can only watch actually watches.
 - [x] Visible connection indicator: `LiveState.connections` (a `tokio::sync::watch<usize>`,
   not `broadcast` — a UI only cares about the latest count) is incremented/decremented by an
   RAII guard around each accepted local-socket connection (`ConnectionGuard` in

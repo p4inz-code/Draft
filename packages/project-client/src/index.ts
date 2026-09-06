@@ -73,6 +73,14 @@ export async function getAgentConnectionCount(): Promise<number> {
   return invoke<number>("get_agent_connection_count");
 }
 
+/**
+ * Mirrors the human's canvas selection into the live state, so an agent's
+ * `get_selection` MCP tool sees what the human is looking at right now.
+ */
+export async function setSelection(pageId: PageId, objectIds: ObjectId[]): Promise<void> {
+  return invoke<void>("set_selection", { pageId, objectIds });
+}
+
 /** Fetches one page's current live content — used after `onGraphChanged` fires. */
 export async function getPageSnapshot(pageId: PageId): Promise<PageSnapshot> {
   return invoke<PageSnapshot>("get_page_snapshot", { pageId });

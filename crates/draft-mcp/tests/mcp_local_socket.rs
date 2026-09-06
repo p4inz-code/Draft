@@ -88,6 +88,55 @@ async fn manual_mode_denies_reads_and_a_higher_mode_allows_them() {
 }
 
 #[tokio::test]
+async fn get_selection_reflects_the_humans_current_selection() {
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let mut graph = Graph::new();
+    let page_id = PageId::new();
+    graph.ensure_page(page_id, "Level 1");
+    let state = Arc::new(LiveState::new(graph, AgentMode::Watch));
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    // Nothing selected yet.
+    let client = connect_client(&pipe_name).await;
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_selection"))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert!(json["page"].is_null());
+    assert_eq!(json["objects"], serde_json::json!([]));
+    client.cancel().await.unwrap();
+
+    // The desktop app's set_selection Tauri command does this on every
+    // canvas selection change.
+    let object_id = ObjectId::new();
+    {
+        let mut selection = state.selection.lock().unwrap();
+        selection.page = Some(page_id);
+        selection.objects = vec![object_id];
+    }
+
+    let client = connect_client(&pipe_name).await;
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_selection"))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert_eq!(json["page"], page_id.to_string());
+    assert_eq!(json["objects"], serde_json::json!([object_id.to_string()]));
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn connection_count_tracks_connect_and_disconnect() {
     let pipe_name = format!(
         r"\\.\pipe\draft-mcp-test-{}",

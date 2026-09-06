@@ -11,6 +11,7 @@ import {
   onGraphChanged,
   saveSnapshot,
   setAgentMode,
+  setSelection,
 } from "@draft/project-client";
 import { AGENT_MODES, type AgentMode, type ObjectId } from "@draft/shared";
 import { Logo } from "@draft/ui";
@@ -70,6 +71,9 @@ function App() {
       if (state.operations.length > prev.operations.length) {
         const newOps = state.operations.slice(prev.operations.length).map((r) => r.operation);
         applyOperations(newOps).catch((err) => setStatus(`Live sync failed: ${String(err)}`));
+      }
+      if (state.selection !== prev.selection) {
+        setSelection(state.pageId, state.selection).catch(() => {});
       }
     });
   }, []);

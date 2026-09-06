@@ -154,6 +154,21 @@ fn get_agent_mode(live: State<'_, Arc<LiveState>>) -> Result<AgentMode, String> 
     Ok(*live.mode.lock().map_err(|_| "mode lock poisoned")?)
 }
 
+/// Mirrors the human's canvas selection into the live state so an agent's
+/// `get_selection` tool call sees what the human is looking at right now,
+/// not just what objects exist.
+#[tauri::command]
+fn set_selection(
+    page_id: PageId,
+    object_ids: Vec<ObjectId>,
+    live: State<'_, Arc<LiveState>>,
+) -> Result<(), String> {
+    let mut selection = live.selection.lock().map_err(|_| "selection lock poisoned")?;
+    selection.page = Some(page_id);
+    selection.objects = object_ids;
+    Ok(())
+}
+
 /// The current number of open local-socket agent connections — the initial
 /// value for the frontend's "N agents connected" indicator; live updates
 /// after this arrive via the `draft-agent-connections-changed` event.
@@ -235,6 +250,7 @@ pub fn run() {
             get_agent_mode,
             get_agent_connection_count,
             get_page_snapshot,
+            set_selection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

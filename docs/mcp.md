@@ -84,12 +84,13 @@ Implemented on the **local-socket** (live) transport, both read and write:
   `draft_events::OperationLog` that both the human's committed canvas operations
   (`apply_operations`, tagged `Actor::User`) and the three write tools above (tagged
   `Actor::Agent`) append to. Gated on `AgentMode::allows_read()`, like the other read tools.
+- `get_selection` — the human's current canvas selection (page ID + object IDs), mirrored
+  into `LiveState.selection` by a `set_selection` Tauri command every time
+  `@draft/canvas`'s store selection changes. Lets a `Watch`-mode agent (or any read-access
+  agent) see what the human is actually looking at, not just what objects exist.
 
 Not implemented yet:
-- `selection`, `agent_state` — these only make sense for a live session with real
-  selection/history tracking, which doesn't exist on the Rust side yet for selection (still
-  frontend-only, in `@draft/canvas`'s Zustand store); `agent_state` is still vague pending a
-  concrete need for it.
+- `agent_state` — still vague pending a concrete need for it.
 - `annotations`, `requirements`, `flows`, `assets` — wait on the real object/shape taxonomy
   in `draft-graph` (payloads are still opaque JSON; see docs/architecture.md's trade-off
   note on this).

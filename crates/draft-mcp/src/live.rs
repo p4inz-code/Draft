@@ -17,8 +17,17 @@ use draft_events::{Actor, Operation, OperationLog};
 use draft_graph::Graph;
 use draft_security::AgentMode;
 use rmcp::{handler::server::wrapper::Parameters, schemars, tool, tool_router};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
+
+/// What the human currently has selected on the canvas — frontend-owned
+/// state (`@draft/canvas`'s Zustand store), mirrored here via `set_selection`
+/// so an agent can see what the human is looking at, not just what exists.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct SelectionState {
+    pub page: Option<PageId>,
+    pub objects: Vec<ObjectId>,
+}
 
 /// The live graph and current agent-access grant, shared between the Tauri
 /// app (which mutates them as the human edits and as the mode changes) and
@@ -45,6 +54,8 @@ pub struct LiveState {
     /// the human's edits here; the write tools in this file append the
     /// agent's.
     pub log: Mutex<OperationLog>,
+    /// The human's current canvas selection — see [`SelectionState`].
+    pub selection: Mutex<SelectionState>,
 }
 
 impl LiveState {
@@ -57,6 +68,7 @@ impl LiveState {
             changes,
             connections,
             log: Mutex::new(OperationLog::new()),
+            selection: Mutex::new(SelectionState::default()),
         }
     }
 
@@ -330,6 +342,22 @@ impl LiveMcpServer {
         let start = filtered.len().saturating_sub(limit);
         let records = &filtered[start..];
         serde_json::json!({ "changes": records, "total_logged": log.len() }).to_string()
+    }
+
+    #[tool(
+        description = "Get what the human currently has selected on the canvas (page ID and object IDs, empty if nothing is selected). Requires the user to have granted at least Ask-level access."
+    )]
+    fn get_selection(&self) -> String {
+        let mode = self.state.current_mode();
+        if !mode.allows_read() {
+            return read_denied(mode);
+        }
+        let selection = self.state.selection.lock().expect("LiveState.selection poisoned");
+        serde_json::json!({
+            "page": selection.page.map(|p| p.to_string()),
+            "objects": selection.objects.iter().map(|o| o.to_string()).collect::<Vec<_>>(),
+        })
+        .to_string()
     }
 }
 

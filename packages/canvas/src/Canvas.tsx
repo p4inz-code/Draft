@@ -41,6 +41,10 @@ export function Canvas() {
   const [marqueeRect, setMarqueeRect] = useState<{ x: Point; y: Point } | null>(null);
   const [editingTextId, setEditingTextId] = useState<ObjectId | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  // In-memory clipboard (not the OS clipboard — copying a shape isn't text,
+  // and this avoids the async permission dance of the real Clipboard API
+  // for something that only needs to survive within the same session).
+  const clipboardRef = useRef<Shape[]>([]);
 
   function finishEditingText(id: ObjectId, text: string) {
     const state = store.getState();
@@ -91,6 +95,31 @@ export function Canvas() {
         state.beginAction();
         state.deleteShapes(state.selection);
         state.commitAction();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+        if (state.selection.length === 0) return;
+        e.preventDefault();
+        clipboardRef.current = state.selection
+          .map((id) => state.shapes[id]?.shape)
+          .filter((shape): shape is Shape => shape != null)
+          // Deep-clone so later edits to the live shape don't mutate the clipboard.
+          .map((shape) => JSON.parse(JSON.stringify(shape)));
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        if (clipboardRef.current.length === 0) return;
+        e.preventDefault();
+        state.beginAction();
+        const pasteOffset = 20;
+        const newIds = clipboardRef.current.map((shape) =>
+          state.addShape({ ...shape, x: shape.x + pasteOffset, y: shape.y + pasteOffset }),
+        );
+        state.commitAction();
+        state.select(newIds);
+        // Pasting again pastes at a further offset, like most editors, so
+        // repeated Ctrl+V doesn't stack copies exactly on top of each other.
+        clipboardRef.current = clipboardRef.current.map((shape) => ({
+          ...shape,
+          x: shape.x + pasteOffset,
+          y: shape.y + pasteOffset,
+        }));
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) state.redo();

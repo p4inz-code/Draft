@@ -57,7 +57,9 @@ four implementation sessions below.
 - [x] Pages persisted through `draft-project`/`draft-graph`: `PageDocument` +
   `save_page`/`load_page`/`load_all_pages`, Tauri `save_snapshot`/`load_snapshot` commands,
   a Save/Open UI in `apps/desktop` — real round-trip, not just an in-memory store
-- [ ] Copy/paste
+- [x] Copy/paste: Ctrl+C/Ctrl+V for the current selection, in-memory (not the OS clipboard),
+  offsets each successive paste diagonally so repeats don't stack exactly on top of each
+  other — verified manually in-browser
 - [ ] Image/video import onto the canvas
 - [ ] Grouping
 - [ ] Exit test: create a project, draw across multiple tools, save, close, reopen, verify

@@ -25,8 +25,31 @@ if (!Element.prototype.setPointerCapture) {
   Element.prototype.hasPointerCapture = () => false;
 }
 
+// jsdom has no PointerEvent constructor at all, so fireEvent.pointerDown/
+// Move/Up (which try to build one) silently produce an event with no
+// clientX/clientY — every coordinate reads back NaN, not just 0. Dispatch
+// a real MouseEvent instead (jsdom supports clientX/clientY on that) with
+// the same "pointerdown"/etc. type string — React's delegated listeners
+// match by type, not by constructor — plus a `pointerId` shim since
+// Canvas.tsx reads that off the event too.
+function firePointer(target: Element, type: string, x: number, y: number) {
+  const event = new MouseEvent(type, {
+    clientX: x,
+    clientY: y,
+    button: 0,
+    bubbles: true,
+    cancelable: true,
+  });
+  Object.defineProperty(event, "pointerId", { value: 1, configurable: true });
+  // fireEvent.* wraps its dispatch in act() so React flushes synchronously;
+  // a raw dispatchEvent doesn't get that for free.
+  act(() => {
+    target.dispatchEvent(event);
+  });
+}
+
 function pointerDownAt(target: Element, x: number, y: number) {
-  fireEvent.pointerDown(target, { clientX: x, clientY: y, button: 0, pointerId: 1 });
+  firePointer(target, "pointerdown", x, y);
 }
 
 beforeEach(() => {
@@ -67,6 +90,29 @@ describe("number-key tool shortcuts", () => {
 
     expect(useCanvasStore.getState().tool).toBe("eraser");
     document.body.removeChild(input);
+    unmount();
+  });
+});
+
+describe("marquee selection and grouping", () => {
+  it("expands a marquee that only touches one group member to the whole group", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    const { addShape, groupShapes } = useCanvasStore.getState();
+    const a = addShape({ kind: "rectangle", x: 10, y: 10, width: 10, height: 10 });
+    const b = addShape({ kind: "rectangle", x: 100, y: 100, width: 10, height: 10 });
+    groupShapes([a, b]);
+
+    setTool("select");
+    // Marquee from (0,0) to (25,25) — overlaps only shape A, not B.
+    pointerDownAt(svg, 0, 0);
+    firePointer(svg, "pointermove", 25, 25);
+    firePointer(svg, "pointerup", 25, 25);
+
+    expect(new Set(useCanvasStore.getState().selection)).toEqual(new Set([a, b]));
+
     unmount();
   });
 });

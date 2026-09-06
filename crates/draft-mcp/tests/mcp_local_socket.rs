@@ -9,6 +9,7 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use draft_core::{ObjectId, PageId};
+use draft_events::{Actor, Operation};
 use draft_graph::Graph;
 use draft_mcp::live::LiveState;
 use draft_security::AgentMode;
@@ -133,6 +134,55 @@ async fn get_selection_reflects_the_humans_current_selection() {
     let json = first_text_content(&result);
     assert_eq!(json["page"], page_id.to_string());
     assert_eq!(json["objects"], serde_json::json!([object_id.to_string()]));
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn recent_changes_since_sequence_pages_oldest_first_without_gaps() {
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let state = Arc::new(LiveState::new(Graph::new(), AgentMode::Watch));
+    // Seed 5 operations directly (sequences 0..4) — faster and more
+    // deterministic than round-tripping 5 real MCP write calls.
+    for _ in 0..5 {
+        state.record(
+            Actor::Agent,
+            Operation::CreateObject {
+                page: PageId::new(),
+                object: ObjectId::new(),
+                payload: serde_json::json!({}),
+            },
+        );
+    }
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    // Regression: with `since_sequence` set and more unseen operations than
+    // `limit`, the caller must get the OLDEST unseen ones first (so paging
+    // forward with the returned sequence numbers never skips a gap) — not
+    // the newest, which is what a naive "take the tail" implementation
+    // would return regardless of `since_sequence`.
+    let client = connect_client(&pipe_name).await;
+    let args = serde_json::Map::from_iter([
+        ("since_sequence".to_string(), serde_json::json!(0)),
+        ("limit".to_string(), serde_json::json!(2)),
+    ]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("recent_changes").with_arguments(args))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    let changes = json["changes"].as_array().expect("changes array");
+    assert_eq!(changes.len(), 2);
+    assert_eq!(changes[0]["sequence"], 1);
+    assert_eq!(changes[1]["sequence"], 2);
     client.cancel().await.unwrap();
 }
 

@@ -174,6 +174,19 @@ longer than "foundation + canvas" sounds like it should.
   existing `watch_mode_denies_writes_and_build_mode_allows_them` test now also asserts
   `recent_changes` returns the create/modify/delete sequence in order, correctly tagged
   `agent`.
+- [x] `code-review` pass (high effort, 8 finder angles) over the whole day's diff (image
+  import through `get_selection`) — found and fixed 4 confirmed correctness bugs: marquee
+  selection not expanding to full group membership, `recent_changes`'s `since_sequence`
+  paging returning the newest unseen operations instead of the oldest (breaking its own
+  incremental-polling contract), image import centering on window dimensions instead of the
+  canvas's actual viewport, and `apply_operations` losing log entries for a batch's
+  already-applied operations when a later one in the batch fails. Also generalized the
+  text-editor blur fix (previously only handled `<textarea>`, now any focused control) since
+  the same `preventDefault()` gap would have reproduced for any other focusable element.
+  Remaining lower-severity findings (stale selection after undoing a group, negative-size
+  image hit-test/render desync, a lock-ordering race between human and agent writes, write-
+  tool code duplication, `groupMembers`' O(n) scan) are tracked but not fixed this pass —
+  narrower edge cases or larger refactors than the session's remaining time justified.
 - [x] `get_selection` MCP tool: a `set_selection` Tauri command mirrors `@draft/canvas`'s
   store selection into `LiveState.selection` (page ID + object IDs) on every change, and the
   new tool returns it, gated on `allows_read()` like the other read tools — lets a `Watch`-mode

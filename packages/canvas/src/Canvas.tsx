@@ -196,12 +196,14 @@ export function Canvas() {
   }, []);
 
   function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
-    // Blurring the active text editor (if any) is normally a side effect of
-    // the browser's own default mousedown handling — but preventDefault()
-    // below suppresses that default handling too, which would otherwise
-    // strand the textarea focused and never commit its text. Do it
-    // ourselves first so it doesn't depend on that default action.
-    if (document.activeElement instanceof HTMLTextAreaElement) {
+    // Blurring whatever currently has focus (the text editor, a toolbar
+    // control like the agent-access dropdown, ...) is normally a side
+    // effect of the browser's own default mousedown handling — but
+    // preventDefault() below suppresses that default handling too. Do it
+    // ourselves first, generically, so nothing can be stranded focused
+    // (and, for the text editor specifically, its onBlur is what commits
+    // the in-progress text).
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
       document.activeElement.blur();
     }
     // Without this, a left-drag (marquee, draw, move, pan) also kicks off
@@ -357,7 +359,14 @@ export function Canvas() {
       const hits = Object.values(state.shapes)
         .filter((o) => boundsIntersect(shapeBounds(o.shape), rect))
         .map((o) => o.id);
-      state.select(hits);
+      // Expand to full group membership — otherwise a marquee that only
+      // partially overlaps a group selects just the enclosed members, and
+      // dragging then silently pulls a grouped shape's mates apart.
+      const expanded = new Set<ObjectId>();
+      for (const id of hits) {
+        for (const member of state.groupMembers(id)) expanded.add(member);
+      }
+      state.select([...expanded]);
     }
     if (drag.kind === "draw") {
       // A click with no drag leaves a zero-size, invisible shape (e.g. a

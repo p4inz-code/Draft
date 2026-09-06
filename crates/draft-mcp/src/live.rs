@@ -78,8 +78,11 @@ impl LiveState {
 
     /// Appends an operation to the log with the current wall-clock time.
     /// Best-effort: a poisoned log mutex just means `recent_changes` misses
-    /// an entry, not that the operation itself failed to apply.
-    fn record(&self, actor: Actor, operation: Operation) {
+    /// an entry, not that the operation itself failed to apply. Public so
+    /// `apps/desktop`'s `apply_operations` command can log the human's edits
+    /// through the exact same path the agent write tools below use, rather
+    /// than duplicating the timestamp/lock/append sequence.
+    pub fn record(&self, actor: Actor, operation: Operation) {
         let Ok(mut log) = self.log.lock() else {
             return;
         };
@@ -335,13 +338,17 @@ impl LiveMcpServer {
         }
         let limit = limit.unwrap_or(50).min(200);
         let log = self.state.log.lock().expect("LiveState.log poisoned");
-        let filtered: Vec<_> = log
-            .iter()
-            .filter(|r| since_sequence.is_none_or(|since| r.sequence > since))
-            .collect();
-        let start = filtered.len().saturating_sub(limit);
-        let records = &filtered[start..];
-        serde_json::json!({ "changes": records, "total_logged": log.len() }).to_string()
+        let total = log.len();
+        // `since_sequence` is for incremental polling: the caller wants
+        // everything it hasn't seen yet, oldest first, so a gap larger than
+        // `limit` doesn't get silently skipped on the next poll. Without
+        // `since_sequence`, the caller just wants the tail of the log.
+        let (skip, take) = match since_sequence {
+            Some(since) => ((since as usize + 1).min(total), limit),
+            None => (total.saturating_sub(limit), limit),
+        };
+        let records: Vec<_> = log.iter().skip(skip).take(take).collect();
+        serde_json::json!({ "changes": records, "total_logged": total }).to_string()
     }
 
     #[tool(

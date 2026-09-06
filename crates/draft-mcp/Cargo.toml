@@ -30,4 +30,5 @@ windows-sys = { version = "0.61", features = ["Win32_Security", "Win32_Security_
 [dev-dependencies]
 rmcp = { version = "3", features = ["client", "transport-child-process"] }
 tempfile = "3"
+draft-events.workspace = true
 

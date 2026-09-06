@@ -9,6 +9,58 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-06 (end of day) — Full-diff code review, 4 confirmed bugs fixed
+
+**Commit:** (pending push at time of writing)
+
+Ran a high-effort `code-review` pass (8 independent finder angles: line-by-line, removed-
+behavior, cross-file tracing, reuse, simplification, efficiency, altitude, CLAUDE.md
+conventions) over the entire day's diff — image import through `get_selection` — before
+calling the day's feature work done. Several bugs were independently found by 2-3 different
+angles, which is a strong signal on its own.
+
+**Fixed (all confirmed, each with a new or extended test):**
+- Marquee selection didn't expand to full group membership the way click-select already did
+  — a marquee only partially overlapping a group would select and then drag apart just the
+  enclosed members. Fixed in `Canvas.tsx`'s `handlePointerUp`; covered by a new
+  `Canvas.test.tsx` test using two grouped shapes and a partial marquee.
+- `recent_changes`'s `since_sequence` paging returned the *newest* unseen operations instead
+  of the *oldest*, silently breaking incremental polling (a gap larger than `limit` was
+  permanently skipped). Fixed in `live.rs`; covered by a new
+  `recent_changes_since_sequence_pages_oldest_first_without_gaps` test.
+- Image import centered on `window.innerWidth/innerHeight` instead of the canvas SVG's own
+  `getBoundingClientRect()` — already visibly wrong today since the header/toolbar occupy
+  space above the canvas. Fixed in `Toolbar.tsx`.
+- `apply_operations` mutated the whole graph batch before logging any of it, so a later
+  operation failing lost the log entries for earlier ones that had already applied — silently
+  contradicting what `recent_changes` is supposed to guarantee. Fixed by applying and logging
+  one operation at a time through `LiveState::record` (now `pub`), which also collapsed two
+  duplicate timestamp-computation code paths into one and resolved an asymmetry in how a
+  poisoned log mutex was handled between the human and agent write paths.
+- Generalized the text-editor blur workaround (from the earlier `preventDefault()` fix) to
+  blur *any* focused element, not just `<textarea>` — the review pointed out the header's
+  Agent-access dropdown had the same latent gap.
+
+**A real jsdom quirk hit while writing the marquee regression test:** jsdom has no
+`PointerEvent` constructor at all, so `fireEvent.pointerDown`/`Move`/`Up` silently produce
+events with no usable `clientX`/`clientY` (reads back as `NaN`) — not just for `0`, for any
+coordinate. The existing text-tool test happened not to assert on coordinates so it never
+caught this. Fixed by dispatching real `MouseEvent`s (jsdom supports those) with the same
+`"pointerdown"`/etc. type string — React's delegated listeners match by type, not
+constructor — plus a `pointerId` shim, wrapped in `act()` since a raw `dispatchEvent` doesn't
+get the synchronous flush `fireEvent` provides for free.
+
+**Reported but not fixed this pass** (in `ROADMAP.md`, not repeated here): stale selection
+surviving an undone group, a negative-size image's render/hit-test desync, a lock-ordering
+race between human and agent writes affecting `recent_changes` ordering under concurrency,
+duplicated lock-apply-record-notify logic across the three write tools, and `groupMembers`'
+O(n) scan — narrower edge cases or larger refactors than remaining time justified tonight.
+
+**Verified:** full `cargo build/clippy/test` and `pnpm build/lint/test` green (36 Vitest
+tests, up from 31; 5 new Rust MCP tests total added today).
+
+---
+
 ## 2026-09-06 (the actual latest) — `get_selection` MCP tool
 
 **Commit:** (pending push at time of writing)

@@ -98,10 +98,15 @@ export function Toolbar() {
       const height = Math.max(1, Math.round(natural.height * scale));
 
       const state = useCanvasStore.getState();
-      const center = screenToWorld(state.camera, {
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      });
+      // The canvas SVG doesn't fill the window (header/toolbar sit above
+      // it), so centering on window dimensions offsets the drop point from
+      // what's actually visible — use the canvas element's own rect, like
+      // every other screen-to-world conversion in Canvas.tsx already does.
+      const canvasRect = document.querySelector(".draft-canvas")?.getBoundingClientRect();
+      const screenCenter = canvasRect
+        ? { x: canvasRect.width / 2, y: canvasRect.height / 2 }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      const center = screenToWorld(state.camera, screenCenter);
       state.beginAction();
       state.addShape({
         kind: "image",

@@ -27,6 +27,27 @@ pub struct ShapeBase {
     pub group_id: Option<String>,
 }
 
+/// Stroke customization, flattened into every shape kind that renders a
+/// visible outline (rectangle/ellipse/diamond/line/arrow — not freehand,
+/// whose "stroke" is really a filled outline polygon from `perfect-freehand`,
+/// or text/image, which have no stroke at all). Absent fields fall back to
+/// the theme's default stroke color/width, matching `fill`'s convention.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Stroke {
+    #[serde(
+        rename = "strokeColor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub color: Option<String>,
+    #[serde(
+        rename = "strokeWidth",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub width: Option<f64>,
+}
+
 /// The eight shape kinds `@draft/canvas` actually produces. Internally
 /// tagged on `kind` (`#[serde(flatten)]` on `base` keeps `x`/`y`/`groupId`
 /// adjacent to the kind-specific fields, not nested under a `base` key) —
@@ -47,6 +68,8 @@ pub enum KnownShape {
         /// field's convention here.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         rotation: Option<f64>,
+        #[serde(flatten)]
+        stroke: Stroke,
     },
     Ellipse {
         #[serde(flatten)]
@@ -57,6 +80,8 @@ pub enum KnownShape {
         fill: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         rotation: Option<f64>,
+        #[serde(flatten)]
+        stroke: Stroke,
     },
     Diamond {
         #[serde(flatten)]
@@ -67,6 +92,8 @@ pub enum KnownShape {
         fill: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         rotation: Option<f64>,
+        #[serde(flatten)]
+        stroke: Stroke,
     },
     /// A plain straight line — like `Arrow` but rendered with no arrowhead.
     Line {
@@ -74,6 +101,8 @@ pub enum KnownShape {
         base: ShapeBase,
         dx: f64,
         dy: f64,
+        #[serde(flatten)]
+        stroke: Stroke,
     },
     Text {
         #[serde(flatten)]
@@ -85,6 +114,8 @@ pub enum KnownShape {
         base: ShapeBase,
         dx: f64,
         dy: f64,
+        #[serde(flatten)]
+        stroke: Stroke,
     },
     Freehand {
         #[serde(flatten)]
@@ -215,6 +246,40 @@ impl KnownShape {
         Ok(self)
     }
 
+    /// Rejects a malformed `strokeColor` (same `#rrggbb` rule as `fill`) or a
+    /// non-positive/non-finite `strokeWidth` — a zero or negative stroke
+    /// width isn't a rendering error exactly, but it's meaningless, and
+    /// rejecting it here matches this crate's "validate at the boundary"
+    /// posture instead of silently storing a value that draws nothing.
+    fn validate_stroke(self) -> Result<Self, String> {
+        let stroke = match &self {
+            KnownShape::Rectangle { stroke, .. }
+            | KnownShape::Ellipse { stroke, .. }
+            | KnownShape::Diamond { stroke, .. }
+            | KnownShape::Line { stroke, .. }
+            | KnownShape::Arrow { stroke, .. } => stroke,
+            _ => return Ok(self),
+        };
+        if let Some(value) = &stroke.color {
+            let is_valid_hex = value.len() == 7
+                && value.starts_with('#')
+                && value[1..].chars().all(|c| c.is_ascii_hexdigit());
+            if !is_valid_hex {
+                return Err(format!(
+                    "strokeColor must be a #rrggbb hex color, got {value:?}"
+                ));
+            }
+        }
+        if let Some(value) = stroke.width {
+            if !value.is_finite() || value <= 0.0 {
+                return Err(format!(
+                    "strokeWidth must be a positive finite number, got {value:?}"
+                ));
+            }
+        }
+        Ok(self)
+    }
+
     /// Clamps a rectangle/ellipse/diamond/image's `width`/`height` to
     /// non-negative — closes the render/hit-test desync a negative size
     /// caused (found in the 2026-09-06 code review): `ShapeView.tsx` used
@@ -229,12 +294,14 @@ impl KnownShape {
                 height,
                 fill,
                 rotation,
+                stroke,
             } => KnownShape::Rectangle {
                 base,
                 width: width.abs(),
                 height: height.abs(),
                 fill,
                 rotation: normalize_rotation(rotation),
+                stroke,
             },
             KnownShape::Ellipse {
                 base,
@@ -242,12 +309,14 @@ impl KnownShape {
                 height,
                 fill,
                 rotation,
+                stroke,
             } => KnownShape::Ellipse {
                 base,
                 width: width.abs(),
                 height: height.abs(),
                 fill,
                 rotation: normalize_rotation(rotation),
+                stroke,
             },
             KnownShape::Diamond {
                 base,
@@ -255,12 +324,14 @@ impl KnownShape {
                 height,
                 fill,
                 rotation,
+                stroke,
             } => KnownShape::Diamond {
                 base,
                 width: width.abs(),
                 height: height.abs(),
                 fill,
                 rotation: normalize_rotation(rotation),
+                stroke,
             },
             KnownShape::Image {
                 base,
@@ -362,6 +433,7 @@ impl<'de> Deserialize<'de> for Shape {
                 shape
                     .validate_fill()
                     .and_then(KnownShape::validate_rotation)
+                    .and_then(KnownShape::validate_stroke)
                     .map(|s| Shape::Known(s.normalized()))
                     .map_err(serde::de::Error::custom)
             }
@@ -523,6 +595,82 @@ mod tests {
         )
         .unwrap_err();
         assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn stroke_round_trips_and_is_omitted_when_absent() {
+        let stroked = roundtrip(serde_json::json!({
+            "kind": "rectangle", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0,
+            "strokeColor": "#a1b2c3", "strokeWidth": 3.0
+        }));
+        let json = serde_json::to_value(&stroked).unwrap();
+        assert_eq!(json["strokeColor"], "#a1b2c3");
+        assert_eq!(json["strokeWidth"], 3.0);
+
+        let unstroked = roundtrip(serde_json::json!({
+            "kind": "rectangle", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0
+        }));
+        let json = serde_json::to_value(&unstroked).unwrap();
+        assert!(json.get("strokeColor").is_none());
+        assert!(json.get("strokeWidth").is_none());
+    }
+
+    #[test]
+    fn stroke_applies_to_line_and_arrow_too() {
+        let line = roundtrip(serde_json::json!({
+            "kind": "line", "x": 0.0, "y": 0.0, "dx": 10.0, "dy": 10.0,
+            "strokeColor": "#000000", "strokeWidth": 2.0
+        }));
+        assert_eq!(
+            serde_json::to_value(&line).unwrap()["strokeColor"],
+            "#000000"
+        );
+
+        let arrow = roundtrip(serde_json::json!({
+            "kind": "arrow", "x": 0.0, "y": 0.0, "dx": 10.0, "dy": 10.0,
+            "strokeColor": "#111111", "strokeWidth": 2.0
+        }));
+        assert_eq!(
+            serde_json::to_value(&arrow).unwrap()["strokeColor"],
+            "#111111"
+        );
+    }
+
+    #[test]
+    fn a_malformed_stroke_color_is_rejected() {
+        let err = serde_json::from_value::<Shape>(serde_json::json!({
+            "kind": "ellipse", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0,
+            "strokeColor": "blue"
+        }))
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn a_non_positive_stroke_width_is_rejected() {
+        let err = serde_json::from_value::<Shape>(serde_json::json!({
+            "kind": "ellipse", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0,
+            "strokeWidth": 0.0
+        }))
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+
+        let err = serde_json::from_value::<Shape>(serde_json::json!({
+            "kind": "ellipse", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0,
+            "strokeWidth": -2.0
+        }))
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn stroke_does_not_apply_to_text_freehand_or_image() {
+        let shape = roundtrip(serde_json::json!({
+            "kind": "text", "x": 0.0, "y": 0.0, "text": "hi",
+            "strokeColor": "#ffffff", "strokeWidth": 5.0
+        }));
+        // Same "stray unrecognized field" behavior as fill on a non-fillable kind.
+        assert!(matches!(shape, Shape::Known(KnownShape::Text { .. })));
     }
 
     #[test]

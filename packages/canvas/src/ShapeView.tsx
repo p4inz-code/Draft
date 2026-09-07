@@ -13,6 +13,12 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
   const { shape } = object;
   const stroke = "var(--draft-text)";
   const selectionStroke = selected ? "var(--draft-accent)" : stroke;
+  // Selection always wins visually (the same accent highlight every shape
+  // already gets), regardless of any custom stroke color/width — a custom
+  // stroke only shows once the shape is deselected again.
+  const strokeColorFor = (custom: string | undefined) =>
+    selected ? "var(--draft-accent)" : (custom ?? stroke);
+  const strokeWidthFor = (custom: number | undefined) => (selected ? 2 : (custom ?? 1.5));
   // Only ever a local, per-viewer lookup (ADR-015) — `shape.assetId` is the
   // reference that actually gets synced/sent over MCP; this cache is purely
   // for the human's own rendering and never leaves the frontend.
@@ -31,8 +37,8 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
           width={Math.abs(shape.width)}
           height={Math.abs(shape.height)}
           fill={shape.fill ?? "none"}
-          stroke={selectionStroke}
-          strokeWidth={selected ? 2 : 1.5}
+          stroke={strokeColorFor(shape.strokeColor)}
+          strokeWidth={strokeWidthFor(shape.strokeWidth)}
           transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
         />
       );
@@ -47,8 +53,8 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
           rx={Math.abs(shape.width) / 2}
           ry={Math.abs(shape.height) / 2}
           fill={shape.fill ?? "none"}
-          stroke={selectionStroke}
-          strokeWidth={selected ? 2 : 1.5}
+          stroke={strokeColorFor(shape.strokeColor)}
+          strokeWidth={strokeWidthFor(shape.strokeWidth)}
           transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
         />
       );
@@ -69,8 +75,8 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
         <polygon
           points={points}
           fill={shape.fill ?? "none"}
-          stroke={selectionStroke}
-          strokeWidth={selected ? 2 : 1.5}
+          stroke={strokeColorFor(shape.strokeColor)}
+          strokeWidth={strokeWidthFor(shape.strokeWidth)}
           transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
         />
       );
@@ -82,8 +88,8 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
           y1={shape.y}
           x2={shape.x + shape.dx}
           y2={shape.y + shape.dy}
-          stroke={selectionStroke}
-          strokeWidth={selected ? 2 : 1.5}
+          stroke={strokeColorFor(shape.strokeColor)}
+          strokeWidth={strokeWidthFor(shape.strokeWidth)}
         />
       );
     case "text":
@@ -99,7 +105,11 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
       const headLength = 10;
       const headAngle = Math.PI / 7;
       return (
-        <g stroke={selectionStroke} strokeWidth={selected ? 2 : 1.5} fill="none">
+        <g
+          stroke={strokeColorFor(shape.strokeColor)}
+          strokeWidth={strokeWidthFor(shape.strokeWidth)}
+          fill="none"
+        >
           <line x1={shape.x} y1={shape.y} x2={x2} y2={y2} />
           <line
             x1={x2}

@@ -1,5 +1,12 @@
-.draft-fill-picker {
+.draft-shape-picker {
   position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  z-index: 5;
+}
+
+.draft-fill-picker {
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -8,7 +15,13 @@
   border-radius: 8px;
   background: var(--draft-surface);
   border: 1px solid var(--draft-border);
-  z-index: 5;
+}
+
+.draft-fill-picker legend {
+  font-family: var(--draft-font-sans);
+  font-size: 0.65rem;
+  color: var(--draft-text-muted);
+  padding: 0 0.2rem;
 }
 
 .draft-fill-swatch {
@@ -59,4 +72,15 @@
 .draft-fill-none.selected {
   border-color: var(--draft-accent);
   color: var(--draft-text);
+}
+
+.draft-stroke-width {
+  display: flex;
+  align-items: center;
+  margin-left: 0.15rem;
+}
+
+.draft-stroke-width input[type="range"] {
+  width: 64px;
+  accent-color: var(--draft-accent);
 }

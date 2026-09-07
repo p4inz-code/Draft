@@ -44,26 +44,38 @@ interface Rotatable {
   rotation?: number;
 }
 
-export interface RectangleShape extends ShapeBase, Fillable, Rotatable {
+/**
+ * Stroke customization, shared by every shape kind that renders a visible
+ * outline (rectangle/ellipse/diamond/line/arrow — not freehand, whose
+ * "stroke" is really a filled outline polygon from `perfect-freehand`, or
+ * text/image, which have no stroke at all). Absent fields fall back to the
+ * theme's default stroke color/width, matching `fill`'s convention.
+ */
+interface Strokable {
+  strokeColor?: string;
+  strokeWidth?: number;
+}
+
+export interface RectangleShape extends ShapeBase, Fillable, Rotatable, Strokable {
   kind: "rectangle";
   width: number;
   height: number;
 }
 
-export interface EllipseShape extends ShapeBase, Fillable, Rotatable {
+export interface EllipseShape extends ShapeBase, Fillable, Rotatable, Strokable {
   kind: "ellipse";
   width: number;
   height: number;
 }
 
-export interface DiamondShape extends ShapeBase, Fillable, Rotatable {
+export interface DiamondShape extends ShapeBase, Fillable, Rotatable, Strokable {
   kind: "diamond";
   width: number;
   height: number;
 }
 
 /** A plain straight line — like `ArrowShape` but rendered with no arrowhead. */
-export interface LineShape extends ShapeBase {
+export interface LineShape extends ShapeBase, Strokable {
   kind: "line";
   /** End point, relative to `x`/`y`. */
   dx: number;
@@ -75,7 +87,7 @@ export interface TextShape extends ShapeBase {
   text: string;
 }
 
-export interface ArrowShape extends ShapeBase {
+export interface ArrowShape extends ShapeBase, Strokable {
   kind: "arrow";
   /** End point, relative to `x`/`y`. */
   dx: number;
@@ -153,6 +165,21 @@ export type RotatableShape = RectangleShape | EllipseShape | DiamondShape;
 
 export function isRotatableShape(shape: Shape): shape is RotatableShape {
   return shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "diamond";
+}
+
+/** Shapes with a `strokeColor`/`strokeWidth` — a wider set than
+ * `FillableShape`/`RotatableShape` since line/arrow have a visible stroke
+ * but no fill or rotation. */
+export type StrokableShape = RectangleShape | EllipseShape | DiamondShape | LineShape | ArrowShape;
+
+export function isStrokableShape(shape: Shape): shape is StrokableShape {
+  return (
+    shape.kind === "rectangle" ||
+    shape.kind === "ellipse" ||
+    shape.kind === "diamond" ||
+    shape.kind === "line" ||
+    shape.kind === "arrow"
+  );
 }
 
 export type ShapeKind = Shape["kind"];

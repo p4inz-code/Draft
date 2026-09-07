@@ -42,6 +42,34 @@ Both are exercised by real end-to-end tests, not just unit tests of the pieces:
 `crates/draft-mcp/tests/mcp_stdio.rs` and `crates/draft-mcp/tests/mcp_local_socket.rs` each
 spawn/host a real server and drive it with a genuine `rmcp` client.
 
+## Which transport can your MCP client actually use
+
+Audited directly against the spec, not just assumed compatible, after the user asked for
+DRAFT to "work with any agent and any IDE" (Claude, Codex, Devin, and others by name):
+
+- **Stdio is genuinely universal.** The `draft-mcp` CLI binary follows the MCP spec correctly
+  — real JSON-RPC 2.0 framing via the official `rmcp` SDK, schema-derived tool parameters, no
+  client-specific assumptions anywhere in the tool handlers. Any MCP client that can spawn a
+  local process and speak stdio (Claude Desktop, Claude Code, Codex CLI, Cursor, and
+  presumably Devin/Antigravity/any other client with the same local-stdio-server support) can
+  point its config at this binary (with a saved `.draft` project directory as the argument)
+  and get standard MCP tool access today, by construction. This is proven end-to-end in
+  `tests/mcp_stdio.rs` against a real `rmcp` client — not a bespoke mock standing in for one.
+  What hasn't been verified: an actual install of each named third-party product actually
+  connecting to it. The spec conformance is real; the "have I personally seen Devin connect to
+  it" claim isn't, and this doc won't pretend otherwise.
+- **The local-socket "live" transport is DRAFT-desktop-app's own channel, not a generic MCP
+  entry point.** It speaks real MCP wire protocol (same `rmcp` server logic, same JSON-RPC
+  framing) over the pipe/socket — but no mainstream MCP client's configuration surface
+  supports "dial this named pipe / Unix socket path" as a way to reach a server. Their config
+  options are `command`/`args`/`env` (stdio) or a `url` (HTTP/SSE) — neither maps onto an OS
+  IPC handle. A sufficiently custom-built client *could* open it directly (the bytes on the
+  wire are standard), but that's bespoke integration work, not something any off-the-shelf
+  client does out of the box. If you're evaluating DRAFT for your own MCP client and need
+  *live* access (not just a saved project snapshot), this is the transport that has it — but
+  today that means writing your own client against it, not pointing an existing one at a
+  path.
+
 ## SDK
 
 The official Rust MCP SDK, [`rmcp`](https://github.com/modelcontextprotocol/rust-sdk) v3, is

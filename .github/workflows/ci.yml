@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -77,3 +78,75 @@ jobs:
 
       - name: pnpm build
         run: pnpm build
+
+  # Only on a version tag (not every push) — a full release-mode `tauri build`
+  # with installer bundling takes several minutes per OS, on top of `check`
+  # above. This exists because the actual installer build crashed locally in
+  # a way `cargo build`/`check` never would have caught (see ROADMAP.md's
+  # "Known issues" — a corrupted target/release directory from a prior crash,
+  # not a real code or toolchain regression) — proving the installer builds
+  # on a clean checkout, for every OS, before it's ever needed for a demo.
+  release-build:
+    name: release build (${{ matrix.os }})
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            build-essential \
+            libssl-dev \
+            libgtk-3-dev
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.97.1"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          # A release-profile cache is a different artifact set than `check`'s
+          # dev-profile one — sharing a cache key between them risks feeding a
+          # partial/mismatched cache into whichever job runs second, which is
+          # close to the exact class of problem this job exists to catch.
+          key: release-build
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the real installer
+        run: pnpm --filter @draft/desktop tauri build
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: draft-desktop-${{ matrix.os }}
+          path: |
+            target/release/bundle/**/*.msi
+            target/release/bundle/**/*.exe
+            target/release/bundle/**/*.dmg
+            target/release/bundle/**/*.deb
+            target/release/bundle/**/*.rpm
+            target/release/bundle/**/*.AppImage
+          if-no-files-found: error

@@ -7,20 +7,20 @@ it — not just because code exists. See [docs/testing.md](docs/testing.md) for 
 
 ## Known issues / blocked
 
-- [!] `pnpm --filter @draft/desktop tauri build` (the real release-mode installer build)
-  reliably crashes rustc on this dev machine — three attempts on 2026-09-07, three different
-  crash signatures (`STATUS_ACCESS_VIOLATION`, `STATUS_STACK_BUFFER_OVERRUN`,
-  `STATUS_ILLEGAL_INSTRUCTION`), on different crates each time (`tauri`, `tauri-utils`,
-  `memchr`). Tried relaxing the root `Cargo.toml`'s `[profile.release]` (`lto = true` +
-  `codegen-units = 1`, a known trigger for this class of LLVM crash) via env vars — changed
-  the crash but didn't fix it, so that's a suspect, not a confirmed root cause. **CI does not
-  catch this** — the `check` job only runs `cargo build --workspace` (each crate in isolation,
-  dev profile), never an actual `tauri build`. Until this is root-caused, "shipped" for this
-  repo means source tagged + `apps/web`'s static build attached, *not* a desktop installer —
-  don't assume one exists. Needs a dedicated session: bisect rustc-version vs. profile-setting
-  vs. clean-`target/`-dependent, then once fixed, add a real `tauri build` step to CI so a
-  broken release pipeline is caught on every push instead of only when someone urgently needs
-  to demo the app.
+- [x] ~~`pnpm --filter @draft/desktop tauri build` reliably crashes rustc~~ — **root-caused
+  and fixed 2026-09-07.** It was never the code, and never actually the root `Cargo.toml`'s
+  `[profile.release]` (`lto = true` + `codegen-units = 1`) either, despite that being the
+  first suspect — it was a corrupted `target/release` directory. The first crash (from an
+  unrelated cause, likely transient) left partial/incoherent incremental-build artifacts
+  behind; every retry after that then crashed too, with a *different* signature each time
+  (`STATUS_ACCESS_VIOLATION`, `STATUS_STACK_BUFFER_OVERRUN`, `STATUS_ILLEGAL_INSTRUCTION`, on
+  different crates each attempt — including `memchr`, which is far too simple to have a real
+  LLVM bug in it, the tell that this was never a code/toolchain issue). Fix: `rm -rf
+  target/release` before retrying a release build that just crashed — don't retry against a
+  possibly-corrupted cache. A clean build with the original, unmodified profile settings
+  succeeded in 4m44s, producing both an MSI and an NSIS installer. **If a release build ever
+  crashes again, wipe `target/release` first, then retry once before assuming it's a real
+  regression.**
 
 ## Foundation phase (pre-Session-1)
 
@@ -534,10 +534,10 @@ next session opens with the one blocking item, not a feature.
 
 ### Session A — features
 
-- [!] **Blocking, do first:** root-cause the `tauri build` rustc crash (see "Known issues"
-  above) — bisect rustc version vs. `[profile.release]`'s `lto`/`codegen-units` vs. a stale
-  `target/` dir; once fixed, add a real `tauri build` step to CI so this can't silently
-  regress again.
+- [x] ~~Blocking, do first: root-cause the `tauri build` rustc crash~~ — done, see "Known
+  issues" above (a corrupted `target/release`, not the profile settings or the code). A real
+  `tauri build` CI step is still worth adding so a genuine future regression is caught on
+  push instead of only when someone needs to demo — not done yet, folded into Session B.
 - [ ] **Shape rotation.** Currently no rotation angle exists on any shape at all
   (axis-aligned only) — the single biggest classic-tool gap found this session.
 - [ ] **Shift-to-constrain while drawing/resizing** (direct user request) — Illustrator/

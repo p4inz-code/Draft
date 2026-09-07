@@ -21,7 +21,9 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
   );
 
   switch (shape.kind) {
-    case "rectangle":
+    case "rectangle": {
+      const cx = shape.x + shape.width / 2;
+      const cy = shape.y + shape.height / 2;
       return (
         <rect
           x={shape.x}
@@ -31,22 +33,30 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
           fill={shape.fill ?? "none"}
           stroke={selectionStroke}
           strokeWidth={selected ? 2 : 1.5}
+          transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
         />
       );
-    case "ellipse":
+    }
+    case "ellipse": {
+      const cx = shape.x + shape.width / 2;
+      const cy = shape.y + shape.height / 2;
       return (
         <ellipse
-          cx={shape.x + shape.width / 2}
-          cy={shape.y + shape.height / 2}
+          cx={cx}
+          cy={cy}
           rx={Math.abs(shape.width) / 2}
           ry={Math.abs(shape.height) / 2}
           fill={shape.fill ?? "none"}
           stroke={selectionStroke}
           strokeWidth={selected ? 2 : 1.5}
+          transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
         />
       );
+    }
     case "diamond": {
       const { x, y, width, height } = shape;
+      const cx = x + width / 2;
+      const cy = y + height / 2;
       const points = [
         [x + width / 2, y],
         [x + width, y + height / 2],
@@ -61,6 +71,7 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
           fill={shape.fill ?? "none"}
           stroke={selectionStroke}
           strokeWidth={selected ? 2 : 1.5}
+          transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
         />
       );
     }

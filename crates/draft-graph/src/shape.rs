@@ -42,6 +42,11 @@ pub enum KnownShape {
         height: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fill: Option<String>,
+        /// Degrees clockwise around the shape's own bounding-box center.
+        /// Absent (not `0.0`) when unrotated, matching every other optional
+        /// field's convention here.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rotation: Option<f64>,
     },
     Ellipse {
         #[serde(flatten)]
@@ -50,6 +55,8 @@ pub enum KnownShape {
         height: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fill: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rotation: Option<f64>,
     },
     Diamond {
         #[serde(flatten)]
@@ -58,6 +65,8 @@ pub enum KnownShape {
         height: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fill: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rotation: Option<f64>,
     },
     /// A plain straight line — like `Arrow` but rendered with no arrowhead.
     Line {
@@ -111,6 +120,20 @@ pub enum KnownShape {
 #[serde(rename_all = "snake_case")]
 pub enum MediaKind {
     Video,
+}
+
+/// Wraps a rotation into `[0, 360)` (and drops an exact `0.0`/`None` to
+/// `None`, so an unrotated shape round-trips identically to one that was
+/// never rotated at all) — one canonical representation rather than
+/// `0.0`/`360.0`/`-360.0` all meaning the same visual angle.
+fn normalize_rotation(rotation: Option<f64>) -> Option<f64> {
+    let value = rotation?;
+    let wrapped = value.rem_euclid(360.0);
+    if wrapped == 0.0 {
+        None
+    } else {
+        Some(wrapped)
+    }
 }
 
 const KNOWN_KINDS: &[&str] = &[
@@ -174,6 +197,24 @@ impl KnownShape {
         Ok(self)
     }
 
+    /// Rejects a non-finite `rotation` (NaN/infinity — never producible by
+    /// the canvas's own drag-to-rotate math, but a malformed MCP write
+    /// could still send one) at the same validation boundary as `fill`.
+    fn validate_rotation(self) -> Result<Self, String> {
+        let rotation = match &self {
+            KnownShape::Rectangle { rotation, .. }
+            | KnownShape::Ellipse { rotation, .. }
+            | KnownShape::Diamond { rotation, .. } => rotation,
+            _ => return Ok(self),
+        };
+        if let Some(value) = rotation {
+            if !value.is_finite() {
+                return Err(format!("rotation must be a finite number, got {value:?}"));
+            }
+        }
+        Ok(self)
+    }
+
     /// Clamps a rectangle/ellipse/diamond/image's `width`/`height` to
     /// non-negative — closes the render/hit-test desync a negative size
     /// caused (found in the 2026-09-06 code review): `ShapeView.tsx` used
@@ -187,33 +228,39 @@ impl KnownShape {
                 width,
                 height,
                 fill,
+                rotation,
             } => KnownShape::Rectangle {
                 base,
                 width: width.abs(),
                 height: height.abs(),
                 fill,
+                rotation: normalize_rotation(rotation),
             },
             KnownShape::Ellipse {
                 base,
                 width,
                 height,
                 fill,
+                rotation,
             } => KnownShape::Ellipse {
                 base,
                 width: width.abs(),
                 height: height.abs(),
                 fill,
+                rotation: normalize_rotation(rotation),
             },
             KnownShape::Diamond {
                 base,
                 width,
                 height,
                 fill,
+                rotation,
             } => KnownShape::Diamond {
                 base,
                 width: width.abs(),
                 height: height.abs(),
                 fill,
+                rotation: normalize_rotation(rotation),
             },
             KnownShape::Image {
                 base,
@@ -314,6 +361,7 @@ impl<'de> Deserialize<'de> for Shape {
                     .map_err(serde::de::Error::custom)?;
                 shape
                     .validate_fill()
+                    .and_then(KnownShape::validate_rotation)
                     .map(|s| Shape::Known(s.normalized()))
                     .map_err(serde::de::Error::custom)
             }
@@ -423,6 +471,56 @@ mod tests {
         let err = serde_json::from_value::<Shape>(serde_json::json!({
             "kind": "ellipse", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0, "fill": "red"
         }))
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn rotation_round_trips_and_is_omitted_when_absent_or_zero() {
+        let rotated = roundtrip(serde_json::json!({
+            "kind": "rectangle", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0, "rotation": 45.0
+        }));
+        let json = serde_json::to_value(&rotated).unwrap();
+        assert_eq!(json["rotation"], 45.0);
+
+        let unrotated = roundtrip(serde_json::json!({
+            "kind": "rectangle", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0
+        }));
+        assert!(serde_json::to_value(&unrotated)
+            .unwrap()
+            .get("rotation")
+            .is_none());
+
+        let explicit_zero = roundtrip(serde_json::json!({
+            "kind": "rectangle", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0, "rotation": 0.0
+        }));
+        assert!(serde_json::to_value(&explicit_zero)
+            .unwrap()
+            .get("rotation")
+            .is_none());
+    }
+
+    #[test]
+    fn rotation_wraps_into_a_canonical_0_to_360_range() {
+        let over = roundtrip(serde_json::json!({
+            "kind": "ellipse", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0, "rotation": 405.0
+        }));
+        assert_eq!(serde_json::to_value(&over).unwrap()["rotation"], 45.0);
+
+        let negative = roundtrip(serde_json::json!({
+            "kind": "ellipse", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0, "rotation": -90.0
+        }));
+        assert_eq!(serde_json::to_value(&negative).unwrap()["rotation"], 270.0);
+    }
+
+    #[test]
+    fn a_non_finite_rotation_is_rejected() {
+        // A literal `NaN` isn't valid JSON syntax at all (rejected before a
+        // Shape is ever constructed) — an overflowing literal like this,
+        // which parses to `f64::INFINITY`, is the reachable non-finite case.
+        let err = serde_json::from_str::<Shape>(
+            r#"{"kind": "diamond", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0, "rotation": 1e400}"#,
+        )
         .unwrap_err();
         assert!(!err.to_string().is_empty());
     }

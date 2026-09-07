@@ -3,6 +3,7 @@ import {
   type Shape,
   type TextShape,
   isResizableShape,
+  isRotatableShape,
   newObjectId,
 } from "@draft/shared";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -10,7 +11,7 @@ import "./Canvas.css";
 import { FillPicker } from "./FillPicker";
 import { ShapeView } from "./ShapeView";
 import { type Point, screenToWorld } from "./camera";
-import { boundsContainPoint, boundsIntersect, shapeBounds } from "./geometry";
+import { boundsContainPoint, boundsIntersect, rotatePoint, shapeBounds } from "./geometry";
 import { LETTER_KEY_TOOLS, NUMBER_KEY_TOOLS, useCanvasStore } from "./store";
 
 /** Freehand only records a new point once the pointer has moved at least this far in world
@@ -26,6 +27,27 @@ function screenPointFromEvent(e: React.PointerEvent<SVGSVGElement>): Point {
   return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
+/** Holding Shift while drawing or resizing a rectangle/ellipse/diamond
+ * constrains it to equal width/height (a square/circle) instead of a free
+ * rectangle — Illustrator/Photoshop's own convention. Keeps `anchor` fixed
+ * and picks whichever axis was dragged further as the shared size. */
+function constrainToSquare(anchor: Point, pointer: Point): Point {
+  const size = Math.max(Math.abs(pointer.x - anchor.x), Math.abs(pointer.y - anchor.y));
+  const signX = pointer.x >= anchor.x ? 1 : -1;
+  const signY = pointer.y >= anchor.y ? 1 : -1;
+  return { x: anchor.x + signX * size, y: anchor.y + signY * size };
+}
+
+/** Holding Shift while drawing a line/arrow snaps its angle to the nearest
+ * 45° step instead of a free angle, preserving the drawn distance. */
+function constrainAngleTo45(dx: number, dy: number): { dx: number; dy: number } {
+  const distance = Math.hypot(dx, dy);
+  if (distance === 0) return { dx, dy };
+  const step = Math.PI / 4;
+  const snapped = Math.round(Math.atan2(dy, dx) / step) * step;
+  return { dx: distance * Math.cos(snapped), dy: distance * Math.sin(snapped) };
+}
+
 type DragState =
   | { kind: "none" }
   | { kind: "pan" }
@@ -33,7 +55,24 @@ type DragState =
   | { kind: "move-selection"; lastWorld: Point }
   | { kind: "draw"; objectId: ObjectId; startWorld: Point }
   | { kind: "erase" }
-  | { kind: "resize"; objectId: ObjectId; handle: ResizeHandle; anchor: Point };
+  | {
+      kind: "resize";
+      objectId: ObjectId;
+      handle: ResizeHandle;
+      /** In the shape's own *local* (unrotated) frame — the opposite,
+       * fixed corner. */
+      anchor: Point;
+      /** That same corner's on-screen (world) position at the moment the
+       * drag started — what has to stay visually fixed as width/height
+       * change, for a rotated shape. */
+      anchorWorld: Point;
+      /** The shape's center and rotation at the moment the drag started,
+       * frozen for the whole gesture — recomputing these mid-drag from the
+       * shape's own evolving width/height would be circular. */
+      center: Point;
+      rotation: number;
+    }
+  | { kind: "rotate"; objectId: ObjectId; center: Point };
 
 /** Which corner of a resizable shape's bounding box is being dragged. */
 type ResizeHandle = "nw" | "ne" | "sw" | "se";
@@ -83,18 +122,43 @@ export function Canvas() {
     e: React.PointerEvent<SVGRectElement>,
     objectId: ObjectId,
     handle: ResizeHandle,
-    bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    // The shape's own *local* (unrotated) bounds — not `shapeBounds()`'s
+    // rotated AABB, which is a different, larger box once the shape is
+    // rotated and would put the anchor in the wrong place entirely.
+    localBounds: { minX: number; minY: number; maxX: number; maxY: number },
+    rotation: number,
   ) {
     e.preventDefault();
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     // The anchor is the fixed opposite corner — dragging "nw" keeps "se" put.
     const anchor: Point = {
-      x: handle.includes("w") ? bounds.maxX : bounds.minX,
-      y: handle.includes("n") ? bounds.maxY : bounds.minY,
+      x: handle.includes("w") ? localBounds.maxX : localBounds.minX,
+      y: handle.includes("n") ? localBounds.maxY : localBounds.minY,
+    };
+    const center: Point = {
+      x: (localBounds.minX + localBounds.maxX) / 2,
+      y: (localBounds.minY + localBounds.maxY) / 2,
+    };
+    const anchorWorld = rotatePoint(anchor, center, rotation);
+    store.getState().beginAction();
+    setDrag({ kind: "resize", objectId, handle, anchor, anchorWorld, center, rotation });
+  }
+
+  function handleRotateHandlePointerDown(
+    e: React.PointerEvent<SVGCircleElement>,
+    objectId: ObjectId,
+    localBounds: { minX: number; minY: number; maxX: number; maxY: number },
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const center: Point = {
+      x: (localBounds.minX + localBounds.maxX) / 2,
+      y: (localBounds.minY + localBounds.maxY) / 2,
     };
     store.getState().beginAction();
-    setDrag({ kind: "resize", objectId, handle, anchor });
+    setDrag({ kind: "rotate", objectId, center });
   }
 
   useEffect(() => {
@@ -319,10 +383,11 @@ export function Canvas() {
           // negative width/height that `ShapeView` (Math.abs) and
           // `shapeBounds` (min/max) disagreed on, the exact desync
           // ADR-014 describes but only actually closed for the resize path.
-          const minX = Math.min(drag.startWorld.x, world.x);
-          const minY = Math.min(drag.startWorld.y, world.y);
-          const maxX = Math.max(drag.startWorld.x, world.x);
-          const maxY = Math.max(drag.startWorld.y, world.y);
+          const pointer = e.shiftKey ? constrainToSquare(drag.startWorld, world) : world;
+          const minX = Math.min(drag.startWorld.x, pointer.x);
+          const minY = Math.min(drag.startWorld.y, pointer.y);
+          const maxX = Math.max(drag.startWorld.x, pointer.x);
+          const maxY = Math.max(drag.startWorld.y, pointer.y);
           state.updateShape(drag.objectId, {
             ...shape,
             x: minX,
@@ -331,11 +396,12 @@ export function Canvas() {
             height: maxY - minY,
           });
         } else if (shape.kind === "arrow" || shape.kind === "line") {
-          state.updateShape(drag.objectId, {
-            ...shape,
-            dx: world.x - drag.startWorld.x,
-            dy: world.y - drag.startWorld.y,
-          });
+          const rawDx = world.x - drag.startWorld.x;
+          const rawDy = world.y - drag.startWorld.y;
+          const { dx, dy } = e.shiftKey
+            ? constrainAngleTo45(rawDx, rawDy)
+            : { dx: rawDx, dy: rawDy };
+          state.updateShape(drag.objectId, { ...shape, dx, dy });
         } else if (shape.kind === "freehand") {
           const last = shape.points[shape.points.length - 1];
           const nextX = world.x - shape.x;
@@ -364,18 +430,55 @@ export function Canvas() {
       case "resize": {
         const obj = state.shapes[drag.objectId];
         if (!obj || !isResizableShape(obj.shape)) return;
-        const { anchor } = drag;
-        const minX = Math.min(anchor.x, world.x);
-        const minY = Math.min(anchor.y, world.y);
-        const maxX = Math.max(anchor.x, world.x);
-        const maxY = Math.max(anchor.y, world.y);
+        const { anchor, anchorWorld, center, rotation } = drag;
+        // `world` is in screen/world space; `anchor` was captured in the
+        // shape's own *local* (unrotated) frame at drag start — rotate the
+        // live pointer back by the shape's (frozen, gesture-start) rotation
+        // around its (also frozen) center so both sides of the min/max
+        // comparison below are in the same frame. Un-rotated shapes take
+        // the cheap identity path (rotation === 0, `rotatePoint` is a no-op).
+        const localPointer = rotatePoint(world, center, -rotation);
+        const pointer = e.shiftKey ? constrainToSquare(anchor, localPointer) : localPointer;
+        const minX = Math.min(anchor.x, pointer.x);
+        const minY = Math.min(anchor.y, pointer.y);
+        const maxX = Math.max(anchor.x, pointer.x);
+        const maxY = Math.max(anchor.y, pointer.y);
+        const width = maxX - minX;
+        const height = maxY - minY;
+        // For a rotated shape, simply setting x/y to (minX, minY) would let
+        // the anchor corner drift in *world* space — its render pivot
+        // (the shape's own center) moves whenever width/height change, and
+        // rotating around a different pivot lands every point somewhere
+        // else. Solving for the x/y that puts the anchor corner back at
+        // `anchorWorld` under the *new* width/height keeps it visually
+        // pinned instead — see the "resize" section of the rotation
+        // feature's design notes (SESSION_LOG.md) for the derivation.
+        // Reduces to the plain `x = minX, y = minY` case when rotation is 0.
+        const anchorOffset = { x: anchor.x - minX, y: anchor.y - minY };
+        const halfExtent = { x: width / 2, y: height / 2 };
+        const pivotOffset = rotatePoint(
+          { x: anchorOffset.x - halfExtent.x, y: anchorOffset.y - halfExtent.y },
+          { x: 0, y: 0 },
+          rotation,
+        );
         state.updateShape(drag.objectId, {
           ...obj.shape,
-          x: minX,
-          y: minY,
-          width: maxX - minX,
-          height: maxY - minY,
+          x: anchorWorld.x - pivotOffset.x - halfExtent.x,
+          y: anchorWorld.y - pivotOffset.y - halfExtent.y,
+          width,
+          height,
         });
+        return;
+      }
+      case "rotate": {
+        const obj = state.shapes[drag.objectId];
+        if (!obj || !isRotatableShape(obj.shape)) return;
+        // 0° is "pointer directly above center" (atan2 = -90°), so +90
+        // maps that back to a neutral, unrotated angle.
+        let rotation =
+          (Math.atan2(world.y - drag.center.y, world.x - drag.center.x) * 180) / Math.PI + 90;
+        if (e.shiftKey) rotation = Math.round(rotation / 45) * 45;
+        state.updateShape(drag.objectId, { ...obj.shape, rotation });
         return;
       }
       default:
@@ -488,12 +591,27 @@ export function Canvas() {
             (() => {
               const obj = shapes[selection[0]];
               if (!obj || !isResizableShape(obj.shape)) return null;
+              const { shape } = obj;
+              // The shape's own *local* (unrotated) bounds — not
+              // `shapeBounds()`'s rotated AABB, which exists for hit-testing/
+              // marquee and would put these handles in the wrong place once
+              // the shape is rotated.
+              const localBounds = {
+                minX: shape.x,
+                minY: shape.y,
+                maxX: shape.x + shape.width,
+                maxY: shape.y + shape.height,
+              };
+              const rotation = isRotatableShape(shape) ? (shape.rotation ?? 0) : 0;
               return (
                 <ResizeHandles
                   objectId={obj.id}
-                  bounds={shapeBounds(obj.shape)}
+                  bounds={localBounds}
+                  rotation={rotation}
+                  rotatable={isRotatableShape(shape)}
                   zoom={camera.zoom}
                   onHandlePointerDown={handleResizeHandlePointerDown}
+                  onRotateHandlePointerDown={handleRotateHandlePointerDown}
                 />
               );
             })()}
@@ -517,29 +635,51 @@ export function Canvas() {
 
 const RESIZE_HANDLES: ResizeHandle[] = ["nw", "ne", "sw", "se"];
 
+/** How far above the shape's own (rotated) top edge the rotate handle floats. */
+const ROTATE_HANDLE_OFFSET = 24;
+
 /**
- * Four corner handles on a selected resizable shape's bounding box. Rendered
- * inside the world-transformed `<g>`, so the handle size is divided by zoom
- * to stay a constant size on screen rather than scaling with content.
+ * Four corner handles on a selected resizable shape's bounding box, plus one
+ * rotate handle for a rotatable shape. Rendered inside the world-transformed
+ * `<g>`, so handle sizes are divided by zoom to stay a constant size on
+ * screen rather than scaling with content. Handle positions are computed in
+ * the shape's own local (unrotated) frame, then rotated around its center to
+ * match — so they track the shape visually instead of sitting at its plain
+ * axis-aligned bounds once it's rotated.
  */
 function ResizeHandles({
   objectId,
   bounds,
+  rotation,
+  rotatable,
   zoom,
   onHandlePointerDown,
+  onRotateHandlePointerDown,
 }: {
   objectId: ObjectId;
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  rotation: number;
+  rotatable: boolean;
   zoom: number;
   onHandlePointerDown: (
     e: React.PointerEvent<SVGRectElement>,
     objectId: ObjectId,
     handle: ResizeHandle,
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    rotation: number,
+  ) => void;
+  onRotateHandlePointerDown: (
+    e: React.PointerEvent<SVGCircleElement>,
+    objectId: ObjectId,
+    bounds: { minX: number; minY: number; maxX: number; maxY: number },
   ) => void;
 }) {
   const size = 8 / zoom;
-  const positions: Record<ResizeHandle, Point> = {
+  const center: Point = {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+  };
+  const localPositions: Record<ResizeHandle, Point> = {
     nw: { x: bounds.minX, y: bounds.minY },
     ne: { x: bounds.maxX, y: bounds.minY },
     sw: { x: bounds.minX, y: bounds.maxY },
@@ -551,23 +691,47 @@ function ResizeHandles({
     ne: "nesw-resize",
     sw: "nesw-resize",
   };
+  const rotateHandlePosition = rotatePoint(
+    { x: center.x, y: bounds.minY - ROTATE_HANDLE_OFFSET / zoom },
+    center,
+    rotation,
+  );
 
   return (
     <>
-      {RESIZE_HANDLES.map((handle) => (
-        <rect
-          key={handle}
-          x={positions[handle].x - size / 2}
-          y={positions[handle].y - size / 2}
-          width={size}
-          height={size}
+      {RESIZE_HANDLES.map((handle) => {
+        const position = rotatePoint(localPositions[handle], center, rotation);
+        return (
+          <rect
+            key={handle}
+            role="button"
+            aria-label={`Resize (${handle})`}
+            x={position.x - size / 2}
+            y={position.y - size / 2}
+            width={size}
+            height={size}
+            fill="var(--draft-surface)"
+            stroke="var(--draft-accent)"
+            strokeWidth={1 / zoom}
+            style={{ cursor: cursors[handle] }}
+            onPointerDown={(e) => onHandlePointerDown(e, objectId, handle, bounds, rotation)}
+          />
+        );
+      })}
+      {rotatable && (
+        <circle
+          role="button"
+          aria-label="Rotate"
+          cx={rotateHandlePosition.x}
+          cy={rotateHandlePosition.y}
+          r={size / 2}
           fill="var(--draft-surface)"
           stroke="var(--draft-accent)"
           strokeWidth={1 / zoom}
-          style={{ cursor: cursors[handle] }}
-          onPointerDown={(e) => onHandlePointerDown(e, objectId, handle, bounds)}
+          style={{ cursor: "grab" }}
+          onPointerDown={(e) => onRotateHandlePointerDown(e, objectId, bounds)}
         />
-      ))}
+      )}
     </>
   );
 }

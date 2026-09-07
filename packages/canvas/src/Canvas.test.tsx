@@ -2,6 +2,7 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Canvas } from "./Canvas";
+import { rotatePoint } from "./geometry";
 import { LETTER_KEY_TOOLS, NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
 
 // handlePointerDown reads `tool` from a render-time closure, not
@@ -32,13 +33,20 @@ if (!Element.prototype.setPointerCapture) {
 // the same "pointerdown"/etc. type string — React's delegated listeners
 // match by type, not by constructor — plus a `pointerId` shim since
 // Canvas.tsx reads that off the event too.
-function firePointer(target: Element, type: string, x: number, y: number) {
+function firePointer(
+  target: Element,
+  type: string,
+  x: number,
+  y: number,
+  opts: { shiftKey?: boolean } = {},
+) {
   const event = new MouseEvent(type, {
     clientX: x,
     clientY: y,
     button: 0,
     bubbles: true,
     cancelable: true,
+    ...opts,
   });
   Object.defineProperty(event, "pointerId", { value: 1, configurable: true });
   // fireEvent.* wraps its dispatch in act() so React flushes synchronously;
@@ -207,6 +215,173 @@ describe("drawing normalization and freehand decimation", () => {
       [0, 0],
       [20, 0],
     ]);
+
+    unmount();
+  });
+});
+
+describe("shape rotation", () => {
+  it("dragging the rotate handle sets the shape's rotation", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    const { addShape, select } = useCanvasStore.getState();
+    const id = addShape({ kind: "rectangle", x: 0, y: 0, width: 100, height: 100 });
+    setTool("select");
+    act(() => select([id]));
+
+    const rotateHandle = container.querySelector('[aria-label="Rotate"]');
+    if (!rotateHandle) throw new Error("rotate handle not found");
+    // Handle starts directly above the shape's center (50, 50), 24px up.
+    pointerDownAt(rotateHandle, 50, -24);
+    // Directly to the right of center — 0° in atan2 terms, +90° offset for
+    // "up = neutral" puts this at a clean 90°.
+    firePointer(svg, "pointermove", 150, 50);
+    firePointer(svg, "pointerup", 150, 50);
+
+    const shape = useCanvasStore.getState().shapes[id]?.shape;
+    if (!shape || shape.kind !== "rectangle") throw new Error("expected a rectangle");
+    expect(shape.rotation).toBeCloseTo(90);
+
+    unmount();
+  });
+
+  it("holding Shift while rotating snaps to the nearest 45° step", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    const { addShape, select } = useCanvasStore.getState();
+    const id = addShape({ kind: "rectangle", x: 0, y: 0, width: 100, height: 100 });
+    setTool("select");
+    act(() => select([id]));
+
+    const rotateHandle = container.querySelector('[aria-label="Rotate"]');
+    if (!rotateHandle) throw new Error("rotate handle not found");
+    pointerDownAt(rotateHandle, 50, -24);
+    // atan2(36.4, 100) ≈ 20°, +90 offset ≈ 110° unconstrained — nearest 45°
+    // step is 90°, not 110° or 135°.
+    firePointer(svg, "pointermove", 150, 86.4, { shiftKey: true });
+    firePointer(svg, "pointerup", 150, 86.4, { shiftKey: true });
+
+    const shape = useCanvasStore.getState().shapes[id]?.shape;
+    if (!shape || shape.kind !== "rectangle") throw new Error("expected a rectangle");
+    expect(shape.rotation).toBe(90);
+
+    unmount();
+  });
+
+  it("only rectangle/ellipse/diamond get a rotate handle — not image", () => {
+    const { container, unmount } = render(<Canvas />);
+    const { addShape, select } = useCanvasStore.getState();
+    const id = addShape({ kind: "image", x: 0, y: 0, width: 50, height: 50, assetId: "a.png" });
+    setTool("select");
+    act(() => select([id]));
+
+    expect(container.querySelector('[aria-label="Rotate"]')).toBeNull();
+    // The resize handles should still be there — rotation just doesn't apply.
+    expect(container.querySelector('[aria-label="Resize (se)"]')).not.toBeNull();
+
+    unmount();
+  });
+});
+
+describe("Shift-to-constrain while drawing", () => {
+  it("constrains a rectangle to a square when Shift is held", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("rectangle");
+    pointerDownAt(svg, 0, 0);
+    firePointer(svg, "pointermove", 100, 40, { shiftKey: true });
+    firePointer(svg, "pointerup", 100, 40, { shiftKey: true });
+
+    const [object] = Object.values(useCanvasStore.getState().shapes);
+    const shape = object?.shape;
+    if (!shape || shape.kind !== "rectangle") throw new Error("expected a rectangle");
+    expect(shape.width).toBe(100);
+    expect(shape.height).toBe(100);
+
+    unmount();
+  });
+
+  it("does not constrain when Shift is not held", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("rectangle");
+    pointerDownAt(svg, 0, 0);
+    firePointer(svg, "pointermove", 100, 40);
+    firePointer(svg, "pointerup", 100, 40);
+
+    const [object] = Object.values(useCanvasStore.getState().shapes);
+    const shape = object?.shape;
+    if (!shape || shape.kind !== "rectangle") throw new Error("expected a rectangle");
+    expect(shape).toMatchObject({ width: 100, height: 40 });
+
+    unmount();
+  });
+
+  it("snaps a line's angle to the nearest 45° step when Shift is held", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("line");
+    pointerDownAt(svg, 0, 0);
+    // atan2(10, 100) ≈ 5.7°, well under the 22.5° snap threshold, so this
+    // should snap flat to 0° while keeping the drawn distance.
+    firePointer(svg, "pointermove", 100, 10, { shiftKey: true });
+    firePointer(svg, "pointerup", 100, 10, { shiftKey: true });
+
+    const [object] = Object.values(useCanvasStore.getState().shapes);
+    const shape = object?.shape;
+    if (!shape || shape.kind !== "line") throw new Error("expected a line");
+    expect(shape.dy).toBeCloseTo(0, 5);
+    expect(shape.dx).toBeCloseTo(Math.hypot(100, 10), 5);
+
+    unmount();
+  });
+});
+
+describe("resizing a rotated shape", () => {
+  it("keeps the opposite corner pinned in world space while the dragged corner moves", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    const { addShape, select, updateShape } = useCanvasStore.getState();
+    const id = addShape({ kind: "rectangle", x: 0, y: 0, width: 100, height: 50 });
+    act(() =>
+      updateShape(id, { kind: "rectangle", x: 0, y: 0, width: 100, height: 50, rotation: 90 }),
+    );
+    setTool("select");
+    act(() => select([id]));
+
+    // Rotated 90° around its center (50, 25): the local "se" corner (100, 50)
+    // renders at world (25, 75) — see the geometry worked out in
+    // SESSION_LOG.md's rotation entry. Drag it further out to (25, 125).
+    const seHandle = container.querySelector('[aria-label="Resize (se)"]');
+    if (!seHandle) throw new Error("se resize handle not found");
+    pointerDownAt(seHandle, 25, 75);
+    firePointer(svg, "pointermove", 25, 125);
+    firePointer(svg, "pointerup", 25, 125);
+
+    const shape = useCanvasStore.getState().shapes[id]?.shape;
+    if (!shape || shape.kind !== "rectangle") throw new Error("expected a rectangle");
+    expect(shape.rotation).toBeCloseTo(90);
+
+    // The "nw" local corner (x, y) rotated around the *new* center must land
+    // back at the original anchor's world position, (75, -25) — not just
+    // "wherever (minX, minY) ends up," which is what a rotation-naive resize
+    // would silently get wrong.
+    const newCenter = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
+    const rotatedNwCorner = rotatePoint({ x: shape.x, y: shape.y }, newCenter, shape.rotation ?? 0);
+    expect(rotatedNwCorner.x).toBeCloseTo(75);
+    expect(rotatedNwCorner.y).toBeCloseTo(-25);
 
     unmount();
   });

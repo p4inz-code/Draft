@@ -33,19 +33,30 @@ interface Fillable {
   fill?: string;
 }
 
-export interface RectangleShape extends ShapeBase, Fillable {
+/**
+ * Degrees clockwise around the shape's own bounding-box center. Absent (not
+ * `0`) when unrotated, matching every other optional field's convention
+ * here — `draft-graph`'s `normalize_rotation` collapses an explicit `0` back
+ * to absent for the same reason, so a shape that's never been rotated and
+ * one that was rotated back to 0° round-trip identically.
+ */
+interface Rotatable {
+  rotation?: number;
+}
+
+export interface RectangleShape extends ShapeBase, Fillable, Rotatable {
   kind: "rectangle";
   width: number;
   height: number;
 }
 
-export interface EllipseShape extends ShapeBase, Fillable {
+export interface EllipseShape extends ShapeBase, Fillable, Rotatable {
   kind: "ellipse";
   width: number;
   height: number;
 }
 
-export interface DiamondShape extends ShapeBase, Fillable {
+export interface DiamondShape extends ShapeBase, Fillable, Rotatable {
   kind: "diamond";
   width: number;
   height: number;
@@ -131,6 +142,16 @@ export function isResizableShape(shape: Shape): shape is ResizableShape {
 export type FillableShape = RectangleShape | EllipseShape | DiamondShape;
 
 export function isFillableShape(shape: Shape): shape is FillableShape {
+  return shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "diamond";
+}
+
+/** Shapes with a `rotation` field — the same set as `FillableShape` today,
+ * kept as its own guard (not aliased) since the two properties happen to
+ * share a set of kinds by coincidence, not by rule — a future fillable-only
+ * or rotatable-only kind shouldn't have to fight this alias. */
+export type RotatableShape = RectangleShape | EllipseShape | DiamondShape;
+
+export function isRotatableShape(shape: Shape): shape is RotatableShape {
   return shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "diamond";
 }
 

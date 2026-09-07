@@ -538,11 +538,19 @@ next session opens with the one blocking item, not a feature.
   issues" above (a corrupted `target/release`, not the profile settings or the code). A real
   `tauri build` CI step is still worth adding so a genuine future regression is caught on
   push instead of only when someone needs to demo — not done yet, folded into Session B.
-- [ ] **Shape rotation.** Currently no rotation angle exists on any shape at all
-  (axis-aligned only) — the single biggest classic-tool gap found this session.
-- [ ] **Shift-to-constrain while drawing/resizing** (direct user request) — Illustrator/
-  Photoshop-style: holding Shift while creating or resizing a rectangle/ellipse constrains it
-  to equal width/height (square/circle), and constrains a line/arrow's angle to 45° steps.
+- [x] **Shape rotation.** `rotation?: number` (degrees) on Rectangle/Ellipse/Diamond, mirrored
+  across the TS/Rust boundary per ADR-014, wrapped to a canonical `[0, 360)` range. A rotate
+  handle orbits the selected shape; resize handles render at their rotated positions and
+  keep the opposite corner pinned in world space while resizing (solved via the rotation
+  pivot shift, not just naive unrotated min/max math — see SESSION_LOG.md for the
+  derivation). `shapeBounds()` now returns the rotated AABB for hit-testing/marquee. Verified
+  with a dedicated regression test for the anchor-pinning property, plus live confirmation in
+  the running app (the opposite handle's screen position was pixel-identical before/after).
+- [x] **Shift-to-constrain while drawing/resizing** (direct user request) — Illustrator/
+  Photoshop-style: holding Shift while creating or resizing a rectangle/ellipse/diamond
+  constrains it to equal width/height (square/circle); holding Shift while drawing a
+  line/arrow snaps its angle to 45° steps; holding Shift while rotating snaps to 45° steps
+  too, for the same muscle-memory consistency.
 - [ ] **Stroke customization** — width and color; today only fill is adjustable, stroke is a
   fixed theme color.
 - [ ] **Shape z-order** — bring-to-front / send-to-back; shapes currently only stack in

@@ -9,6 +9,69 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-08 — release-build root cause, shape rotation + Shift-to-constrain
+
+**Commits:** `bfcb803` (release-build root cause + CI job), `a548de1` (rotation + constrain)
+
+**Root-caused the release-build crash from the end of the last session.** It was never the
+code, and — despite being the first suspect — never actually the `[profile.release]`
+`lto`/`codegen-units` settings either. The real cause: a corrupted `target/release`
+directory. The first crash (unrelated, likely transient) left partial incremental-build
+artifacts behind; every retry after that crashed too, with a *different* crash signature each
+time — the tell that this was never a real code/toolchain regression (one of the crashes hit
+`memchr`, far too simple a crate to have a genuine LLVM bug in it). Fix: `rm -rf
+target/release` before retrying a release build that just crashed. A clean rebuild with the
+original, unmodified profile settings succeeded in 4m44s, producing both an MSI and an NSIS
+installer, now attached to the `v0.1.0-dev.1` release. Also added a `release-build` CI job
+(Windows/macOS/Linux, triggers on `v*` tags) that runs the real `tauri build` and uploads the
+installer as a workflow artifact, so a genuine future regression shows up on the next tag
+push instead of only when someone urgently needs to demo the app.
+
+**Shape rotation** (Session A's first feature — flagged as the single biggest classic-tool
+gap by the architecture audit). `rotation?: number` (degrees) added to Rectangle/Ellipse/
+Diamond on both sides of the ADR-014 boundary, wrapped into a canonical `[0, 360)` range so
+an explicit `0`/`360`/`-360` all collapse to the same "unrotated" representation. A new
+rotate handle orbits the selected shape (`ResizeHandles`' new `rotatable` prop); dragging it
+computes `atan2` from the shape's center to the pointer, +90° so "pointer straight up" reads
+as 0° rotation.
+
+The genuinely tricky part was resizing a *rotated* shape correctly. The naive approach
+(convert the live pointer into the shape's local frame, run the existing min/max math, set
+`x`/`y` to the result) is subtly wrong: `ShapeView` always rotates a shape around its *own
+current* center, and that center moves whenever width/height change — so the corner meant to
+stay fixed (opposite the one being dragged) visually drifts, because it's now being rotated
+around a different pivot than before. Worked out the general fix by solving for the `x`/`y`
+that puts the anchor corner back at its original on-screen position under the *new*
+width/height: with `anchorWorld` (the anchor's rotated position, frozen at drag start),
+`anchorOffset` (which corner of the new box the anchor actually is), and `halfExtent`
+(half the new width/height), the new position is
+`anchorWorld - rotate(anchorOffset - halfExtent, rotation) - halfExtent` — and this formula
+correctly reduces to the old plain `x = minX, y = minY` case when rotation is 0, so it didn't
+need an if/else branch for the unrotated path. Verified two ways: a regression test that
+rotates a shape 90°, resizes it, and checks the opposite corner's rotated world position
+matches the original exactly; and live in the running app, where dragging one resize handle
+left the opposite handle's on-screen pixel position completely unchanged before and after
+(checked via direct `PointerEvent` dispatch + `getBoundingClientRect()`, not pixel-clicking,
+per this session's established preference for verifying canvas interactions).
+
+`shapeBounds()` (hit-testing, marquee-select) also needed updating — a rotated shape's true
+on-screen extent is the AABB of its *rotated* corners, not its plain unrotated box, or a
+rotated shape's visually-occupied corners would be unmarqueeable and parts of its old
+unrotated footprint it no longer occupies would still register hits.
+
+**Shift-to-constrain**, a direct user request: holding Shift while drawing or resizing a
+rectangle/ellipse/diamond constrains it to equal width/height (a square/circle), keeping
+whichever corner is the anchor fixed; holding Shift while drawing a line/arrow snaps its
+angle to the nearest 45° step, preserving the drawn distance; holding Shift while rotating
+snaps to 45° steps too, for the same muscle-memory consistency as the other two.
+
+Verified for real: canvas suite grew from 78 to 95 tests (rotation via handle drag, Shift
+rotation-snap, rotate handle only appearing on rotatable kinds, Shift-constrain for
+rectangle/line, the rotated-resize anchor-pinning property), full `pnpm build/lint/test` and
+`cargo fmt/clippy/test --workspace` green, plus the live-app checks described above.
+
+---
+
 ## 2026-09-07 (later) — window-control fix, 4-persona audit, performance + a11y + docs fixes
 
 **Commits:** `e46e46f` (window-control permission fix), `95a77df` (performance), `9ffa4ea`

@@ -13,6 +13,13 @@ import { type Point, screenToWorld } from "./camera";
 import { boundsContainPoint, boundsIntersect, shapeBounds } from "./geometry";
 import { LETTER_KEY_TOOLS, NUMBER_KEY_TOOLS, useCanvasStore } from "./store";
 
+/** Freehand only records a new point once the pointer has moved at least this far in world
+ * units since the last one — imperceptible at any normal zoom level, but bounds a stroke's
+ * point count against a fast, long, or high-poll-rate drag instead of growing unbounded
+ * (every recorded point costs an O(n) array copy on append and a re-walk in `shapeBounds`/
+ * `getStroke` on every subsequent frame of the same stroke). */
+const MIN_FREEHAND_POINT_DISTANCE = 2;
+
 /** Reads a pointer event's position relative to the SVG element, in screen (pixel) space. */
 function screenPointFromEvent(e: React.PointerEvent<SVGSVGElement>): Point {
   const rect = e.currentTarget.getBoundingClientRect();
@@ -306,10 +313,22 @@ export function Canvas() {
         if (!obj) return;
         const { shape } = obj;
         if (shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "diamond") {
+          // Normalized to a top-left x/y with non-negative width/height, the
+          // same way the "resize" case below already does — dragging up or
+          // left while drawing (routine, not adversarial) used to store a
+          // negative width/height that `ShapeView` (Math.abs) and
+          // `shapeBounds` (min/max) disagreed on, the exact desync
+          // ADR-014 describes but only actually closed for the resize path.
+          const minX = Math.min(drag.startWorld.x, world.x);
+          const minY = Math.min(drag.startWorld.y, world.y);
+          const maxX = Math.max(drag.startWorld.x, world.x);
+          const maxY = Math.max(drag.startWorld.y, world.y);
           state.updateShape(drag.objectId, {
             ...shape,
-            width: world.x - drag.startWorld.x,
-            height: world.y - drag.startWorld.y,
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
           });
         } else if (shape.kind === "arrow" || shape.kind === "line") {
           state.updateShape(drag.objectId, {
@@ -318,10 +337,22 @@ export function Canvas() {
             dy: world.y - drag.startWorld.y,
           });
         } else if (shape.kind === "freehand") {
-          state.updateShape(drag.objectId, {
-            ...shape,
-            points: [...shape.points, [world.x - shape.x, world.y - shape.y]],
-          });
+          const last = shape.points[shape.points.length - 1];
+          const nextX = world.x - shape.x;
+          const nextY = world.y - shape.y;
+          // Skip points closer than MIN_FREEHAND_POINT_DISTANCE to the last
+          // recorded one — imperceptible at any normal zoom, but keeps a
+          // fast/long/high-poll-rate stroke's point array (and every
+          // downstream bounds/outline recompute on it) bounded.
+          if (
+            !last ||
+            Math.hypot(nextX - last[0], nextY - last[1]) >= MIN_FREEHAND_POINT_DISTANCE
+          ) {
+            state.updateShape(drag.objectId, {
+              ...shape,
+              points: [...shape.points, [nextX, nextY]],
+            });
+          }
         }
         return;
       }

@@ -165,6 +165,53 @@ describe("marquee selection and grouping", () => {
   });
 });
 
+describe("drawing normalization and freehand decimation", () => {
+  it("dragging up-and-left while drawing a rectangle still produces a non-negative width/height", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("rectangle");
+    pointerDownAt(svg, 100, 100);
+    firePointer(svg, "pointermove", 20, 30);
+    firePointer(svg, "pointerup", 20, 30);
+
+    const [object] = Object.values(useCanvasStore.getState().shapes);
+    const shape = object?.shape;
+    if (!shape || shape.kind !== "rectangle") throw new Error("expected a rectangle");
+    expect(shape).toMatchObject({ x: 20, y: 30, width: 80, height: 70 });
+
+    unmount();
+  });
+
+  it("skips freehand points closer than the minimum recording distance to the last one", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("freehand");
+    pointerDownAt(svg, 0, 0);
+    // Each of these is under the 2-unit threshold from the previous point,
+    // so none should add a new entry to the stroke.
+    firePointer(svg, "pointermove", 0.5, 0);
+    firePointer(svg, "pointermove", 1, 0);
+    firePointer(svg, "pointermove", 1.5, 0);
+    // Comfortably past the threshold — this one should record.
+    firePointer(svg, "pointermove", 20, 0);
+    firePointer(svg, "pointerup", 20, 0);
+
+    const [object] = Object.values(useCanvasStore.getState().shapes);
+    const shape = object?.shape;
+    if (!shape || shape.kind !== "freehand") throw new Error("expected a freehand shape");
+    expect(shape.points).toEqual([
+      [0, 0],
+      [20, 0],
+    ]);
+
+    unmount();
+  });
+});
+
 describe("text tool click-away commit", () => {
   it("clicking elsewhere on the canvas commits the in-progress text instead of stranding the editor open", () => {
     const { container, unmount } = render(<Canvas />);

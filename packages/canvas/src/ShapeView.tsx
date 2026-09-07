@@ -1,9 +1,15 @@
 import type { CanvasObject } from "@draft/shared";
 import { getStroke } from "perfect-freehand";
+import { memo } from "react";
 import { useCanvasStore } from "./store";
 
-/** Renders one shape as an SVG element, in the shape's own local (x/y-relative) coordinates. */
-export function ShapeView({ object, selected }: { object: CanvasObject; selected: boolean }) {
+/** Renders one shape as an SVG element, in the shape's own local (x/y-relative) coordinates.
+ * Memoized: `Canvas.tsx` re-renders on every camera pan/zoom tick and every shape edit (it
+ * subscribes to the whole `shapes` map and `camera`), but an unchanged shape's `object` prop
+ * keeps the same reference across those re-renders (immutable-update convention) — without
+ * `memo`, every shape on the page would still re-run its render body on every drag/pan/zoom
+ * frame regardless. */
+function ShapeViewComponent({ object, selected }: { object: CanvasObject; selected: boolean }) {
   const { shape } = object;
   const stroke = "var(--draft-text)";
   const selectionStroke = selected ? "var(--draft-accent)" : stroke;
@@ -134,3 +140,5 @@ export function ShapeView({ object, selected }: { object: CanvasObject; selected
       return null;
   }
 }
+
+export const ShapeView = memo(ShapeViewComponent);

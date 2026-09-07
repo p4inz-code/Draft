@@ -42,14 +42,23 @@ export function shapeBounds(shape: Shape): Bounds {
       };
     }
     case "freehand": {
-      const xs = shape.points.map(([px]) => px + shape.x);
-      const ys = shape.points.map(([, py]) => py + shape.y);
-      return {
-        minX: Math.min(...xs, shape.x),
-        minY: Math.min(...ys, shape.y),
-        maxX: Math.max(...xs, shape.x),
-        maxY: Math.max(...ys, shape.y),
-      };
+      // A single pass, not `Math.min(...xs)` on a mapped array — spreading a
+      // long stroke's points as call arguments risks blowing the engine's
+      // max-arguments limit, and this also skips the two intermediate
+      // arrays `.map()` would otherwise allocate per bounds check.
+      let minX = shape.x;
+      let minY = shape.y;
+      let maxX = shape.x;
+      let maxY = shape.y;
+      for (const [px, py] of shape.points) {
+        const x = px + shape.x;
+        const y = py + shape.y;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+      return { minX, minY, maxX, maxY };
     }
   }
 }

@@ -551,8 +551,10 @@ next session opens with the one blocking item, not a feature.
   constrains it to equal width/height (square/circle); holding Shift while drawing a
   line/arrow snaps its angle to 45° steps; holding Shift while rotating snaps to 45° steps
   too, for the same muscle-memory consistency.
-- [ ] **Stroke customization** — width and color; today only fill is adjustable, stroke is a
-  fixed theme color.
+- [x] **Stroke customization** — `strokeColor`/`strokeWidth` on Rectangle/Ellipse/Diamond/
+  Line/Arrow, mirrored across the TS/Rust boundary and validated the same way `fill` already
+  is. `FillPicker.tsx` now shows a Fill section and/or a Stroke section depending on what the
+  selected shape supports (line/arrow have a stroke but no fill).
 - [ ] **Shape z-order** — bring-to-front / send-to-back; shapes currently only stack in
   creation order with no way to reorder them.
 - [ ] **Edge-snapping connectors** — arrows/lines that anchor to a shape's edge and follow it

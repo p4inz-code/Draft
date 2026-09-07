@@ -7,20 +7,32 @@ it — not just because code exists. See [docs/testing.md](docs/testing.md) for 
 
 ## Known issues / blocked
 
-- [x] ~~`pnpm --filter @draft/desktop tauri build` reliably crashes rustc~~ — **root-caused
-  and fixed 2026-09-07.** It was never the code, and never actually the root `Cargo.toml`'s
-  `[profile.release]` (`lto = true` + `codegen-units = 1`) either, despite that being the
-  first suspect — it was a corrupted `target/release` directory. The first crash (from an
-  unrelated cause, likely transient) left partial/incoherent incremental-build artifacts
-  behind; every retry after that then crashed too, with a *different* signature each time
-  (`STATUS_ACCESS_VIOLATION`, `STATUS_STACK_BUFFER_OVERRUN`, `STATUS_ILLEGAL_INSTRUCTION`, on
-  different crates each attempt — including `memchr`, which is far too simple to have a real
-  LLVM bug in it, the tell that this was never a code/toolchain issue). Fix: `rm -rf
-  target/release` before retrying a release build that just crashed — don't retry against a
-  possibly-corrupted cache. A clean build with the original, unmodified profile settings
-  succeeded in 4m44s, producing both an MSI and an NSIS installer. **If a release build ever
-  crashes again, wipe `target/release` first, then retry once before assuming it's a real
-  regression.**
+- [!] **Reopened 2026-09-08 — `pnpm --filter @draft/desktop tauri build` still crashes
+  intermittently, and it is NOT (only) a corrupted-cache issue as previously believed.**
+  2026-09-07's fix (`rm -rf target/release` before retrying) worked once, but recurred the
+  next day on a *fully clean* `target/release` — twice more, each with a different crash
+  (`STATUS_ILLEGAL_INSTRUCTION` on `draft-desktop` itself with the stock profile, then again
+  on `find-msvc-tools` — a tiny, unrelated, heavily-used crate — after relaxing
+  `codegen-units`). A crash on `find-msvc-tools` specifically, with default codegen settings,
+  on a from-scratch build, rules out both the code and the `[profile.release]` settings as
+  the cause. Pattern across all crashes so far: always `STATUS_ILLEGAL_INSTRUCTION`,
+  `STATUS_ACCESS_VIOLATION`, or `STATUS_STACK_BUFFER_OVERRUN` from rustc itself, never the
+  same crate twice, never reproducible via any code change — this now looks like something
+  in the local machine/toolchain environment (a flaky rustc install, CPU/RAM instability
+  under sustained compilation load, or similar), not a DRAFT bug. **Needs real
+  investigation**, not another retry-with-different-flags guess: check `rustc --version
+  --verbose` and consider a toolchain reinstall (`rustup toolchain uninstall
+  1.97.1-x86_64-pc-windows-msvc && rustup toolchain install 1.97.1-x86_64-pc-windows-msvc`),
+  check Windows Event Viewer for hardware-fault correlation, and try the same build on a
+  different machine if one is available before spending more time on this one.
+  **Confirmed local-machine-specific, not a real regression:** CI's new `release-build` job
+  (added for this exact reason) built successfully on Windows, macOS, *and* Ubuntu for the
+  `v0.1.0-dev.2` tag — real MSI/NSIS/DMG/AppImage/deb/rpm installers, all attached to that
+  GitHub release. Since CI's Windows runner succeeds where this local machine fails on the
+  identical commit, the local machine (not the code, not even Windows in general) is the
+  actual variable — downgrades this from "release pipeline is broken" to "this one dev
+  machine needs troubleshooting," and CI is now a reliable enough source of real installers
+  that a broken local build no longer blocks shipping one.
 
 ## Foundation phase (pre-Session-1)
 

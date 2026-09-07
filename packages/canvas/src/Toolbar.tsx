@@ -563,18 +563,18 @@ export function Toolbar() {
         >
           +
         </button>
+        <span className="draft-toolbar-sep" />
+        <button
+          type="button"
+          className={pinned ? "draft-toolbar-pin pinned" : "draft-toolbar-pin"}
+          onClick={togglePinned}
+          aria-pressed={pinned}
+          aria-label={pinned ? "Unpin toolbar (allow auto-hide)" : "Pin toolbar (keep it visible)"}
+          title={pinned ? "Unpin toolbar (allow auto-hide)" : "Pin toolbar (keep it visible)"}
+        >
+          Pin
+        </button>
       </div>
-
-      <button
-        type="button"
-        className={pinned ? "draft-toolbar-pin pinned" : "draft-toolbar-pin"}
-        onClick={togglePinned}
-        aria-pressed={pinned}
-        aria-label={pinned ? "Unpin toolbar (allow auto-hide)" : "Pin toolbar (keep it visible)"}
-        title={pinned ? "Unpin toolbar (allow auto-hide)" : "Pin toolbar (keep it visible)"}
-      >
-        Pin
-      </button>
     </div>
   );
 }

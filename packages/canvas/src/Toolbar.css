@@ -177,7 +177,6 @@
   background: transparent;
   color: var(--draft-text-muted);
   cursor: pointer;
-  margin-left: auto;
 }
 
 .draft-toolbar-pin:hover {

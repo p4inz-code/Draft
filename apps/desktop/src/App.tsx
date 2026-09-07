@@ -21,10 +21,16 @@ import {
   setAgentMode,
   setSelection,
 } from "@draft/project-client";
-import { AGENT_MODES, type AgentMode, type ObjectId } from "@draft/shared";
-import { Logo } from "@draft/ui";
+import type { AgentMode, ObjectId } from "@draft/shared";
+// Side-effect only: @draft/ui's design tokens (--draft-*) are imported as a
+// side effect of its package entrypoint. Nothing here uses a named export
+// from @draft/ui anymore (Logo moved out of the titlebar), but the tokens
+// still need to load — dropping this import silently drops every --draft-*
+// variable and the JetBrains Mono font from this app's bundle.
+import "@draft/ui";
 import { useEffect, useState } from "react";
 import "./App.css";
+import { Titlebar } from "./Titlebar";
 
 const LAST_PROJECT_DIR_KEY = "draft.lastProjectDir";
 /** A stuck IPC call (Rust-side lock contention, a lost response) must not
@@ -258,40 +264,18 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <Logo height={22} />
-        <div className="app-header-actions">
-          <button type="button" className="app-header-btn" onClick={handleSave}>
-            Save
-          </button>
-          <button type="button" className="app-header-btn" onClick={handleLoad}>
-            Open
-          </button>
-          <label className="agent-mode-control">
-            Agent access:
-            <select
-              value={agentMode}
-              onChange={(e) => handleAgentModeChange(e.target.value as AgentMode)}
-            >
-              {AGENT_MODES.map((mode) => (
-                <option key={mode} value={mode}>
-                  {mode}
-                </option>
-              ))}
-            </select>
-          </label>
-          {status && <span className="status">{status}</span>}
-          <span className="status" title="Agents connected over the local MCP socket">
-            {agentConnections ?? "…"} agent{agentConnections === 1 ? "" : "s"} connected
-          </span>
-          <span className="status">
-            core <strong>{coreVersion ?? "…"}</strong>
-          </span>
-        </div>
-      </header>
-      <Toolbar />
+      <Titlebar
+        agentMode={agentMode}
+        onAgentModeChange={handleAgentModeChange}
+        agentConnections={agentConnections}
+        coreVersion={coreVersion}
+        status={status}
+        onSave={handleSave}
+        onLoad={handleLoad}
+      />
       <div className="app-canvas">
         <Canvas />
+        <Toolbar />
       </div>
     </div>
   );

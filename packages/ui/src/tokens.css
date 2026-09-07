@@ -17,21 +17,35 @@
 
   --draft-bg: #f8f8fa;
   --draft-surface: #ffffff;
+  --draft-surface-2: #f0f0f4;
+  --draft-surface-3: #e6e6ec;
   --draft-text: #1a1b2e;
   --draft-text-muted: #5b5d75;
   --draft-border: #e2e2ea;
   --draft-accent: #0ea5e9;
   --draft-accent-contrast: #ffffff;
+  --draft-danger: #e5484d;
+  /* Glassmorphic HUD surfaces (titlebar, floating toolbar) — a translucent
+   * version of --draft-surface, paired with backdrop-filter: blur(). */
+  --draft-overlay: rgba(248, 248, 250, 0.75);
+
+  --draft-radius-sm: 4px;
+  --draft-radius-md: 8px;
+  --draft-radius-lg: 12px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --draft-bg: #0d0d14;
     --draft-surface: #16161f;
+    --draft-surface-2: #1c1c28;
+    --draft-surface-3: #24242f;
     --draft-text: #f8f8fa;
     --draft-text-muted: #9a9bb5;
     --draft-border: #24242f;
     --draft-accent: #0ea5e9;
     --draft-accent-contrast: #0d0d14;
+    --draft-danger: #e5484d;
+    --draft-overlay: rgba(13, 13, 20, 0.75);
   }
 }

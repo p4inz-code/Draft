@@ -1,0 +1,122 @@
+.app-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem 0.4rem 0.9rem;
+  background: var(--draft-overlay);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--draft-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* The whole bar drags the window (Tauri's own data-tauri-drag-region
+   * attribute) except wherever an interactive control overrides it below. */
+  user-select: none;
+}
+
+.app-titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--draft-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.app-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.app-header-btn {
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--draft-radius-sm);
+  border: 1px solid var(--draft-border);
+  background: var(--draft-surface);
+  color: var(--draft-text);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.app-header-btn:hover {
+  border-color: var(--draft-accent);
+  color: var(--draft-text);
+}
+
+.agent-mode-control {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--draft-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.agent-mode-control select {
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--draft-radius-sm);
+  border: 1px solid var(--draft-border);
+  background: var(--draft-surface);
+  color: var(--draft-text);
+}
+
+/* Status readouts (live-sync errors, connection count, core version) are the
+ * lowest-priority content in the bar — they truncate with an ellipsis
+ * instead of wrapping the whole titlebar onto a second line on a narrower
+ * window (found by actually resizing the preview, not assumed to fit). */
+.status {
+  font-size: 0.75rem;
+  color: var(--draft-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 3rem;
+}
+
+.status strong {
+  color: var(--draft-accent);
+}
+
+.app-titlebar-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: 0.75rem;
+  flex-shrink: 0;
+}
+
+.app-titlebar-window-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  border: none;
+  border-radius: var(--draft-radius-sm);
+  background: transparent;
+  color: var(--draft-text-muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.app-titlebar-window-btn:hover {
+  background: var(--draft-surface-3);
+  color: var(--draft-text);
+}
+
+.app-titlebar-close:hover {
+  background: var(--draft-danger);
+  color: #ffffff;
+}

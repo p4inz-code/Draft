@@ -1,21 +1,53 @@
 import { useEffect, useRef, useState } from "react";
 import "./Toolbar.css";
+import { ToolIcon } from "./ToolIcons";
 import { screenToWorld } from "./camera";
 import { LETTER_KEY_TOOLS, NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
 import { parseSvgDimensions } from "./svg";
 import { extractVideoThumbnail } from "./video";
 
-const TOOLS: Array<{ id: Tool; label: string }> = [
-  { id: "select", label: "Select" },
-  { id: "rectangle", label: "Rect" },
-  { id: "ellipse", label: "Ellipse" },
-  { id: "diamond", label: "Diamond" },
-  { id: "text", label: "Text" },
-  { id: "line", label: "Line" },
-  { id: "arrow", label: "Arrow" },
-  { id: "freehand", label: "Draw" },
-  { id: "eraser", label: "Eraser" },
+const TOOL_LABELS: Record<Tool, string> = {
+  select: "Select",
+  rectangle: "Rect",
+  ellipse: "Ellipse",
+  diamond: "Diamond",
+  text: "Text",
+  line: "Line",
+  arrow: "Arrow",
+  freehand: "Draw",
+  eraser: "Eraser",
+};
+
+/** Illustrator-style tool groups: the drawing-tool row collapses each of
+ * these into one slot showing whichever member was used last — holding the
+ * slot (or tapping its caret) flies out the rest, exactly like Illustrator's
+ * nested shape/pen tools. Select/Text/Eraser have no siblings, so they stay
+ * standalone slots. */
+const TOOL_GROUPS: Array<{ key: string; tools: Tool[] }> = [
+  { key: "shapes", tools: ["rectangle", "ellipse", "diamond"] },
+  { key: "draw", tools: ["line", "arrow", "freehand"] },
 ];
+
+function groupForTool(t: Tool) {
+  return TOOL_GROUPS.find((g) => g.tools.includes(t));
+}
+
+type ToolbarSlot =
+  | { kind: "tool"; tool: Tool }
+  | { kind: "group"; group: (typeof TOOL_GROUPS)[number] };
+
+const TOOLBAR_SLOTS: ToolbarSlot[] = [
+  { kind: "tool", tool: "select" },
+  { kind: "group", group: TOOL_GROUPS[0] },
+  { kind: "tool", tool: "text" },
+  { kind: "group", group: TOOL_GROUPS[1] },
+  { kind: "tool", tool: "eraser" },
+];
+
+/** How long a slot must be held before it counts as "hold" (opens the
+ * flyout) rather than "click" (selects the remembered tool) — long enough
+ * that a normal click never misfires into opening the menu. */
+const GROUP_HOLD_MS = 400;
 
 /** Tool -> its number-key shortcut, e.g. "select" -> "1" (see `NUMBER_KEY_TOOLS`). */
 const TOOL_SHORTCUT_KEYS: Partial<Record<Tool, string>> = Object.fromEntries(
@@ -40,8 +72,8 @@ function shortcutLabel(tool: Tool): string {
 const TOOLBAR_PINNED_KEY = "draft.toolbarPinned";
 /** No revive signal for this long fades the toolbar out. */
 const IDLE_MS = 3000;
-/** A pointer this close to the top of the window counts as "reaching for
- * the toolbar," reviving it — matches where the dock actually sits. */
+/** A pointer this close to the bottom of the window counts as "reaching for
+ * the toolbar," reviving it — matches where the dock actually floats. */
 const REVIVE_ZONE_PX = 120;
 
 /** Rejects anything past this before it's ever read into memory as a data URL. */
@@ -149,6 +181,78 @@ export function Toolbar() {
   const [idle, setIdle] = useState(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [groupTool, setGroupTool] = useState<Record<string, Tool>>(() =>
+    Object.fromEntries(TOOL_GROUPS.map((g) => [g.key, g.tools[0]])),
+  );
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set right before a hold opens the flyout, so the `click` that the
+  // browser still fires on pointerup (same element, same gesture) doesn't
+  // also select the remembered tool and stomp the flyout right back closed.
+  const heldOpenRef = useRef(false);
+
+  // Whichever tool actually becomes active — via a letter/number shortcut,
+  // undo/redo replaying a tool change, or a flyout pick — becomes that
+  // group's remembered "last used" member, matching Illustrator's own
+  // nested-tool behavior (the slot shows whatever you used most recently
+  // regardless of how you got there).
+  useEffect(() => {
+    const g = groupForTool(tool);
+    if (!g) return;
+    setGroupTool((prev) => (prev[g.key] === tool ? prev : { ...prev, [g.key]: tool }));
+  }, [tool]);
+
+  useEffect(() => {
+    if (!openGroup) return;
+    function onDocPointerDown(e: PointerEvent) {
+      if (e.target instanceof Node && (e.target as Element).closest?.(".draft-tool-slot")) return;
+      setOpenGroup(null);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpenGroup(null);
+    }
+    window.addEventListener("pointerdown", onDocPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onDocPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openGroup]);
+
+  function startHold(groupKey: string) {
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(() => {
+      heldOpenRef.current = true;
+      setOpenGroup(groupKey);
+    }, GROUP_HOLD_MS);
+  }
+
+  function cancelHold() {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }
+
+  function handleGroupClick(remembered: Tool) {
+    if (heldOpenRef.current) {
+      // The hold already opened the flyout — this trailing click is just
+      // the browser's normal click-after-pointerup, not a fresh request to
+      // select the remembered tool.
+      heldOpenRef.current = false;
+      return;
+    }
+    setOpenGroup(null);
+    setTool(remembered);
+  }
+
+  function pickFromFlyout(groupKey: string, t: Tool) {
+    setTool(t);
+    setGroupTool((prev) => ({ ...prev, [groupKey]: t }));
+    setOpenGroup(null);
+    revive();
+  }
+
   function revive() {
     setIdle(false);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -159,7 +263,7 @@ export function Toolbar() {
   useEffect(() => {
     revive();
     function onPointerMove(e: PointerEvent) {
-      if (e.clientY <= REVIVE_ZONE_PX) revive();
+      if (window.innerHeight - e.clientY <= REVIVE_ZONE_PX) revive();
     }
     function onKeyDown(e: KeyboardEvent) {
       if (NUMBER_KEY_TOOLS[e.key]) revive();
@@ -308,18 +412,78 @@ export function Toolbar() {
       title="Tip: middle-mouse-drag pans regardless of the active tool"
     >
       <div className="draft-toolbar-island" role="toolbar" aria-label="Draw tools">
-        {TOOLS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={t.id === tool ? "draft-toolbar-btn active" : "draft-toolbar-btn"}
-            onClick={() => setTool(t.id)}
-            aria-pressed={t.id === tool}
-            title={`${t.label} (${shortcutLabel(t.id)})`}
-          >
-            {t.label}
-          </button>
-        ))}
+        {TOOLBAR_SLOTS.map((slot) => {
+          if (slot.kind === "tool") {
+            const t = slot.tool;
+            return (
+              <button
+                key={t}
+                type="button"
+                className={
+                  t === tool
+                    ? "draft-toolbar-btn draft-toolbar-icon-btn active"
+                    : "draft-toolbar-btn draft-toolbar-icon-btn"
+                }
+                onClick={() => setTool(t)}
+                aria-pressed={t === tool}
+                title={`${TOOL_LABELS[t]} (${shortcutLabel(t)})`}
+                aria-label={TOOL_LABELS[t]}
+              >
+                <ToolIcon tool={t} />
+              </button>
+            );
+          }
+
+          const { group } = slot;
+          const remembered = groupTool[group.key] ?? group.tools[0];
+          const isOpen = openGroup === group.key;
+          const groupActive = group.tools.includes(tool);
+          return (
+            <div className="draft-tool-slot" key={group.key}>
+              <button
+                type="button"
+                className={
+                  groupActive
+                    ? "draft-toolbar-btn draft-toolbar-icon-btn draft-tool-slot-btn active"
+                    : "draft-toolbar-btn draft-toolbar-icon-btn draft-tool-slot-btn"
+                }
+                onPointerDown={() => startHold(group.key)}
+                onPointerUp={cancelHold}
+                onPointerLeave={cancelHold}
+                onClick={() => handleGroupClick(remembered)}
+                aria-pressed={groupActive}
+                aria-haspopup="true"
+                aria-expanded={isOpen}
+                title={`${TOOL_LABELS[remembered]} (${shortcutLabel(remembered)}) — hold for more`}
+                aria-label={TOOL_LABELS[remembered]}
+              >
+                <ToolIcon tool={remembered} />
+                <span className="draft-tool-slot-caret" aria-hidden="true" />
+              </button>
+              {isOpen && (
+                <div className="draft-tool-flyout" role="menu">
+                  {group.tools.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      role="menuitem"
+                      className={
+                        t === tool
+                          ? "draft-toolbar-btn draft-toolbar-icon-btn active"
+                          : "draft-toolbar-btn draft-toolbar-icon-btn"
+                      }
+                      onClick={() => pickFromFlyout(group.key, t)}
+                      aria-label={TOOL_LABELS[t]}
+                      title={`${TOOL_LABELS[t]} (${shortcutLabel(t)})`}
+                    >
+                      <ToolIcon tool={t} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="draft-toolbar-island" role="toolbar" aria-label="Content">

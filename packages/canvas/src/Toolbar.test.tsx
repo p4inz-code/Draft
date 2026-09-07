@@ -227,27 +227,30 @@ describe("Toolbar auto-hide dock", () => {
     });
   }
 
-  it("fades after being idle, and revives when the pointer approaches the top of the window", () => {
+  it("fades after being idle, and revives when the pointer approaches the bottom of the window", () => {
     const { container } = render(<Toolbar />);
     expect(dock(container).className).not.toMatch(/idle/);
 
+    act(() => {
+      vi.advanceTimersByTime(3001);
+    });
+    expect(dock(container).className).toMatch(/idle/);
+
+    // The dock floats at the bottom of the canvas (matching Figma/tldraw),
+    // so "reaching for it" means the pointer nearing the bottom of the
+    // window, not the top.
+    movePointer(window.innerHeight - 10);
+    expect(dock(container).className).not.toMatch(/idle/);
+  });
+
+  it("does not revive on a pointer move far from the bottom", () => {
+    const { container } = render(<Toolbar />);
     act(() => {
       vi.advanceTimersByTime(3001);
     });
     expect(dock(container).className).toMatch(/idle/);
 
     movePointer(10);
-    expect(dock(container).className).not.toMatch(/idle/);
-  });
-
-  it("does not revive on a pointer move far from the top", () => {
-    const { container } = render(<Toolbar />);
-    act(() => {
-      vi.advanceTimersByTime(3001);
-    });
-    expect(dock(container).className).toMatch(/idle/);
-
-    movePointer(500);
     expect(dock(container).className).toMatch(/idle/);
   });
 
@@ -303,5 +306,84 @@ describe("Toolbar auto-hide dock", () => {
 
     fireEvent.pointerEnter(dock(container));
     expect(dock(container).className).not.toMatch(/idle/);
+  });
+});
+
+describe("Illustrator-style tool-group flyouts", () => {
+  beforeEach(() => {
+    useCanvasStore.setState({ tool: "select" });
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    cleanup();
+  });
+
+  it("a quick click on the Shapes slot just selects its remembered tool, without opening the flyout", () => {
+    render(<Toolbar />);
+    const shapesSlot = screen.getByRole("button", { name: "Rect" });
+    fireEvent.pointerDown(shapesSlot);
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    fireEvent.pointerUp(shapesSlot);
+    fireEvent.click(shapesSlot);
+
+    expect(useCanvasStore.getState().tool).toBe("rectangle");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("holding the Shapes slot past the hold threshold opens a flyout with its other tools", () => {
+    render(<Toolbar />);
+    const shapesSlot = screen.getByRole("button", { name: "Rect" });
+    fireEvent.pointerDown(shapesSlot);
+    act(() => {
+      vi.advanceTimersByTime(401);
+    });
+
+    expect(screen.getByRole("menu")).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Ellipse" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Diamond" })).toBeTruthy();
+  });
+
+  it("picking a tool from the flyout selects it, closes the flyout, and becomes the slot's remembered icon", () => {
+    render(<Toolbar />);
+    const shapesSlot = screen.getByRole("button", { name: "Rect" });
+    fireEvent.pointerDown(shapesSlot);
+    act(() => {
+      vi.advanceTimersByTime(401);
+    });
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ellipse" }));
+
+    expect(useCanvasStore.getState().tool).toBe("ellipse");
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("button", { name: "Ellipse" })).toBeTruthy();
+  });
+
+  it("selecting a grouped tool via its letter shortcut also updates the slot's remembered icon", () => {
+    render(<Toolbar />);
+    act(() => {
+      useCanvasStore.getState().setTool("ellipse");
+    });
+
+    expect(screen.getByRole("button", { name: "Ellipse" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Rect" })).toBeNull();
+  });
+
+  it("clicking outside the flyout closes it without changing the tool", () => {
+    render(<Toolbar />);
+    const shapesSlot = screen.getByRole("button", { name: "Rect" });
+    fireEvent.pointerDown(shapesSlot);
+    act(() => {
+      vi.advanceTimersByTime(401);
+    });
+    expect(screen.getByRole("menu")).toBeTruthy();
+
+    fireEvent.pointerDown(document.body);
+
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(useCanvasStore.getState().tool).toBe("select");
   });
 });

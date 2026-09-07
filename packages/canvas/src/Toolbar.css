@@ -1,12 +1,32 @@
+/* Floats centered at the bottom of the canvas viewport — matching
+ * Figma/tldraw's floating toolbar convention — rather than sitting in
+ * normal document flow under the header. `.app-canvas` (apps/desktop/src/
+ * App.css) is the positioned ancestor. */
 .draft-toolbar-dock {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 0.6rem;
+  max-width: calc(100% - 2rem);
   padding: 0.5rem 0.75rem;
-  background: var(--draft-surface);
-  border-bottom: 1px solid var(--draft-border);
+  border-radius: 20px;
+  background: var(--draft-overlay);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--draft-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.2);
   transition: opacity 0.25s ease;
+  /* This is a control surface, not document text — an accidental drag
+     while reaching for a button shouldn't paint a native text-selection
+     highlight across it. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Idle fade (auto-hide): tools become unclickable rather than just faint,
@@ -34,7 +54,7 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--draft-bg, transparent);
   border: 1px solid var(--draft-border);
 }
@@ -48,10 +68,19 @@
   background: transparent;
   color: var(--draft-text);
   cursor: pointer;
+  /* Only ever animate compositor-cheap properties (transform/color), and
+   * keep it short — Photoshop/Illustrator's own toolbars give a press an
+   * effectively instant visual response, not a lazy fade; this should feel
+   * like the button reacted to the mousedown itself, not to a debounce. */
+  transition: background-color 0.08s ease, border-color 0.08s ease, transform 0.05s ease;
 }
 
 .draft-toolbar-btn:hover:not(:disabled) {
   border-color: var(--draft-accent);
+}
+
+.draft-toolbar-btn:active:not(:disabled) {
+  transform: scale(0.92);
 }
 
 .draft-toolbar-btn.active {
@@ -63,6 +92,61 @@
 .draft-toolbar-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* Icon-only variant for the drawing-tool row (select/shapes/text/etc.) —
+ * square, centered, no text padding — matching the compact Figma-style
+ * floating toolbar convention. */
+.draft-toolbar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+/* Positions the group flyout relative to its own trigger button, not the
+ * whole dock — so it opens directly above whichever slot was held. */
+.draft-tool-slot {
+  position: relative;
+  display: flex;
+}
+
+.draft-tool-slot-btn {
+  position: relative;
+}
+
+/* Small corner tick marking a slot as a group with more tools behind it
+ * (Illustrator's own nested-tool affordance) — decorative, so it's a plain
+ * ::after-style element rather than something screen readers announce. */
+.draft-tool-slot-caret {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 4px 4px;
+  border-color: transparent transparent currentColor transparent;
+  opacity: 0.6;
+}
+
+.draft-tool-flyout {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border-radius: var(--draft-radius-md);
+  background: var(--draft-overlay);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--draft-border);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  z-index: 20;
 }
 
 .draft-toolbar-sep {

@@ -526,6 +526,70 @@ performance, and cross-platform validation (actually running the Linux/macOS CI 
 just assuming parity — see [docs/cross-platform.md](docs/cross-platform.md)). Finalized
 docs, changelog, and the first real release.
 
+## Next two working sessions — features and polish (locked in for review)
+
+Everything below was discussed and organized on 2026-09-07 for the user to review before
+either session starts — nothing here is started. Major-to-minor within each session; the
+next session opens with the one blocking item, not a feature.
+
+### Session A — features
+
+- [!] **Blocking, do first:** root-cause the `tauri build` rustc crash (see "Known issues"
+  above) — bisect rustc version vs. `[profile.release]`'s `lto`/`codegen-units` vs. a stale
+  `target/` dir; once fixed, add a real `tauri build` step to CI so this can't silently
+  regress again.
+- [ ] **Shape rotation.** Currently no rotation angle exists on any shape at all
+  (axis-aligned only) — the single biggest classic-tool gap found this session.
+- [ ] **Shift-to-constrain while drawing/resizing** (direct user request) — Illustrator/
+  Photoshop-style: holding Shift while creating or resizing a rectangle/ellipse constrains it
+  to equal width/height (square/circle), and constrains a line/arrow's angle to 45° steps.
+- [ ] **Stroke customization** — width and color; today only fill is adjustable, stroke is a
+  fixed theme color.
+- [ ] **Shape z-order** — bring-to-front / send-to-back; shapes currently only stack in
+  creation order with no way to reorder them.
+- [ ] **Edge-snapping connectors** — arrows/lines that anchor to a shape's edge and follow it
+  when the shape moves, instead of floating free-floating endpoints.
+- [ ] **Keyboard-accessible canvas** (closes two audit-confirmed gaps, not just documents
+  them): arrow-key nudge on a selected shape, Tab-cycling selection, Enter/Space to operate
+  the tool-group flyout without a pointer.
+- [ ] **Real per-request confirmation for `Ask` agent-mode** — today it's enforced identically
+  to `Watch` (documented as a known gap this session); this turns that doc caveat into an
+  actual pending-request-queue feature.
+- [ ] Sticky note / callout shape, and basic text formatting (font size, bold, alignment) —
+  smaller additions, sequence after the above if time allows.
+
+### Session B — polish
+
+- [ ] **Alignment & distribution tools** (align left/center/right/top/bottom, distribute
+  evenly across a multi-select) and **snapping** (to other shapes' edges/centers, to the
+  grid, with visual smart-guides while dragging).
+- [ ] **Distinctive, on-brand additions** (these are what actually differentiate DRAFT from a
+  generic whiteboard clone, not just parity features):
+  - Live agent-edit highlighting — flash/outline a shape on the human's canvas the moment an
+    MCP agent modifies it, instead of the human having to go hunt a diff log.
+  - Named objects — a semantic label on a shape ("Boss Room") independent of its visual
+    appearance, for both human readability and agent context.
+  - Per-object agent lock — freeze specific objects from agent writes even in `Build` mode, a
+    natural extension of the existing whole-app permission model.
+  - Comment pins tied to a specific object.
+- [ ] Alt/Option-drag to duplicate; opacity per shape; right-click context menu
+  (delete/duplicate/bring-to-front — currently everything routes through the toolbar or
+  shortcuts only).
+- [ ] Color eyedropper (pick a fill from an existing shape/image, not just the 8 presets);
+  recently-used colors row in `FillPicker`; a live dimension readout while drawing/resizing;
+  zoom-to-selection / zoom-to-fit.
+- [ ] `apps/web`'s placeholder shell brought up to the same visual standard as desktop (shell
+  only — the live desktop bridge, ADR-016, stays a separate, bigger initiative).
+- [ ] Split `Toolbar.tsx` (flagged by this session's architecture audit as having outgrown
+  itself — pull the ~230 lines of media-import parsing into its own module).
+- [ ] Motion pass (selection/hover/zoom-pan easing — everything is instant today, no
+  transitions) and a tooltip/microcopy pass across toolbar, titlebar, and error states.
+- [ ] Real screenshots into the README banner (needs a file from the user, or a working
+  capture path — the browser-automation tool available this session can't export a
+  screenshot to a file).
+- [ ] A from-scratch clone-and-build sanity check on a clean checkout (CI green across three
+  OSes is evidence, not proof, of "ready to use on another PC").
+
 ## V2 (not scheduled)
 
 - [ ] Full plugin ecosystem (foundation is plugin-ready per the crate/package boundaries in

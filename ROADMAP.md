@@ -281,6 +281,46 @@ four implementation sessions below.
   groupIds to fresh ones (keeping relative grouping) rather than reusing the originals, so a
   pasted copy doesn't silently rejoin the source group. A real "group" as a first-class graph
   object (with its own MCP-visible identity) is Session 2's object-taxonomy work, not this.
+- [x] Fixed the real desktop app's minimize/maximize/close buttons doing nothing when clicked
+  (reported directly, with a screenshot) — Tauri v2's capability system only granted
+  `core:default`, which excludes the window action commands (`minimize`/`toggle_maximize`/
+  `close`/`start_dragging`); every click silently failed permission and was swallowed by
+  `Titlebar.tsx`'s own try/catch (added earlier for the "no real Tauri window" browser-preview
+  case), so it looked identical to a dead button. Added the four specific `core:window:allow-*`
+  permissions to `capabilities/default.json`.
+- [x] A 4-persona background audit (security, performance, accessibility, architecture) over
+  the whole codebase, per direct request — findings applied where cheap/safe, documented where
+  not:
+  - **Performance** — `ShapeView` had no memoization, so every camera pan/zoom/drag re-rendered
+    every shape on the page; wrapped in `React.memo`. Freehand recorded one point per
+    pointermove with no decimation (unbounded array growth on a long/fast stroke); now skips
+    points closer than 2 world units to the last one. `shapeBounds`'s freehand case spread the
+    whole point array into `Math.min(...)/Math.max(...)` — a real crash risk on a long enough
+    stroke — replaced with a single-pass loop. Also surfaced a correctness bug: drawing (not
+    resizing) a rectangle/ellipse/diamond up-or-left stored a negative width/height, the exact
+    `ShapeView`(`Math.abs`)-vs-`shapeBounds`(min/max) desync ADR-014 describes, closed for
+    resize but not draw — now normalized the same way resize already is.
+  - **Accessibility** — light-mode `--draft-accent-contrast` (white) computed to ~2.77:1
+    against `--draft-accent`, under both WCAG minimums, affecting every active toolbar button;
+    switched to reuse dark mode's already-passing (~7:1) accent/foreground pairing.
+    `FillPicker`'s selection ring had the same root cause, fixed by switching to `--draft-text`.
+    Confirmed and left open (a real feature, not a fix): the tool-group flyout added this
+    session is reachable only by holding a pointer down, with no keyboard path to its other
+    members; canvas shape creation/selection/move/resize is entirely pointer-driven with no
+    keyboard alternative at all — both are honest, named gaps, not attempted as quick patches.
+  - **Security** — confirmed `AgentMode::Ask` is enforced identically to `Watch` (no
+    per-request confirmation gates it, matching an existing code comment admitting the gap);
+    `docs/mcp.md` and `docs/agent-permissions.md` now say so plainly instead of only in a
+    source comment, rather than building the real per-request-confirmation feature under time
+    pressure. Everything else audited (path traversal, typed-ID injection, asset-privacy
+    guarantee, local-socket ACL) held up with no new finding.
+  - **Architecture** — deduped `FillPicker.tsx`'s own `isFillable` into a shared
+    `isFillableShape` next to the existing `isResizableShape` pattern; refreshed two doc/comment
+    spots ADR-014 left stale (`shapes.ts`'s header still described Rust payloads as opaque
+    JSON, and `docs/project-graph.md`'s taxonomy section didn't mention `fill`/`mediaKind` or
+    that video import had shipped). Noted but not acted on: `Toolbar.tsx` has grown to bundle
+    toolbar rendering, tool-group/idle-fade state, and ~230 lines of media-import parsing —
+    flagged as a future split, not urgent.
 - [ ] Exit test: create a project, draw across multiple tools, save, close, reopen, verify
   identical state — both former blockers (image import, grouping) are now done, so this is
   unblocked feature-wise. Not yet run as one combined pass: `Save`/`Open` call real Tauri

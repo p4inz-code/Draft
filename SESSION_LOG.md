@@ -9,6 +9,61 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-07 (later) — window-control fix, 4-persona audit, performance + a11y + docs fixes
+
+**Commits:** `e46e46f` (window-control permission fix), `95a77df` (performance), `9ffa4ea`
+(contrast + Ask-mode docs), `12a49a1` (FillableShape dedup + stale docs)
+
+Also folded in a small direct-feedback fix earlier in this stretch: the toolbar's "Pin" button
+had `margin-left: auto`, which stretched a big dead gap across the second row whenever the
+dock wrapped to two lines (screenshot: a wide gap between "100%" and "Pin"). Moved Pin inline
+as the last button in the "View and history" island instead — both rows now pack tightly
+regardless of how the dock wraps (commit `a854ddf`).
+
+**Window buttons reported dead, with a screenshot.** Root-caused to Tauri v2's capability
+system: `capabilities/default.json` only granted `core:default`, which excludes the window
+*action* commands (`minimize`/`toggle_maximize`/`close`/`start_dragging` — only read-only
+queries like `is_maximized` are in the default set). Every click failed permission silently,
+caught by `Titlebar.tsx`'s own try/catch (added earlier for the browser-preview case), so it
+looked exactly like a non-functional button with nothing visible in the UI. Fixed by adding
+the four specific permissions needed.
+
+**4-persona background audit**, run as 4 parallel general-purpose agents (security,
+performance, accessibility, architecture) over the whole codebase, not just this session's
+diff — paced conservatively (4 at once, not 10+) after an earlier rate-limit hit this session
+from over-parallelizing. All four returned real findings:
+
+- Performance: `ShapeView` un-memoized (fixed — `React.memo`), freehand's unbounded point
+  growth (fixed — 2-world-unit decimation), a `Math.min(...)/Math.max(...)` spread in
+  `shapeBounds` that risked a max-call-arguments crash on a long stroke (fixed — single-pass
+  loop), and a genuine correctness bug alongside these: drawing (not resizing) a shape
+  up-or-left stored a negative width/height that two different code paths disagreed on — the
+  exact desync ADR-014 was written to close, but only actually closed for resize. Fixed by
+  normalizing the draw path the same way resize already does.
+- Accessibility: light-mode `--draft-accent-contrast` failed WCAG (~2.77:1, fixed by reusing
+  dark mode's passing pairing) and the same root cause in `FillPicker`'s selection ring (fixed
+  — switched to `--draft-text`). Two bigger gaps confirmed and *not* attempted as quick
+  patches, since they're real features: the tool-group flyout has no keyboard path, and canvas
+  shape authoring (create/select/move/resize) is entirely pointer-driven.
+- Security: `AgentMode::Ask` behaves identically to `Watch` — no per-request confirmation
+  gates it, despite the name. Already partially admitted in a source comment; now stated
+  plainly in `docs/mcp.md` and `docs/agent-permissions.md` instead of building the real
+  confirmation-queue feature under time pressure. Everything else audited (path traversal,
+  typed-ID injection at the IPC boundary, the asset-privacy guarantee, the local-socket ACL)
+  held up with no new finding.
+- Architecture: Rust/TS field parity checked variant-by-variant and found clean (no drift);
+  the actual drift found was in docs/comments, not the types themselves — `shapes.ts`'s header
+  still described Rust payloads as pre-ADR-014 opaque JSON, and `docs/project-graph.md`'s
+  taxonomy section hadn't been updated for `fill`/`mediaKind` or video import shipping. Also
+  flagged `Toolbar.tsx`'s growing scope (toolbar rendering + tool-group state + ~230 lines of
+  media-import parsing) as a future split, not acted on this pass.
+
+Verified for real: full `pnpm build/lint/test` (88 tests, two new — draw-normalization and
+freehand-decimation regression tests in `Canvas.test.tsx`) and `cargo build/clippy/test
+--workspace` green after every commit, not just at the end.
+
+---
+
 ## 2026-09-07 — chrome plan, phase E: frameless titlebar, floating icon toolbar, Illustrator tool groups
 
 **Commit:** (pending push at time of writing)

@@ -1,6 +1,8 @@
-# DRAFT
+<p align="center">
+  <img src="assets/brand/logo/primary/draft-logo-horizontal.svg" alt="DRAFT" width="360">
+</p>
 
-**If you can't explain it to AI, show it to AI.**
+<p align="center"><strong>If you can't explain it to AI, show it to AI.</strong></p>
 
 DRAFT is a cross-platform visual workspace where you sketch, draw, annotate, and organize
 ideas — and an MCP-compatible AI agent reads that workspace directly instead of you
@@ -15,11 +17,23 @@ full picture.
 
 ## Status
 
-DRAFT is early: the repository foundation (workspace layout, project format, core crates,
-docs, CI) is in place, but the real canvas — drawing tools, shapes, selection, the actual
-"workspace" a human would use day to day — has not been built yet. See
-[ROADMAP.md](ROADMAP.md) for what's done and what's next. Nothing here is ready to use for
-real work yet.
+DRAFT is in active foundation development (pre-v1) — real, but not yet feature-complete.
+The desktop app (`apps/desktop`, Tauri + React) already has a working infinite canvas: draw
+and resize rectangles, ellipses, diamonds, lines, arrows, freehand strokes, and text; fill
+colors; group/ungroup; undo/redo; import images/SVGs/video (reference-only); pan/zoom; save
+and reopen a project. Illustrator-style tool shortcuts and grouped tool flyouts, a custom
+frameless titlebar, and a Figma-style floating toolbar round out the chrome. Two real MCP
+transports exist in `crates/draft-mcp` (stdio for any standard MCP client, plus a live
+local-socket channel for the running desktop app), gated by a visible, revocable "Agent
+access" permission control — see [docs/mcp.md](docs/mcp.md) for exactly what each transport
+can do today.
+
+**Not ready yet:** `apps/web` is still a placeholder shell — the browser build doesn't talk
+to a live desktop session ([ADR-016](docs/decisions/adr-016-web-desktop-bridge.md) has the
+plan). Keyboard-only canvas use isn't supported (drawing/selecting/moving a shape currently
+needs a pointer). See [ROADMAP.md](ROADMAP.md) for the full, honestly-tracked checklist of
+what's done versus planned — nothing here should be assumed finished just because it's
+mentioned above.
 
 ## Repository layout
 
@@ -33,7 +47,7 @@ crates/
   draft-graph/     the Project Graph (applies operations to build state)
   draft-events/    the operation/event log
   draft-media/     asset metadata + content hashing
-  draft-mcp/       MCP server (foundation-stage skeleton)
+  draft-mcp/       MCP server (stdio + live local-socket transports, permission-gated)
   draft-security/  permission model + path-safety helpers
   draft-platform/  OS abstraction trait
 packages/

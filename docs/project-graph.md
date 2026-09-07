@@ -45,12 +45,15 @@ walkthrough for the full path from a drag gesture to a persisted change.
 `crates/draft-graph::shape` defines a typed `Shape` enum ([ADR-014](decisions/adr-014-typed-shape-taxonomy.md))
 mirroring `packages/shared/src/shapes.ts` exactly: the eight drawing kinds
 `@draft/canvas` actually produces (rectangle, ellipse, diamond, line, text, arrow, freehand,
-image) plus the optional `groupId`. Every `CreateObject`/`UpdateObject` payload — a human
-canvas edit or an MCP agent write — is validated into this enum by `Graph::apply` before
-being stored; a recognized `kind` with malformed fields is rejected (`GraphError::InvalidShape`),
-not silently stored. A `kind` this build doesn't recognize (a future frontend addition, or a
-deliberate extension point) is kept verbatim as `Shape::Other` rather than rejected outright
-— see the ADR for the exact mechanism and trade-off.
+image) plus the optional `groupId`, an optional `fill` (`#rrggbb`, rectangle/ellipse/diamond
+only) validated the same way a malformed known-kind payload is, and an optional `mediaKind`
+on `image` marking a reference as a video thumbnail rather than a still. Every
+`CreateObject`/`UpdateObject` payload — a human canvas edit or an MCP agent write — is
+validated into this enum by `Graph::apply` before being stored; a recognized `kind` with
+malformed fields is rejected (`GraphError::InvalidShape`), not silently stored. A `kind` this
+build doesn't recognize (a future frontend addition, or a deliberate extension point) is kept
+verbatim as `Shape::Other` rather than rejected outright — see the ADR for the exact mechanism
+and trade-off.
 
 Adding a new shape kind to `shapes.ts` means adding the matching Rust variant in the same
 change, per `CLAUDE.md`'s manual-mirror rule — now covering shapes, not just operations/IDs.
@@ -61,7 +64,6 @@ change, per `CLAUDE.md`'s manual-mirror rule — now covering shapes, not just o
   Screen, ...) — these layer meaning onto objects, they aren't object kinds themselves, and
   still need a concrete driving feature before being designed (the same reasoning ADR-014
   applied to the drawing-shape taxonomy). Session 2/3.
-- Video import (no in-canvas video playback exists to import into yet).
 - Semantic interpretation (a rough rectangle becoming a recognized "Screen") — later.
 - Persisting the graph to `pages/*.json` via `draft-project` — Session 1/2.
 - Cross-page relationships/references.

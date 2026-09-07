@@ -1,4 +1,4 @@
-import type { DiamondShape, EllipseShape, RectangleShape, Shape } from "@draft/shared";
+import { isFillableShape } from "@draft/shared";
 import "./FillPicker.css";
 import { worldToScreen } from "./camera";
 import { shapeBounds } from "./geometry";
@@ -17,12 +17,6 @@ const PRESET_FILLS = [
   "#ffffff", // white
   "#000000", // black
 ];
-
-type FillableShape = RectangleShape | EllipseShape | DiamondShape;
-
-function isFillable(shape: Shape): shape is FillableShape {
-  return shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "diamond";
-}
 
 /**
  * A small popover for setting a selected shape's fill color — not a general
@@ -44,7 +38,7 @@ export function FillPicker() {
 
   const shape = object?.shape;
 
-  if (!object || !shape || !isFillable(shape)) return null;
+  if (!object || !shape || !isFillableShape(shape)) return null;
   // Re-bound as a fresh, concretely-typed const: TS's narrowing of `object`/
   // `shape` above doesn't reliably persist into the closures below.
   const selected = { id: object.id, shape };

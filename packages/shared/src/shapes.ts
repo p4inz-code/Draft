@@ -1,10 +1,12 @@
 /**
- * The concrete shape payload schema carried inside `Operation.payload`
- * (`payload: unknown` on the Rust side — `draft-graph` stores it as opaque
- * JSON, per docs/architecture.md's "untyped payloads" trade-off; this is
- * that schema, now that Session 1 needs one). Every shape has `x`/`y` at
- * the top level because `draft-graph::Graph::apply`'s `MoveObject` handler
- * writes those two keys directly onto the payload regardless of kind.
+ * The concrete shape payload schema carried inside `Operation.payload`. This
+ * is the hand-mirrored TypeScript side of `draft-graph::shape::KnownShape`
+ * (ADR-014's typed shape taxonomy) — the Rust side is a real, validated
+ * `Shape` enum, not opaque JSON; there's no codegen between the two, so a
+ * change here needs the matching change in `shape.rs` in the same commit
+ * (see CLAUDE.md). Every shape has `x`/`y` at the top level because
+ * `draft-graph::Graph::apply`'s `MoveObject` handler writes those two keys
+ * directly onto the payload regardless of kind.
  */
 import type { ObjectId } from "./ids";
 
@@ -121,6 +123,15 @@ export function isResizableShape(shape: Shape): shape is ResizableShape {
     shape.kind === "diamond" ||
     shape.kind === "image"
   );
+}
+
+/** Shapes with a `fill` field — the ones `FillPicker` applies to. Mirrors the
+ * `Fillable` mixin above so there's one list to update (here) when a shape
+ * kind gains a fill, instead of this plus a second hand-copied type guard. */
+export type FillableShape = RectangleShape | EllipseShape | DiamondShape;
+
+export function isFillableShape(shape: Shape): shape is FillableShape {
+  return shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "diamond";
 }
 
 export type ShapeKind = Shape["kind"];

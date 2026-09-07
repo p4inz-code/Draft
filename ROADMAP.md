@@ -5,6 +5,23 @@ A feature is only marked `[x]` once it has a passing test or a real, verified ch
 it — not just because code exists. See [docs/testing.md](docs/testing.md) for what
 "verified" means at each layer.
 
+## Known issues / blocked
+
+- [!] `pnpm --filter @draft/desktop tauri build` (the real release-mode installer build)
+  reliably crashes rustc on this dev machine — three attempts on 2026-09-07, three different
+  crash signatures (`STATUS_ACCESS_VIOLATION`, `STATUS_STACK_BUFFER_OVERRUN`,
+  `STATUS_ILLEGAL_INSTRUCTION`), on different crates each time (`tauri`, `tauri-utils`,
+  `memchr`). Tried relaxing the root `Cargo.toml`'s `[profile.release]` (`lto = true` +
+  `codegen-units = 1`, a known trigger for this class of LLVM crash) via env vars — changed
+  the crash but didn't fix it, so that's a suspect, not a confirmed root cause. **CI does not
+  catch this** — the `check` job only runs `cargo build --workspace` (each crate in isolation,
+  dev profile), never an actual `tauri build`. Until this is root-caused, "shipped" for this
+  repo means source tagged + `apps/web`'s static build attached, *not* a desktop installer —
+  don't assume one exists. Needs a dedicated session: bisect rustc-version vs. profile-setting
+  vs. clean-`target/`-dependent, then once fixed, add a real `tauri build` step to CI so a
+  broken release pipeline is caught on every push instead of only when someone urgently needs
+  to demo the app.
+
 ## Foundation phase (pre-Session-1)
 
 Repository, architecture, and documentation groundwork (product spec §35), ahead of the

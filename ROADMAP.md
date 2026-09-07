@@ -618,12 +618,11 @@ The user wants the *next* tagged release (after `v0.1.0-dev.2`) to be a real, ma
 not another `-dev.N` snapshot — gated on a long, thorough, dedicated security audit, not the
 lighter security angle of the earlier 4-persona pass. Nothing below is started.
 
-**Open decision, not blocking planning:** what version number the major release actually
-gets. `v0.1.0-dev.2` is the latest snapshot; proposing plain `v0.1.0` (drop the `-dev`/
-prerelease flag) as "the first real milestone," reserving `v1.0.0` for when the full V1 spec
+**Decided:** `v0.1.0` (confirmed by the user) — drop the `-dev`/prerelease flag from
+`v0.1.0-dev.2` as "the first real milestone," reserving `v1.0.0` for when the full V1 spec
 (product spec's original Session 1–4 scope) is genuinely complete — `apps/web` still has no
-live bridge (ADR-016) and no full save/reopen exit test has run yet, so calling this `v1.0.0`
-would overclaim. Flagging for the user to confirm or override, not deciding unilaterally.
+live bridge (ADR-016) and no full save/reopen exit test has run yet, so `v1.0.0` now would
+overclaim.
 
 ### Part 1 — finish the rest of Session A first (small, closes real gaps)
 

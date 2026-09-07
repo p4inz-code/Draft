@@ -22,19 +22,28 @@ interface ShapeBase {
   groupId?: string;
 }
 
-export interface RectangleShape extends ShapeBase {
+/**
+ * A `#rrggbb` hex fill color, shared by every shape kind that can meaningfully
+ * have one. Absent (not `null`) means unfilled/transparent, matching every
+ * other optional field's convention here — the stroke still renders either way.
+ */
+interface Fillable {
+  fill?: string;
+}
+
+export interface RectangleShape extends ShapeBase, Fillable {
   kind: "rectangle";
   width: number;
   height: number;
 }
 
-export interface EllipseShape extends ShapeBase {
+export interface EllipseShape extends ShapeBase, Fillable {
   kind: "ellipse";
   width: number;
   height: number;
 }
 
-export interface DiamondShape extends ShapeBase {
+export interface DiamondShape extends ShapeBase, Fillable {
   kind: "diamond";
   width: number;
   height: number;

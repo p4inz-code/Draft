@@ -22,7 +22,7 @@ export function ShapeView({ object, selected }: { object: CanvasObject; selected
           y={shape.y}
           width={Math.abs(shape.width)}
           height={Math.abs(shape.height)}
-          fill="none"
+          fill={shape.fill ?? "none"}
           stroke={selectionStroke}
           strokeWidth={selected ? 2 : 1.5}
         />
@@ -34,7 +34,7 @@ export function ShapeView({ object, selected }: { object: CanvasObject; selected
           cy={shape.y + shape.height / 2}
           rx={Math.abs(shape.width) / 2}
           ry={Math.abs(shape.height) / 2}
-          fill="none"
+          fill={shape.fill ?? "none"}
           stroke={selectionStroke}
           strokeWidth={selected ? 2 : 1.5}
         />
@@ -52,7 +52,7 @@ export function ShapeView({ object, selected }: { object: CanvasObject; selected
       return (
         <polygon
           points={points}
-          fill="none"
+          fill={shape.fill ?? "none"}
           stroke={selectionStroke}
           strokeWidth={selected ? 2 : 1.5}
         />

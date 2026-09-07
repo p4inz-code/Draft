@@ -1,0 +1,58 @@
+.draft-fill-picker {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: var(--draft-surface);
+  border: 1px solid var(--draft-border);
+  z-index: 5;
+}
+
+.draft-fill-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1px solid var(--draft-border);
+  padding: 0;
+  cursor: pointer;
+}
+
+.draft-fill-swatch.selected {
+  box-shadow: 0 0 0 2px var(--draft-surface), 0 0 0 3.5px var(--draft-accent);
+}
+
+.draft-fill-custom {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+}
+
+.draft-fill-custom input[type="color"] {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  padding: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.draft-fill-none {
+  font-family: var(--draft-font-sans);
+  font-size: 0.7rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--draft-border);
+  background: transparent;
+  color: var(--draft-text-muted);
+  cursor: pointer;
+}
+
+.draft-fill-none.selected {
+  border-color: var(--draft-accent);
+  color: var(--draft-text);
+}

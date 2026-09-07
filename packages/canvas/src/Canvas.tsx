@@ -7,6 +7,7 @@ import {
 } from "@draft/shared";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import "./Canvas.css";
+import { FillPicker } from "./FillPicker";
 import { ShapeView } from "./ShapeView";
 import { type Point, screenToWorld } from "./camera";
 import { boundsContainPoint, boundsIntersect, shapeBounds } from "./geometry";
@@ -408,75 +409,78 @@ export function Canvas() {
   const cursor = tool === "select" ? "default" : "crosshair";
 
   return (
-    <svg
-      ref={svgRef}
-      className="draft-canvas"
-      style={{ cursor }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onWheel={handleWheel}
-      onDoubleClick={handleDoubleClick}
-      role="application"
-      aria-label="DRAFT canvas"
-    >
-      <defs>
-        <pattern
-          id={gridId}
-          width={gridSizeScreen}
-          height={gridSizeScreen}
-          patternUnits="userSpaceOnUse"
-          patternTransform={`translate(${gridOffsetX} ${gridOffsetY})`}
-        >
-          <circle cx={1.5} cy={1.5} r={1.5} fill="var(--draft-text-muted)" opacity={0.5} />
-        </pattern>
-      </defs>
-      <rect x={0} y={0} width="100%" height="100%" fill={`url(#${gridId})`} />
-      <g transform={transform}>
-        {Object.values(shapes).map((object) =>
-          object.id === editingTextId ? null : (
-            <ShapeView key={object.id} object={object} selected={selection.includes(object.id)} />
-          ),
+    <div className="draft-canvas-wrapper">
+      <svg
+        ref={svgRef}
+        className="draft-canvas"
+        style={{ cursor }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
+        role="application"
+        aria-label="DRAFT canvas"
+      >
+        <defs>
+          <pattern
+            id={gridId}
+            width={gridSizeScreen}
+            height={gridSizeScreen}
+            patternUnits="userSpaceOnUse"
+            patternTransform={`translate(${gridOffsetX} ${gridOffsetY})`}
+          >
+            <circle cx={1.5} cy={1.5} r={1.5} fill="var(--draft-text-muted)" opacity={0.5} />
+          </pattern>
+        </defs>
+        <rect x={0} y={0} width="100%" height="100%" fill={`url(#${gridId})`} />
+        <g transform={transform}>
+          {Object.values(shapes).map((object) =>
+            object.id === editingTextId ? null : (
+              <ShapeView key={object.id} object={object} selected={selection.includes(object.id)} />
+            ),
+          )}
+          {editingTextId &&
+            (() => {
+              const editingShape = shapes[editingTextId]?.shape;
+              if (!editingShape || editingShape.kind !== "text") return null;
+              return (
+                <TextEditor
+                  key={editingTextId}
+                  shape={editingShape}
+                  onDone={(text) => finishEditingText(editingTextId, text)}
+                />
+              );
+            })()}
+          {tool === "select" &&
+            selection.length === 1 &&
+            (() => {
+              const obj = shapes[selection[0]];
+              if (!obj || !isResizableShape(obj.shape)) return null;
+              return (
+                <ResizeHandles
+                  objectId={obj.id}
+                  bounds={shapeBounds(obj.shape)}
+                  zoom={camera.zoom}
+                  onHandlePointerDown={handleResizeHandlePointerDown}
+                />
+              );
+            })()}
+        </g>
+        {marqueeRect && (
+          <rect
+            x={Math.min(marqueeRect.x.x, marqueeRect.y.x)}
+            y={Math.min(marqueeRect.x.y, marqueeRect.y.y)}
+            width={Math.abs(marqueeRect.y.x - marqueeRect.x.x)}
+            height={Math.abs(marqueeRect.y.y - marqueeRect.x.y)}
+            fill="rgba(14, 165, 233, 0.1)"
+            stroke="var(--draft-accent)"
+            strokeDasharray="4 4"
+          />
         )}
-        {editingTextId &&
-          (() => {
-            const editingShape = shapes[editingTextId]?.shape;
-            if (!editingShape || editingShape.kind !== "text") return null;
-            return (
-              <TextEditor
-                key={editingTextId}
-                shape={editingShape}
-                onDone={(text) => finishEditingText(editingTextId, text)}
-              />
-            );
-          })()}
-        {tool === "select" &&
-          selection.length === 1 &&
-          (() => {
-            const obj = shapes[selection[0]];
-            if (!obj || !isResizableShape(obj.shape)) return null;
-            return (
-              <ResizeHandles
-                objectId={obj.id}
-                bounds={shapeBounds(obj.shape)}
-                zoom={camera.zoom}
-                onHandlePointerDown={handleResizeHandlePointerDown}
-              />
-            );
-          })()}
-      </g>
-      {marqueeRect && (
-        <rect
-          x={Math.min(marqueeRect.x.x, marqueeRect.y.x)}
-          y={Math.min(marqueeRect.x.y, marqueeRect.y.y)}
-          width={Math.abs(marqueeRect.y.x - marqueeRect.x.x)}
-          height={Math.abs(marqueeRect.y.y - marqueeRect.x.y)}
-          fill="rgba(14, 165, 233, 0.1)"
-          stroke="var(--draft-accent)"
-          strokeDasharray="4 4"
-        />
-      )}
-    </svg>
+      </svg>
+      {selection.length === 1 && <FillPicker />}
+    </div>
   );
 }
 

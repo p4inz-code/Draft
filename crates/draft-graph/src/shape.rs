@@ -40,18 +40,24 @@ pub enum KnownShape {
         base: ShapeBase,
         width: f64,
         height: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fill: Option<String>,
     },
     Ellipse {
         #[serde(flatten)]
         base: ShapeBase,
         width: f64,
         height: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fill: Option<String>,
     },
     Diamond {
         #[serde(flatten)]
         base: ShapeBase,
         width: f64,
         height: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fill: Option<String>,
     },
     /// A plain straight line — like `Arrow` but rendered with no arrowhead.
     Line {
@@ -145,6 +151,29 @@ impl KnownShape {
         }
     }
 
+    /// Rejects a malformed `fill` (anything but a `#rrggbb` hex string) at
+    /// the same point a malformed known-kind payload is already rejected —
+    /// `fill` is absent-or-valid, never present-and-garbage, matching the
+    /// same "validate at the boundary" posture the rest of `Shape` already
+    /// takes for every other field.
+    fn validate_fill(self) -> Result<Self, String> {
+        let fill = match &self {
+            KnownShape::Rectangle { fill, .. }
+            | KnownShape::Ellipse { fill, .. }
+            | KnownShape::Diamond { fill, .. } => fill,
+            _ => return Ok(self),
+        };
+        if let Some(value) = fill {
+            let is_valid_hex = value.len() == 7
+                && value.starts_with('#')
+                && value[1..].chars().all(|c| c.is_ascii_hexdigit());
+            if !is_valid_hex {
+                return Err(format!("fill must be a #rrggbb hex color, got {value:?}"));
+            }
+        }
+        Ok(self)
+    }
+
     /// Clamps a rectangle/ellipse/diamond/image's `width`/`height` to
     /// non-negative — closes the render/hit-test desync a negative size
     /// caused (found in the 2026-09-06 code review): `ShapeView.tsx` used
@@ -157,28 +186,34 @@ impl KnownShape {
                 base,
                 width,
                 height,
+                fill,
             } => KnownShape::Rectangle {
                 base,
                 width: width.abs(),
                 height: height.abs(),
+                fill,
             },
             KnownShape::Ellipse {
                 base,
                 width,
                 height,
+                fill,
             } => KnownShape::Ellipse {
                 base,
                 width: width.abs(),
                 height: height.abs(),
+                fill,
             },
             KnownShape::Diamond {
                 base,
                 width,
                 height,
+                fill,
             } => KnownShape::Diamond {
                 base,
                 width: width.abs(),
                 height: height.abs(),
+                fill,
             },
             KnownShape::Image {
                 base,
@@ -274,9 +309,14 @@ impl<'de> Deserialize<'de> for Shape {
             // missing required field) is a real error, not silently kept
             // as an opaque blob (that would defeat the point of validating
             // at all).
-            Some(k) if KNOWN_KINDS.contains(&k) => serde_json::from_value::<KnownShape>(value)
-                .map(|k| Shape::Known(k.normalized()))
-                .map_err(serde::de::Error::custom),
+            Some(k) if KNOWN_KINDS.contains(&k) => {
+                let shape = serde_json::from_value::<KnownShape>(value)
+                    .map_err(serde::de::Error::custom)?;
+                shape
+                    .validate_fill()
+                    .map(|s| Shape::Known(s.normalized()))
+                    .map_err(serde::de::Error::custom)
+            }
             // No kind, or one this build doesn't know about yet: keep it
             // verbatim rather than rejecting it.
             _ => Ok(Shape::Other(value)),
@@ -361,6 +401,41 @@ mod tests {
         }));
         let json = serde_json::to_value(&still).unwrap();
         assert!(json.get("mediaKind").is_none());
+    }
+
+    #[test]
+    fn fill_round_trips_and_is_omitted_when_absent() {
+        let filled = roundtrip(serde_json::json!({
+            "kind": "rectangle", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0, "fill": "#a1b2c3"
+        }));
+        let json = serde_json::to_value(&filled).unwrap();
+        assert_eq!(json["fill"], "#a1b2c3");
+
+        let unfilled = roundtrip(serde_json::json!({
+            "kind": "rectangle", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0
+        }));
+        let json = serde_json::to_value(&unfilled).unwrap();
+        assert!(json.get("fill").is_none());
+    }
+
+    #[test]
+    fn a_malformed_fill_is_rejected() {
+        let err = serde_json::from_value::<Shape>(serde_json::json!({
+            "kind": "ellipse", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0, "fill": "red"
+        }))
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn fill_only_applies_to_rectangle_ellipse_diamond() {
+        // A non-fillable shape kind carrying a stray "fill" key isn't an
+        // error — it's just an unrecognized extra field, silently ignored
+        // by serde the same way any other unknown field would be.
+        let shape = roundtrip(serde_json::json!({
+            "kind": "text", "x": 0.0, "y": 0.0, "text": "hi", "fill": "#ffffff"
+        }));
+        assert!(matches!(shape, Shape::Known(KnownShape::Text { .. })));
     }
 
     #[test]

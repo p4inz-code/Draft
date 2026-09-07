@@ -612,6 +612,70 @@ next session opens with the one blocking item, not a feature.
 - [ ] A from-scratch clone-and-build sanity check on a clean checkout (CI green across three
   OSes is evidence, not proof, of "ready to use on another PC").
 
+## Session C — security audit + the first major release (planned for tomorrow, locked in for review)
+
+The user wants the *next* tagged release (after `v0.1.0-dev.2`) to be a real, major release —
+not another `-dev.N` snapshot — gated on a long, thorough, dedicated security audit, not the
+lighter security angle of the earlier 4-persona pass. Nothing below is started.
+
+**Open decision, not blocking planning:** what version number the major release actually
+gets. `v0.1.0-dev.2` is the latest snapshot; proposing plain `v0.1.0` (drop the `-dev`/
+prerelease flag) as "the first real milestone," reserving `v1.0.0` for when the full V1 spec
+(product spec's original Session 1–4 scope) is genuinely complete — `apps/web` still has no
+live bridge (ADR-016) and no full save/reopen exit test has run yet, so calling this `v1.0.0`
+would overclaim. Flagging for the user to confirm or override, not deciding unilaterally.
+
+### Part 1 — finish the rest of Session A first (small, closes real gaps)
+
+- [ ] Shape z-order (bring-to-front / send-to-back)
+- [ ] Keyboard-accessible canvas (arrow-key nudge, Tab-cycle selection, flyout via keyboard) —
+  an audit-confirmed gap from two sessions ago, still just documented, not fixed
+- [ ] Real per-request confirmation for `Ask` agent-mode — the *other* audit-confirmed gap
+  still just documented; closing this one specifically belongs in a security-audit session,
+  not just a features session, since it's a permission-model correctness issue
+
+### Part 2 — the long security audit (the main event)
+
+Deeper and narrower than the earlier 4-persona pass (which spent one of four lenses on
+security) — this is a dedicated pass, and unlike last time, findings get fixed here, not just
+documented for later:
+
+- **Dependency vulnerability scan** — `cargo audit` and `pnpm audit`/`npm audit`, neither of
+  which has been run at all this project. A real gap: every other audit angle assumed the
+  *code* was the attack surface and never checked whether a dependency itself carries a known
+  CVE.
+- **MCP server transport security, adversarial pass** — both stdio and the local-socket live
+  transport: fuzz/adversarial inputs to every tool call (malformed IDs, path-like strings in
+  fields that become file paths, oversized payloads), not just the happy-path tests that
+  exist today. Re-verify the local-socket ACL (owner-only, per earlier audit) actually holds
+  under a real multi-user Windows/macOS/Linux test, not just a code read.
+- **`Ask` mode fix, verified** — once Part 1 implements real per-request confirmation, this
+  audit should include a dedicated test proving `Ask` is no longer equivalent to `Watch`.
+- **Tauri capability review** — `capabilities/default.json` gained `core:window:allow-*`
+  permissions this session for the titlebar fix; confirm nothing broader than necessary was
+  granted, and that no other Tauri command has an implicit trust assumption on the frontend
+  bundle that a compromised/malicious build could exploit.
+- **Asset/path-safety re-verification** — re-run the path-traversal and content-addressed
+  asset-store checks the first audit did, this time adversarially (crafted filenames,
+  symlink-like tricks, Windows-vs-POSIX path quirks) rather than just a code read.
+- **Secrets/credentials scan** — confirm nothing resembling a credential, token, or key has
+  ever been committed (a full-history grep, not just current files).
+- Apply real fixes for anything found here, in the same session — not deferred to "documented
+  as a known gap" the way this session's audit findings sometimes were, given the stakes of
+  calling this a major release.
+
+### Part 3 — ship the major release
+
+- [ ] The long-deferred exit test: create a project, draw across multiple tools, save, close,
+  reopen, verify identical state — in a real Tauri window, not the browser preview.
+- [ ] Version bump (see the open decision above) across `package.json`/`Cargo.toml`, a real
+  `CHANGELOG.md` entry (not just `SESSION_LOG.md`'s narrative form)
+- [ ] Tag + `gh release create` **without** `--prerelease`, full release notes summarizing
+  everything since the last major milestone
+- [ ] CI's `release-build` job (now proven working on all three OSes for `v0.1.0-dev.2`)
+  produces and attaches the real installers — this part is already de-risked, just needs a
+  tag push
+
 ## V2 (not scheduled)
 
 - [ ] Full plugin ecosystem (foundation is plugin-ready per the crate/package boundaries in

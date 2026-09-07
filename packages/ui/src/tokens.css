@@ -23,7 +23,12 @@
   --draft-text-muted: #5b5d75;
   --draft-border: #e2e2ea;
   --draft-accent: #0ea5e9;
-  --draft-accent-contrast: #ffffff;
+  /* White-on-accent (the obvious first choice) computes to ~2.77:1 against
+   * this particular blue — under both the 4.5:1 text and 3:1 non-text WCAG
+   * minimums. Dark mode already pairs the same accent with a dark
+   * foreground at ~7:1; reusing that combination here instead of white
+   * passes comfortably in both modes rather than only one. */
+  --draft-accent-contrast: #0d0d14;
   --draft-danger: #e5484d;
   /* Glassmorphic HUD surfaces (titlebar, floating toolbar) — a translucent
    * version of --draft-surface, paired with backdrop-filter: blur(). */

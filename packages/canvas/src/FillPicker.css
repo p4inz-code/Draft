@@ -20,8 +20,12 @@
   cursor: pointer;
 }
 
+/* --draft-text (not --draft-accent) for the ring: the brand blue only
+ * reaches ~2.77:1 against a white --draft-surface in light mode, under the
+ * 3:1 WCAG minimum for a non-text indicator — --draft-text is guaranteed
+ * high-contrast against --draft-surface in both themes by construction. */
 .draft-fill-swatch.selected {
-  box-shadow: 0 0 0 2px var(--draft-surface), 0 0 0 3.5px var(--draft-accent);
+  box-shadow: 0 0 0 2px var(--draft-surface), 0 0 0 3.5px var(--draft-text);
 }
 
 .draft-fill-custom {

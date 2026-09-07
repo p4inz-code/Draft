@@ -94,6 +94,16 @@ a `watch<usize>` — see `crates/draft-mcp/src/local_socket.rs`'s `ConnectionGua
 `apps/desktop`'s header. Still not built: per-connection (rather than whole-app) mode
 scoping — deferred to Session 3, per the original plan.
 
+**`Ask` does not currently narrow anything beyond `Watch`.** A security audit of this crate
+found `AgentMode::allows_read()` (`crates/draft-security/src/permissions.rs`) treats
+`Ask`/`Watch`/`Assist`/`Build` identically for reads — there is no per-request confirmation
+prompt gating `Ask` specifically, despite the mode's name and the original spec implying "the
+agent may read only when the user explicitly asks it to." Choosing `Ask` over `Watch` today
+grants the same standing, unconfirmed read access; only `Manual` actually withholds it. Real
+per-request confirmation for `Ask` is unbuilt — treat the mode selector's five options as
+effectively two tiers (`Manual` = no read access, everything else = standing read access,
+`Build` also grants writes) until that's implemented.
+
 ## Resources/tools
 
 Implemented on the **stdio** transport (read-only — a saved file has nothing to write back

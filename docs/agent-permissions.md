@@ -7,7 +7,7 @@ Implemented in `crates/draft-security`. See [ADR-010](decisions/adr-010-agent-pe
 | Mode | Access |
 |---|---|
 | `Manual` (default) | None at all |
-| `Ask` | Read, only when the user explicitly asks the agent to look |
+| `Ask` | Read — **named** for a per-request confirmation prompt, but not enforced as one today (see below); behaves identically to `Watch` |
 | `Watch` | Read, agent observes changes as they happen |
 | `Assist` | Read + suggestions, no writes |
 | `Build` | Read + writes, subject to per-action permission checks |
@@ -51,3 +51,9 @@ since every call re-checks the shared `Arc<Mutex<AgentMode>>`).
   this as "scoped where practical") — Session 3.
 - `request_user_permission` as an MCP tool an agent can call to ask for elevated access —
   Session 3.
+- **`Ask` mode's actual, per-request confirmation.** A security audit confirmed
+  `AgentMode::allows_read()` (`permissions.rs`) treats `Ask` exactly like `Watch` — every read
+  tool call succeeds immediately, with no prompt shown to the user for that specific call.
+  The mode's name and doc comment describe intended behavior ("only when the user explicitly
+  asks"), not current behavior. Until a real pending-request queue is built, `Ask` grants the
+  same standing access as `Watch`; don't rely on it for a narrower guarantee than that.

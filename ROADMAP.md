@@ -42,6 +42,21 @@ four implementation sessions below.
 - [x] Freehand drawing, shapes (rectangle/ellipse/diamond), text, line, arrow — one SVG
   `Canvas` component in `@draft/canvas` driving the camera engine, tool state machine keyed
   on the active tool
+- [x] Fill color for rectangle/ellipse/diamond — a `#rrggbb` hex string on the shape itself
+  (`ImageShape`'s sibling optional field, same absent-means-transparent convention as every
+  other optional field here), mirrored into `crates/draft-graph::shape::KnownShape`'s three
+  variants in the same change per ADR-014's manual-mirror rule, with a hex-format validation
+  at the same point a malformed known-kind payload is already rejected (`fill: "red"` fails
+  the same way a missing required field would). New `FillPicker.tsx`: a small popover (not a
+  general properties/inspector panel — deliberately out of scope) shown near a single
+  selected fill-capable shape's top-right corner, 8 preset swatches plus a native
+  `<input type="color">` for anything else, a "None" option to clear it. Since `fill` crosses
+  the same typed `Shape`/MCP boundary every other field does, an agent can already see it via
+  `get_object` — genuinely useful design-intent signal, not raw asset data, so no new ADR-015-
+  style privacy concern. Verified for real: a Rust round-trip test (present/absent/malformed),
+  a `FillPicker` component test (swatch click, "None", custom picker all call `updateShape`
+  correctly, one click = one undo step), and a `ShapeView` render test asserting the SVG
+  `fill` attribute reflects the shape's value across all three fillable kinds.
 - [x] Selection (click + marquee), move-by-drag, resize handles on resizable shapes
   (rectangle/ellipse/diamond) — grouping not yet implemented
 - [x] Two real bugs found and fixed from a user-supplied screen recording of the select
@@ -213,15 +228,52 @@ four implementation sessions below.
 - [x] Toolbar redesign: grouped into three floating "islands" (draw tools / content
   [Media+Group+Ungroup] / view+history [Undo+Redo+zoom]) instead of one long undifferentiated
   row, informed by the Stitch UI mockups and Figma/tldraw's floating-panel convention (kanvaz,
-  P4inz's other product, was also checked for reference). Auto-hides after 3s idle (fades to
-  15% opacity, `pointer-events: none` so a faded toolbar can't steal a click meant for the
-  canvas), revives on a pointer approaching the top of the window or any numbered tool
-  shortcut, and a "Pin" toggle (persisted to `localStorage`) disables auto-hide entirely for
-  anyone who'd rather it just stay put. Verified for real: 11 tests in `Toolbar.test.tsx`
-  (fade timing, revive triggers, pin persistence across remounts) plus a live check in the
-  browser preview confirming the fade/revive/pin logic actually runs correctly against a real
-  DOM (jsdom's synthetic pointer events don't model this reliably, so the logic itself was
-  additionally verified by dispatching a real `PointerEvent` in a live browser tab).
+  P4inz's other product, was also checked for reference). Floats centered at the *bottom* of
+  the canvas (moved there after direct feedback — "why toolbar aint like island in downwards
+  why top? like figma" — matching Figma/tldraw's own convention rather than sitting in normal
+  flow under the header), with a 20px pill-shaped corner radius. Auto-hides after 3s idle
+  (fades to 15% opacity, `pointer-events: none` so a faded toolbar can't steal a click meant
+  for the canvas), revives on a pointer approaching the *bottom* of the window or any numbered/
+  lettered tool shortcut, and a "Pin" toggle (persisted to `localStorage`) disables auto-hide
+  entirely for anyone who'd rather it just stay put. The drawing-tool row is icon-only (custom
+  hand-drawn SVGs in `ToolIcons.tsx`, no icon-font/library dependency) and collapses
+  Rectangle/Ellipse/Diamond and Line/Arrow/Freehand into two Illustrator-style grouped slots —
+  holding a slot past 400ms (or a normal quick click, which just runs the remembered tool) flies
+  out its other members, and the slot's own icon becomes whichever member was used most
+  recently, from *any* source (flyout pick, letter shortcut, number shortcut) via one small
+  effect syncing on the active tool rather than three separate update sites. Buttons get a
+  fast (~80ms) hover/press transition and a `:active` scale-down, matching the snappy,
+  no-lag feel of Photoshop/Illustrator's own tool switching rather than a laggy fade. Verified
+  for real: 18 tests in `Toolbar.test.tsx` (fade timing, revive triggers at the bottom edge,
+  pin persistence across remounts, a quick click vs. a hold opening the flyout, picking a
+  flyout member, a letter shortcut updating the remembered slot icon, outside-click dismissal)
+  plus a live check in the browser preview confirming the fade/revive/flyout logic actually
+  runs correctly against a real DOM (jsdom's synthetic pointer events don't model this
+  reliably, so the logic itself was additionally verified by dispatching real `PointerEvent`s
+  in a live browser tab).
+- [x] Custom frameless titlebar, replacing the native OS window chrome (direct feedback: "no
+  windows native stuff like the chrome bar it looks ugly asf"). `tauri.conf.json` sets
+  `"decorations": false` plus a `minWidth`/`minHeight` floor; new `Titlebar.tsx` merges the old
+  `<header>`'s Save/Open/agent-access/status controls into one glassmorphic bar
+  (`backdrop-filter: blur(16px)` over `--draft-overlay`) with a `data-tauri-drag-region`
+  wrapper for window dragging and custom minimize/maximize/close buttons via
+  `@tauri-apps/api/window`'s `getCurrentWindow()`. Caught and fixed two real regressions by
+  actually loading the app rather than trusting the diff: (1) `getCurrentWindow()` called at
+  module scope throws synchronously outside a real Tauri webview (`window.__TAURI_INTERNALS__`
+  doesn't exist in the plain browser preview), crashing the whole app before React ever
+  mounted — fixed by deferring it to a lazy, try/caught call inside each button's own
+  `onClick`; (2) removing `App.tsx`'s last named import from `@draft/ui` let Vite tree-shake
+  away that package's side-effect-only `tokens.css` import, silently dropping every
+  `--draft-*` token and the JetBrains Mono font from the bundle (CSS output size ~27KB → ~5KB
+  was the tell) — fixed with an explicit bare `import "@draft/ui";`. New design tokens
+  (`--draft-surface-2/-3`, `--draft-overlay`, `--draft-danger`, `--draft-radius-sm/md/lg`) added
+  to `packages/ui/src/tokens.css` for both bars' glass treatment, extending the existing brand
+  anchors rather than replacing them. Verified for real: reloading the browser preview after
+  each fix, a titlebar-text-wrapping layout bug found via screenshot at a narrow viewport width
+  (fixed with `white-space: nowrap`/`text-overflow: ellipsis` on the lower-priority status
+  text), and the frameless window's actual drag/minimize/maximize/close mechanics confirmed by
+  relaunching `pnpm tauri dev` (no automated test harness exists for `apps/desktop` itself —
+  pre-existing gap).
 - [x] Grouping: a shared `groupId` on the shape payload (not a new graph/operation concept —
   `draft-graph` already treats payloads as opaque JSON), a `Group`/`Ungroup` toolbar pair
   gated on selection state, and click-to-select expanding to every group sibling
@@ -351,6 +403,18 @@ longer than "foundation + canvas" sounds like it should.
   simply never created). Fixed by using `std::env::temp_dir()` directly with a short 8-hex-char
   filename instead of a nested tempdir and a full UUID. Confirmed (not just assumed) green
   on all three CI legs — Windows, macOS, and Ubuntu — after pushing the fix.
+- [x] Cross-client MCP compatibility audit — the user asked directly for DRAFT to "work with
+  any agent and any IDE" (named Claude, Codex, Devin, and others). Audited `crates/draft-mcp`
+  against the spec rather than assuming: the **stdio** transport (the `draft-mcp` CLI binary)
+  is genuinely spec-compliant via the official `rmcp` SDK, already proven end-to-end against
+  a real `rmcp` client (not a bespoke mock) in `tests/mcp_stdio.rs` — any MCP client with
+  local-stdio-server support can point at it today. The **local-socket "live"** transport
+  speaks real MCP bytes too, but isn't reachable through any mainstream client's
+  configuration surface (no client supports "dial this named pipe/socket path") — it's
+  DRAFT-desktop-app's own channel, not a generic entry point, honestly documented as such in
+  `docs/mcp.md`'s new "which transport can your client actually use" section rather than
+  implying broader compatibility than what's actually reachable. No code changes needed — the
+  audit found no spec deviations to fix.
 - [ ] `agent_state` resource — still vague pending a concrete need for it
 
 ### Session 3 — Agent Collaboration + Project Workflow

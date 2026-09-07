@@ -9,6 +9,100 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-07 — chrome plan, phase E: frameless titlebar, floating icon toolbar, Illustrator tool groups
+
+**Commit:** (pending push at time of writing)
+
+Closed out the custom-chrome plan (direct feedback: "no windows native stuff like the chrome
+bar it looks ugly asf") and kept going on toolbar polish from a follow-up screenshot ("i want
+smtg like this but at boyton with auto fade which it has alrd and keep adobe software logic in
+it").
+
+**Frameless titlebar.** `tauri.conf.json` sets `"decorations": false`; new `Titlebar.tsx`
+merges Save/Open/agent-access/status into one glassmorphic bar with real minimize/maximize/
+close via `@tauri-apps/api/window`. Two regressions caught by actually loading the app rather
+than trusting the diff: `getCurrentWindow()` at module scope crashed the whole app outside a
+real Tauri webview (deferred to a lazy try/caught call per button), and dropping the last
+named import from `@draft/ui` let Vite tree-shake away its side-effect-only `tokens.css`
+import — the entire design-token/font bundle silently vanished (CSS output ~27KB → ~5KB was
+the tell), fixed with an explicit `import "@draft/ui";`.
+
+**Toolbar moved to the bottom.** Direct feedback: "why toolbar aint like island in downwards
+why top? like figma." `.draft-toolbar-dock` went from a full-width flow bar to an
+absolutely-positioned pill centered at the bottom, matching Figma/tldraw's own floating-panel
+convention — including flipping the idle-fade "revive zone" check from the top edge to the
+bottom edge and updating its tests to match.
+
+**Icon-only toolbar + Illustrator-style tool groups.** New `ToolIcons.tsx`: hand-drawn 16×16
+SVGs for all 9 tools, no icon-font/library dependency. The drawing-tool row collapsed from 9
+always-visible buttons to 5 slots — Select, Text, Eraser standalone, and Rectangle/Ellipse/
+Diamond and Line/Arrow/Freehand each folded into one grouped slot (`TOOL_GROUPS` in
+`Toolbar.tsx`) with a small corner-tick affordance. A quick click on a group slot runs
+whichever tool it last remembered; holding past 400ms flies out the other members
+(`.draft-tool-flyout`, positioned above the slot since the dock lives at the bottom); picking
+one closes the flyout and becomes the new remembered tool. One `useEffect` syncs the
+remembered tool from *any* source the active tool changes through — a flyout pick, a letter
+shortcut, a number shortcut — so there's one place that logic lives instead of three. Dock
+corners went from a 12px radius to a 20px pill to read as more "curved" per direct feedback,
+and buttons got a fast (~80ms) hover/press transition plus a `:active` scale-down so tool
+switching feels as immediate as Photoshop/Illustrator's own, not laggy.
+
+**A recurring bug class, closed for a second surface.** Session 1 already fixed native
+browser text-selection fighting the marquee-select drag on the canvas itself
+(`user-select: none` + `preventDefault()`). The new floating toolbar was never given the same
+treatment — an accidental drag while reaching for a button could paint the same native
+selection highlight across the dock. Added `user-select: none` to `.draft-toolbar-dock`
+(the titlebar already had it). Investigated a live user report of "cursor selection area is
+again messed up" by hands-on testing (real `PointerEvent` dispatch in a live browser tab,
+not just jsdom) — resize-handle rendering, single-shape selection, and marquee-select all
+checked out correct; this toolbar gap is the most concrete match found for "again" (the same
+class of bug recurring on a second UI surface that didn't exist at the time of the first fix).
+
+Verified for real: `Toolbar.test.tsx` grew from 13 to 18 tests (quick click vs. hold-to-open,
+picking a flyout member, a letter shortcut updating the remembered slot icon, outside-click
+dismissal), full canvas suite (76 tests) green, plus live browser-tab verification of the
+flyout open/pick flow end-to-end (jsdom's synthetic pointer events don't reliably model a
+timed hold, so this was additionally checked by dispatching real `PointerEvent`s with real
+delays in a live tab).
+
+---
+
+## 2026-09-06 (chrome plan, phase C) — fill color for Rectangle/Ellipse/Diamond
+
+**Commit:** (pending push at time of writing)
+
+Closed the "we don't have a coloring feature" gap the user flagged directly ("this is a
+serious production tool, not a toy"). `fill?: string` (a `#rrggbb` hex string) added to
+`shapes.ts`'s three fillable interfaces and mirrored into `crates/draft-graph::shape.rs`'s
+matching `KnownShape` variants in the same change, with hex-format validation added at the
+same validation boundary `Graph::apply` already enforces for every other field — a malformed
+`fill` is rejected the same way a missing required field already is, not silently stored.
+
+New `FillPicker.tsx`: a narrow popover (explicitly not a general properties/inspector panel —
+that stays out of scope per the plan) that appears near a single selected fill-capable
+shape's corner, computed via the existing `worldToScreen`/`shapeBounds` helpers (no new
+positioning logic invented). 8 preset swatches, a native `<input type="color">` for anything
+else (zero new dependency), and a "None" option. `Canvas.tsx` needed a small structural
+change to host it — its return was a bare `<svg>` with nothing else, so it's now wrapped in a
+`.draft-canvas-wrapper` div (`position: relative`) with `<FillPicker/>` as an HTML sibling
+rendered outside the SVG tree, positioned in screen pixels rather than world coordinates.
+
+A minor TypeScript narrowing gotcha hit during this: checking `!object || !shape || ...`
+early-return narrows `object`/`shape` for the rest of the function body, but that narrowing
+doesn't reliably survive into a nested closure (the click handler) defined later in the same
+function — fixed by re-binding into a fresh `const selected = { id: object.id, shape }`
+right after the guard, which TypeScript is happy to treat as concretely typed regardless.
+
+Verified for real: a Rust round-trip test (fill present/absent/malformed, plus a
+"non-fillable-kind carrying a stray fill key is just an ignored unknown field, not an error"
+case), a `FillPicker` component test suite (visibility gating on selection count and shape
+kind, swatch click, "None", and the custom picker all correctly call `updateShape` wrapped in
+one `beginAction`/`commitAction` pair), and a `ShapeView` render test asserting the SVG `fill`
+attribute reflects the shape's value across rectangle/ellipse/diamond. `pnpm build/lint/test`
+(81 tests) and `cargo build/clippy/test --workspace` green.
+
+---
+
 ## 2026-09-06 (chrome plan, phases A+B) — text-duplication fix + Illustrator letter shortcuts
 
 **Commit:** (pending push at time of writing)

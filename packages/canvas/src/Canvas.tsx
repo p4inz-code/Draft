@@ -674,18 +674,27 @@ export function Canvas() {
                 />
               );
             })()}
+          {marqueeRect && (
+            // Inside the same pan/zoom-transformed <g> as everything else —
+            // marqueeRect's x/y are world coordinates (from
+            // worldPointFromEvent), and rendering them outside this
+            // transform (as this was previously doing) put the marquee
+            // wherever the camera happened to be panned/zoomed to instead
+            // of at the actual cursor position, looking "random" unless the
+            // camera was still at its untouched default (where world and
+            // screen coordinates coincide, masking the bug completely).
+            <rect
+              x={Math.min(marqueeRect.x.x, marqueeRect.y.x)}
+              y={Math.min(marqueeRect.x.y, marqueeRect.y.y)}
+              width={Math.abs(marqueeRect.y.x - marqueeRect.x.x)}
+              height={Math.abs(marqueeRect.y.y - marqueeRect.x.y)}
+              fill="rgba(14, 165, 233, 0.1)"
+              stroke="var(--draft-accent)"
+              strokeDasharray="4 4"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
         </g>
-        {marqueeRect && (
-          <rect
-            x={Math.min(marqueeRect.x.x, marqueeRect.y.x)}
-            y={Math.min(marqueeRect.x.y, marqueeRect.y.y)}
-            width={Math.abs(marqueeRect.y.x - marqueeRect.x.x)}
-            height={Math.abs(marqueeRect.y.y - marqueeRect.x.y)}
-            fill="rgba(14, 165, 233, 0.1)"
-            stroke="var(--draft-accent)"
-            strokeDasharray="4 4"
-          />
-        )}
       </svg>
       {selection.length === 1 && <FillPicker />}
     </div>

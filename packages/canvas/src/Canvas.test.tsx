@@ -2,6 +2,7 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Canvas } from "./Canvas";
+import { createCamera } from "./camera";
 import { rotatePoint } from "./geometry";
 import { LETTER_KEY_TOOLS, NUMBER_KEY_TOOLS, type Tool, useCanvasStore } from "./store";
 
@@ -61,7 +62,7 @@ function pointerDownAt(target: Element, x: number, y: number) {
 }
 
 beforeEach(() => {
-  useCanvasStore.setState({ tool: "select", shapes: {}, selection: [] });
+  useCanvasStore.setState({ tool: "select", shapes: {}, selection: [], camera: createCamera() });
 });
 
 describe("number-key tool shortcuts", () => {
@@ -151,6 +152,35 @@ describe("Illustrator-style letter tool shortcuts", () => {
 });
 
 describe("marquee selection and grouping", () => {
+  it("renders the marquee rectangle inside the pan/zoom-transformed group, not outside it", () => {
+    // A real bug: the marquee <rect> used to be a sibling of, not a child
+    // inside, the <g transform="..."> that shapes render in — its x/y are
+    // world coordinates (from worldPointFromEvent), so rendering it outside
+    // that transform put it at the wrong screen position for any panned/
+    // zoomed camera, looking "random" to a user (it only happened to look
+    // right at the untouched default camera, where world and screen
+    // coordinates coincide — exactly what every other test here uses,
+    // which is why this went uncaught). Panning here specifically to
+    // reproduce the state that exposed it.
+    useCanvasStore.setState({ camera: { x: 50, y: 30, zoom: 2 } });
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+    const transformedGroup = svg.querySelector("g[transform]");
+    if (!transformedGroup) throw new Error("expected a transformed <g>");
+
+    setTool("select");
+    pointerDownAt(svg, 0, 0);
+    firePointer(svg, "pointermove", 25, 25);
+
+    const marqueeRect = svg.querySelector('rect[stroke-dasharray="4 4"]');
+    expect(marqueeRect).not.toBeNull();
+    expect(transformedGroup.contains(marqueeRect)).toBe(true);
+
+    firePointer(svg, "pointerup", 25, 25);
+    unmount();
+  });
+
   it("expands a marquee that only touches one group member to the whole group", () => {
     const { container, unmount } = render(<Canvas />);
     const svg = container.querySelector('[role="application"]');

@@ -572,9 +572,11 @@ next session opens with the one blocking item, not a feature.
   a render-order test and live in the running app.
 - [ ] **Edge-snapping connectors** — arrows/lines that anchor to a shape's edge and follow it
   when the shape moves, instead of floating free-floating endpoints.
-- [ ] **Keyboard-accessible canvas** (closes two audit-confirmed gaps, not just documents
-  them): arrow-key nudge on a selected shape, Tab-cycling selection, Enter/Space to operate
-  the tool-group flyout without a pointer.
+- [x] **Keyboard-accessible canvas** (closes two audit-confirmed gaps, not just documents
+  them): the canvas SVG is a real focusable widget; arrow keys nudge the selection (1px,
+  Shift: 10px); Tab/Shift+Tab cycle selection when the canvas has focus; ArrowDown opens a
+  tool-group flyout (the hold gesture's keyboard equivalent), with focus returning to the
+  slot button on Escape/pick. Verified with 6 new tests and live in the running app.
 - [ ] **Real per-request confirmation for `Ask` agent-mode** — today it's enforced identically
   to `Watch` (documented as a known gap this session); this turns that doc caveat into an
   actual pending-request-queue feature.
@@ -628,8 +630,7 @@ overclaim.
 ### Part 1 — finish the rest of Session A first (small, closes real gaps)
 
 - [x] Shape z-order (bring-to-front / send-to-back)
-- [ ] Keyboard-accessible canvas (arrow-key nudge, Tab-cycle selection, flyout via keyboard) —
-  an audit-confirmed gap from two sessions ago, still just documented, not fixed
+- [x] Keyboard-accessible canvas (arrow-key nudge, Tab-cycle selection, flyout via keyboard)
 - [ ] Real per-request confirmation for `Ask` agent-mode — the *other* audit-confirmed gap
   still just documented; closing this one specifically belongs in a security-audit session,
   not just a features session, since it's a permission-model correctness issue

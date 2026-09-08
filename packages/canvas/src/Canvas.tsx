@@ -6,7 +6,7 @@ import {
   isRotatableShape,
   newObjectId,
 } from "@draft/shared";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import "./Canvas.css";
 import { FillPicker } from "./FillPicker";
 import { ShapeView } from "./ShapeView";
@@ -89,6 +89,16 @@ export function Canvas() {
   const shapes = useCanvasStore((s) => s.shapes);
   const selection = useCanvasStore((s) => s.selection);
   const store = useCanvasStore;
+
+  // Stable sort: ties (the common case — most shapes never get an explicit
+  // zIndex) keep their original Object.values() order, so a page with no
+  // z-order changes at all renders exactly as it did before this feature
+  // existed. Memoized on `shapes` so a camera-only re-render (pan/zoom)
+  // doesn't re-sort every frame.
+  const orderedShapes = useMemo(
+    () => Object.values(shapes).sort((a, b) => (a.shape.zIndex ?? 0) - (b.shape.zIndex ?? 0)),
+    [shapes],
+  );
 
   const [drag, setDrag] = useState<DragState>({ kind: "none" });
   const [marqueeRect, setMarqueeRect] = useState<{ x: Point; y: Point } | null>(null);
@@ -239,6 +249,16 @@ export function Canvas() {
       } else if ((e.ctrlKey || e.metaKey) && e.key === "0") {
         e.preventDefault();
         state.resetView();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "]" && state.selection.length > 0) {
+        e.preventDefault();
+        state.beginAction();
+        state.bringToFront(state.selection);
+        state.commitAction();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "[" && state.selection.length > 0) {
+        e.preventDefault();
+        state.beginAction();
+        state.sendToBack(state.selection);
+        state.commitAction();
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -569,7 +589,7 @@ export function Canvas() {
         </defs>
         <rect x={0} y={0} width="100%" height="100%" fill={`url(#${gridId})`} />
         <g transform={transform}>
-          {Object.values(shapes).map((object) =>
+          {orderedShapes.map((object) =>
             object.id === editingTextId ? null : (
               <ShapeView key={object.id} object={object} selected={selection.includes(object.id)} />
             ),

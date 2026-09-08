@@ -25,6 +25,11 @@ pub struct ShapeBase {
     /// isn't grouped, matching `groupId?: string`'s TS semantics.
     #[serde(rename = "groupId", default, skip_serializing_if = "Option::is_none")]
     pub group_id: Option<String>,
+    /// Stacking order — see the matching comment in `shapes.ts`. Absent
+    /// (not `0.0`) for a shape that's never had its z-order explicitly
+    /// changed.
+    #[serde(rename = "zIndex", default, skip_serializing_if = "Option::is_none")]
+    pub z_index: Option<f64>,
 }
 
 /// Stroke customization, flattened into every shape kind that renders a
@@ -223,6 +228,17 @@ impl KnownShape {
                 && value[1..].chars().all(|c| c.is_ascii_hexdigit());
             if !is_valid_hex {
                 return Err(format!("fill must be a #rrggbb hex color, got {value:?}"));
+            }
+        }
+        Ok(self)
+    }
+
+    /// Rejects a non-finite `zIndex` — on `ShapeBase`, so every kind (not
+    /// just fillable/rotatable ones) needs checking here.
+    fn validate_z_index(self) -> Result<Self, String> {
+        if let Some(value) = self.base().z_index {
+            if !value.is_finite() {
+                return Err(format!("zIndex must be a finite number, got {value:?}"));
             }
         }
         Ok(self)
@@ -434,6 +450,7 @@ impl<'de> Deserialize<'de> for Shape {
                     .validate_fill()
                     .and_then(KnownShape::validate_rotation)
                     .and_then(KnownShape::validate_stroke)
+                    .and_then(KnownShape::validate_z_index)
                     .map(|s| Shape::Known(s.normalized()))
                     .map_err(serde::de::Error::custom)
             }
@@ -473,6 +490,29 @@ mod tests {
             roundtrip(serde_json::json!({ "kind": "text", "x": 0.0, "y": 0.0, "text": "hi" }));
         let json = serde_json::to_value(&ungrouped).unwrap();
         assert!(json.get("groupId").is_none());
+    }
+
+    #[test]
+    fn z_index_round_trips_on_any_kind_and_is_omitted_when_absent() {
+        let ordered = roundtrip(serde_json::json!({
+            "kind": "text", "x": 0.0, "y": 0.0, "text": "hi", "zIndex": 3.0
+        }));
+        let json = serde_json::to_value(&ordered).unwrap();
+        assert_eq!(json["zIndex"], 3.0);
+
+        let unordered =
+            roundtrip(serde_json::json!({ "kind": "text", "x": 0.0, "y": 0.0, "text": "hi" }));
+        let json = serde_json::to_value(&unordered).unwrap();
+        assert!(json.get("zIndex").is_none());
+    }
+
+    #[test]
+    fn a_non_finite_z_index_is_rejected() {
+        let err = serde_json::from_str::<Shape>(
+            r#"{"kind": "text", "x": 0.0, "y": 0.0, "text": "hi", "zIndex": 1e400}"#,
+        )
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
     }
 
     #[test]

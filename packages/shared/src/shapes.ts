@@ -22,6 +22,15 @@ interface ShapeBase {
    * taxonomy work, not this one.
    */
   groupId?: string;
+  /**
+   * Stacking order — higher renders on top. Absent (not `0`) for a shape
+   * that's never had its z-order explicitly changed, treated as `0` for
+   * sorting; a stable sort keeps every such shape in creation order among
+   * themselves (matching the pre-z-order rendering behavior exactly), so
+   * old saved projects with no `zIndex` at all render identically to
+   * before. Only `bringToFront`/`sendToBack` ever assign a value.
+   */
+  zIndex?: number;
 }
 
 /**

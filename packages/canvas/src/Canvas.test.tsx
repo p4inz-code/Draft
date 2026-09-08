@@ -347,6 +347,52 @@ describe("Shift-to-constrain while drawing", () => {
   });
 });
 
+describe("z-order rendering and shortcuts", () => {
+  it("renders shapes sorted by zIndex, not insertion order", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+    const { addShape, bringToFront } = useCanvasStore.getState();
+    let a = "" as ReturnType<typeof addShape>;
+    act(() => {
+      a = addShape({ kind: "rectangle", x: 0, y: 0, width: 10, height: 10 });
+      addShape({ kind: "rectangle", x: 20, y: 20, width: 10, height: 10 });
+    });
+
+    act(() => bringToFront([a]));
+
+    // Excludes the background grid rect (width="100%", not a shape).
+    const rects = [...svg.querySelectorAll("rect")].filter(
+      (r) => r.getAttribute("width") !== "100%",
+    );
+    expect(rects).toHaveLength(2);
+    // b (unmoved, zIndex 0) should render first, a (brought to front) last —
+    // later SVG elements paint on top, so this is what "in front" means.
+    expect(rects[0].getAttribute("x")).toBe("20");
+    expect(rects[1].getAttribute("x")).toBe("0");
+
+    unmount();
+  });
+
+  it("Ctrl+] brings the selection to front, Ctrl+[ sends it to back", () => {
+    const { unmount } = render(<Canvas />);
+    const { addShape, select } = useCanvasStore.getState();
+    const a = addShape({ kind: "rectangle", x: 0, y: 0, width: 10, height: 10 });
+    const b = addShape({ kind: "rectangle", x: 0, y: 0, width: 10, height: 10 });
+    act(() => select([a]));
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "]", ctrlKey: true }));
+    let shapes = useCanvasStore.getState().shapes;
+    expect(shapes[a].shape.zIndex).toBeGreaterThan(shapes[b].shape.zIndex ?? 0);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", ctrlKey: true }));
+    shapes = useCanvasStore.getState().shapes;
+    expect(shapes[a].shape.zIndex).toBeLessThan(shapes[b].shape.zIndex ?? 0);
+
+    unmount();
+  });
+});
+
 describe("resizing a rotated shape", () => {
   it("keeps the opposite corner pinned in world space while the dragged corner moves", () => {
     const { container, unmount } = render(<Canvas />);

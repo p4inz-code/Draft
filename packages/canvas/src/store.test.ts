@@ -112,6 +112,72 @@ describe("selection", () => {
   });
 });
 
+describe("z-order", () => {
+  it("bringToFront gives the moved shape a higher zIndex than everything else", () => {
+    const { addShape, bringToFront } = useCanvasStore.getState();
+    const a = addShape(rect());
+    const b = addShape(rect());
+    const c = addShape(rect());
+
+    bringToFront([a]);
+
+    const shapes = useCanvasStore.getState().shapes;
+    const zIndex = (id: typeof a) => shapes[id].shape.zIndex ?? 0;
+    expect(zIndex(a)).toBeGreaterThan(zIndex(b));
+    expect(zIndex(a)).toBeGreaterThan(zIndex(c));
+  });
+
+  it("sendToBack gives the moved shape a lower zIndex than everything else", () => {
+    const { addShape, sendToBack } = useCanvasStore.getState();
+    const a = addShape(rect());
+    const b = addShape(rect());
+    const c = addShape(rect());
+
+    sendToBack([c]);
+
+    const shapes = useCanvasStore.getState().shapes;
+    const zIndex = (id: typeof a) => shapes[id].shape.zIndex ?? 0;
+    expect(zIndex(c)).toBeLessThan(zIndex(a));
+    expect(zIndex(c)).toBeLessThan(zIndex(b));
+  });
+
+  it("bringToFront preserves the given order among a multi-shape selection", () => {
+    const { addShape, bringToFront } = useCanvasStore.getState();
+    const a = addShape(rect());
+    const b = addShape(rect());
+    addShape(rect()); // c, left at the back
+
+    bringToFront([a, b]);
+
+    const shapes = useCanvasStore.getState().shapes;
+    expect(shapes[a].shape.zIndex).toBeLessThan(shapes[b].shape.zIndex as number);
+  });
+
+  it("repeated bringToFront calls keep moving the shape further ahead, not stalling", () => {
+    const { addShape, bringToFront } = useCanvasStore.getState();
+    const a = addShape(rect());
+    const b = addShape(rect());
+
+    bringToFront([b]);
+    bringToFront([a]);
+
+    const shapes = useCanvasStore.getState().shapes;
+    expect(shapes[a].shape.zIndex).toBeGreaterThan(shapes[b].shape.zIndex as number);
+  });
+
+  it("is a no-op for an empty selection", () => {
+    const { addShape, bringToFront, sendToBack } = useCanvasStore.getState();
+    const a = addShape(rect());
+    const before = useCanvasStore.getState().shapes;
+
+    bringToFront([]);
+    sendToBack([]);
+
+    expect(useCanvasStore.getState().shapes).toBe(before);
+    expect(useCanvasStore.getState().shapes[a].shape.zIndex).toBeUndefined();
+  });
+});
+
 describe("grouping", () => {
   it("groupShapes assigns a shared groupId, groupMembers returns every sibling", () => {
     const { addShape, groupShapes, groupMembers } = useCanvasStore.getState();

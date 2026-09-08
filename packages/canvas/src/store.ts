@@ -117,6 +117,13 @@ interface CanvasState {
   toggleSelect: (id: ObjectId) => void;
   clearSelection: () => void;
 
+  /** Moves every shape in `ids` above everything else, preserving their
+   * relative order among themselves. */
+  bringToFront: (ids: ObjectId[]) => void;
+  /** Moves every shape in `ids` below everything else, preserving their
+   * relative order among themselves. */
+  sendToBack: (ids: ObjectId[]) => void;
+
   /** All object IDs sharing `id`'s groupId, or just `[id]` if it isn't grouped. */
   groupMembers: (id: ObjectId) => ObjectId[];
   /** Assigns a fresh shared groupId to every shape in `ids` (min 2 to be meaningful). */
@@ -237,6 +244,43 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         : [...s.selection, id],
     })),
   clearSelection: () => set({ selection: [] }),
+
+  bringToFront: (ids) => {
+    if (ids.length === 0) return;
+    set((s) => {
+      const currentMax = Math.max(0, ...Object.values(s.shapes).map((o) => o.shape.zIndex ?? 0));
+      const shapes = { ...s.shapes };
+      // Preserves `ids`' own given order among the moved set, all placed
+      // above the current highest zIndex on the page.
+      ids.forEach((id, i) => {
+        const existing = shapes[id];
+        if (existing) {
+          shapes[id] = { id, shape: { ...existing.shape, zIndex: currentMax + 1 + i } };
+        }
+      });
+      return { shapes };
+    });
+  },
+
+  sendToBack: (ids) => {
+    if (ids.length === 0) return;
+    set((s) => {
+      const currentMin = Math.min(0, ...Object.values(s.shapes).map((o) => o.shape.zIndex ?? 0));
+      const shapes = { ...s.shapes };
+      // Placed below the current lowest zIndex, in reverse so `ids[0]` ends
+      // up as the very back-most (its zIndex is the smallest of the batch).
+      ids.forEach((id, i) => {
+        const existing = shapes[id];
+        if (existing) {
+          shapes[id] = {
+            id,
+            shape: { ...existing.shape, zIndex: currentMin - ids.length + i },
+          };
+        }
+      });
+      return { shapes };
+    });
+  },
 
   groupMembers: (id) => {
     const state = get();

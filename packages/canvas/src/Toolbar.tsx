@@ -164,10 +164,13 @@ export function Toolbar() {
   const selection = useCanvasStore((s) => s.selection);
   const groupShapes = useCanvasStore((s) => s.groupShapes);
   const ungroupShapes = useCanvasStore((s) => s.ungroupShapes);
+  const bringToFront = useCanvasStore((s) => s.bringToFront);
+  const sendToBack = useCanvasStore((s) => s.sendToBack);
   const beginAction = useCanvasStore((s) => s.beginAction);
   const commitAction = useCanvasStore((s) => s.commitAction);
   const canGroup = selection.length > 1;
   const canUngroup = useCanvasStore((s) => s.selection.some((id) => s.shapes[id]?.shape.groupId));
+  const canReorder = selection.length > 0;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -303,6 +306,18 @@ export function Toolbar() {
   function handleUngroup() {
     beginAction();
     ungroupShapes(selection);
+    commitAction();
+  }
+
+  function handleBringToFront() {
+    beginAction();
+    bringToFront(selection);
+    commitAction();
+  }
+
+  function handleSendToBack() {
+    beginAction();
+    sendToBack(selection);
     commitAction();
   }
 
@@ -522,6 +537,25 @@ export function Toolbar() {
           disabled={!canUngroup}
         >
           Ungroup
+        </button>
+        <span className="draft-toolbar-sep" />
+        <button
+          type="button"
+          className="draft-toolbar-btn"
+          onClick={handleBringToFront}
+          disabled={!canReorder}
+          title="Bring to front (Ctrl+])"
+        >
+          Front
+        </button>
+        <button
+          type="button"
+          className="draft-toolbar-btn"
+          onClick={handleSendToBack}
+          disabled={!canReorder}
+          title="Send to back (Ctrl+[)"
+        >
+          Back
         </button>
       </div>
 

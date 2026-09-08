@@ -9,6 +9,68 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-09 — Session C Part 1 complete: z-order, keyboard accessibility, a real marquee bug, Ask-mode security fix
+
+**Commits:** `9a59418` (z-order), `3dfd107` (keyboard accessibility), `affc562` (marquee
+position fix), `ab9265f` (Ask-mode confirmation), `103a30d` (doc corrections), plus ROADMAP
+checkbox updates
+
+Finished the rest of Session A per the locked-in Session C plan — all three remaining items,
+plus one real bug found along the way.
+
+**Shape z-order.** `zIndex?: number` on `ShapeBase` (every shape kind, not just fillable/
+rotatable ones), mirrored across the TS/Rust boundary. `bringToFront`/`sendToBack` compute new
+values relative to the current max/min across all shapes rather than reordering the whole map,
+preserving the given order among a multi-shape selection. Absent treats as 0 and a stable sort
+keeps ties in creation order, so old saved projects with no `zIndex` at all render exactly as
+before. Toolbar "Front"/"Back" buttons, Ctrl+]/Ctrl+[ shortcuts.
+
+**Keyboard-accessible canvas**, closing two audit-confirmed gaps from two sessions ago that
+had only ever been documented, not fixed. The canvas SVG is now a real focusable widget
+(`tabIndex`, `:focus-visible` ring); arrow keys nudge the selection (1px, Shift: 10px);
+Tab/Shift+Tab cycle selection when the canvas has focus, scoped so Tab keeps its normal
+browser meaning everywhere else. The tool-group flyout gained its keyboard equivalent too:
+ArrowDown on a group slot opens the flyout (the hold gesture has no pointer-free equivalent
+otherwise) and moves focus to the first member; Escape or picking an item returns focus to the
+slot button instead of dropping the user back to the document body.
+
+**A real bug, found while testing the above — not a testing artifact this time.** Direct user
+report: "selection area box starts randomly" instead of at the cursor. The marquee `<rect>`
+was rendered as a sibling *after* the pan/zoom-transformed `<g>`, not a child inside it — its
+x/y are world coordinates, so without that transform it rendered at the raw world position
+instead of the correct screen position. This only ever looked right at the untouched default
+camera (zoom=1, no pan — where world and screen coordinates coincide), which is exactly why
+every existing marquee test used that camera and never caught it. Fixed by moving the `<rect>`
+inside the transform and adding `vector-effect="non-scaling-stroke"` so its dashed border
+stays a consistent width regardless of zoom. Verified with a regression test at a *panned*
+camera specifically (confirmed to fail without the fix), plus a `beforeEach` camera reset so
+that test's state can't leak into others — and live in the running app (zoomed the view,
+started a marquee drag, checked the rendered rect's screen position against the cursor's:
+0px offset in both axes).
+
+**Real per-request confirmation for `Ask` agent-mode**, closing the other security-audit
+finding from two sessions ago (`Ask` was enforced identically to `Watch`, no per-request
+confirmation at all despite the name). Rather than a genuinely blocking mid-call prompt (which
+would need the MCP tool call to hang waiting on the human across the IPC boundary), built a
+pre-approve flow: `LiveState` gains a single-use `ask_approval` flag, set by a new "Approve
+next read" button in the titlebar (shown only in `Ask` mode), consumed by the first read tool
+call that succeeds under it. Functionally this still closes the real gap — a read genuinely
+can't happen without a fresh, specific human action first — without the architectural cost of
+blocking a tool call on human response latency. Centralized the five read tools' near-identical
+permission checks into one `LiveState::check_and_consume_read()` gate along the way, rather
+than special-casing `Ask` five times. Verified with a new integration test proving the full
+lifecycle (denied → approved → allowed once → denied again immediately, not a standing grant
+in disguise) against a real local-socket client, the same harness the existing mode-gate tests
+already use. `docs/agent-permissions.md` and `docs/mcp.md`, which had documented this as an
+open gap, corrected to describe the actual mechanism now that it exists.
+
+Verified for real throughout: full `pnpm build/lint/test` (109 tests) and `cargo fmt/clippy/
+test --workspace` green after every commit, plus live-app checks for both the z-order render
+order and the marquee fix (direct `PointerEvent`/`WheelEvent` dispatch with real coordinate
+math, not pixel-clicking, per this session's established preference).
+
+---
+
 ## 2026-09-08 — release-build root cause, shape rotation + Shift-to-constrain
 
 **Commits:** `bfcb803` (release-build root cause + CI job), `a548de1` (rotation + constrain)

@@ -577,9 +577,12 @@ next session opens with the one blocking item, not a feature.
   Shift: 10px); Tab/Shift+Tab cycle selection when the canvas has focus; ArrowDown opens a
   tool-group flyout (the hold gesture's keyboard equivalent), with focus returning to the
   slot button on Escape/pick. Verified with 6 new tests and live in the running app.
-- [ ] **Real per-request confirmation for `Ask` agent-mode** — today it's enforced identically
-  to `Watch` (documented as a known gap this session); this turns that doc caveat into an
-  actual pending-request-queue feature.
+- [x] **Real per-request confirmation for `Ask` agent-mode** — a single-use `ask_approval` flag
+  on `LiveState`, consumed by the first read that succeeds after the human clicks "Approve
+  next read" in the titlebar, then denies again until approved again. A pre-approve flow, not
+  a blocking mid-call prompt — closes the actual gap (a read genuinely can't happen without a
+  fresh, specific human action) without the agent's call hanging. Verified with a real
+  integration test proving the full deny → approve → allow-once → deny-again lifecycle.
 - [ ] Sticky note / callout shape, and basic text formatting (font size, bold, alignment) —
   smaller additions, sequence after the above if time allows.
 
@@ -631,9 +634,7 @@ overclaim.
 
 - [x] Shape z-order (bring-to-front / send-to-back)
 - [x] Keyboard-accessible canvas (arrow-key nudge, Tab-cycle selection, flyout via keyboard)
-- [ ] Real per-request confirmation for `Ask` agent-mode — the *other* audit-confirmed gap
-  still just documented; closing this one specifically belongs in a security-audit session,
-  not just a features session, since it's a permission-model correctness issue
+- [x] Real per-request confirmation for `Ask` agent-mode
 
 ### Part 2 — the long security audit (the main event)
 

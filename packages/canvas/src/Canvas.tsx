@@ -259,6 +259,43 @@ export function Canvas() {
         state.beginAction();
         state.sendToBack(state.selection);
         state.commitAction();
+      } else if (
+        (e.key === "ArrowUp" ||
+          e.key === "ArrowDown" ||
+          e.key === "ArrowLeft" ||
+          e.key === "ArrowRight") &&
+        state.selection.length > 0 &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        // Keyboard-only shape movement — a selected shape previously had no
+        // way to move at all without a pointer. Plain arrow = 1px, Shift+
+        // arrow = 10px, matching the nudge-step convention most drawing
+        // tools use.
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        state.beginAction();
+        for (const id of state.selection) {
+          const obj = state.shapes[id];
+          if (obj) state.moveShape(id, obj.shape.x + dx, obj.shape.y + dy);
+        }
+        state.commitAction();
+      } else if (e.key === "Tab" && svgRef.current && document.activeElement === svgRef.current) {
+        // Only when the canvas itself has focus — Tab keeps its normal
+        // browser meaning everywhere else (moving focus between toolbar
+        // buttons, form fields, etc). This is the other half of "a shape
+        // previously had no way to get selected without a pointer."
+        const ids = Object.keys(state.shapes) as ObjectId[];
+        if (ids.length === 0) return;
+        e.preventDefault();
+        const currentIndex = state.selection[0] ? ids.indexOf(state.selection[0]) : -1;
+        const nextIndex = e.shiftKey
+          ? (currentIndex - 1 + ids.length) % ids.length
+          : (currentIndex + 1) % ids.length;
+        state.select([ids[nextIndex]]);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -575,6 +612,8 @@ export function Canvas() {
         onDoubleClick={handleDoubleClick}
         role="application"
         aria-label="DRAFT canvas"
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: role="application" plus the real keydown handler below (arrow-key nudge, Tab-cycling selection) is the sanctioned pattern for a custom interactive widget.
+        tabIndex={0}
       >
         <defs>
           <pattern

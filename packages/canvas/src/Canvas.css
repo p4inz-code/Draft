@@ -14,6 +14,15 @@
   -webkit-user-select: none;
 }
 
+/* Only for keyboard focus (Tab), not a mouse click landing here — makes
+ * the canvas's new keyboard affordances (arrow-key nudge, Tab-cycling
+ * selection) discoverable without a persistent ring on every ordinary
+ * click-to-draw/select. */
+.draft-canvas:focus-visible {
+  outline: 2px solid var(--draft-accent);
+  outline-offset: -2px;
+}
+
 .draft-text-editor {
   width: 100%;
   height: 100%;

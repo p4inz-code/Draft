@@ -347,6 +347,83 @@ describe("Shift-to-constrain while drawing", () => {
   });
 });
 
+describe("keyboard-only canvas use", () => {
+  it("arrow keys nudge the selected shape by 1px, Shift+arrow by 10px", () => {
+    const { unmount } = render(<Canvas />);
+    const { addShape, select } = useCanvasStore.getState();
+    let id = "" as ReturnType<typeof addShape>;
+    act(() => {
+      id = addShape({ kind: "rectangle", x: 10, y: 10, width: 5, height: 5 });
+      select([id]);
+    });
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    let shape = useCanvasStore.getState().shapes[id].shape;
+    expect(shape.x).toBe(11);
+    expect(shape.y).toBe(10);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", shiftKey: true }));
+    shape = useCanvasStore.getState().shapes[id].shape;
+    expect(shape.x).toBe(11);
+    expect(shape.y).toBe(20);
+
+    unmount();
+  });
+
+  it("does nothing on arrow keys when nothing is selected", () => {
+    const { unmount } = render(<Canvas />);
+    const { addShape } = useCanvasStore.getState();
+    let id = "" as ReturnType<typeof addShape>;
+    act(() => {
+      id = addShape({ kind: "rectangle", x: 10, y: 10, width: 5, height: 5 });
+    });
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+
+    expect(useCanvasStore.getState().shapes[id].shape.x).toBe(10);
+    unmount();
+  });
+
+  it("Tab cycles selection through every shape when the canvas has focus", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+    const { addShape } = useCanvasStore.getState();
+    let a = "" as ReturnType<typeof addShape>;
+    let b = a;
+    act(() => {
+      a = addShape({ kind: "rectangle", x: 0, y: 0, width: 5, height: 5 });
+      b = addShape({ kind: "rectangle", x: 10, y: 10, width: 5, height: 5 });
+    });
+    (svg as HTMLElement).focus();
+    expect(document.activeElement).toBe(svg);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+    expect(useCanvasStore.getState().selection).toEqual([a]);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+    expect(useCanvasStore.getState().selection).toEqual([b]);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true }));
+    expect(useCanvasStore.getState().selection).toEqual([a]);
+
+    unmount();
+  });
+
+  it("Tab does nothing when the canvas doesn't have focus", () => {
+    const { unmount } = render(<Canvas />);
+    const { addShape } = useCanvasStore.getState();
+    act(() => {
+      addShape({ kind: "rectangle", x: 0, y: 0, width: 5, height: 5 });
+    });
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+
+    expect(useCanvasStore.getState().selection).toEqual([]);
+    unmount();
+  });
+});
+
 describe("z-order rendering and shortcuts", () => {
   it("renders shapes sorted by zIndex, not insertion order", () => {
     const { container, unmount } = render(<Canvas />);

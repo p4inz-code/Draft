@@ -193,6 +193,11 @@ export function Toolbar() {
   // browser still fires on pointerup (same element, same gesture) doesn't
   // also select the remembered tool and stomp the flyout right back closed.
   const heldOpenRef = useRef(false);
+  // The slot button that opened the currently-open flyout (via ArrowDown),
+  // so focus can return there once the flyout closes — otherwise a
+  // keyboard user's focus falls back to the document body on Escape/pick,
+  // a dead end for continuing to use the toolbar by keyboard.
+  const flyoutOpenerRef = useRef<HTMLButtonElement | null>(null);
 
   // Whichever tool actually becomes active — via a letter/number shortcut,
   // undo/redo replaying a tool change, or a flyout pick — becomes that
@@ -212,7 +217,10 @@ export function Toolbar() {
       setOpenGroup(null);
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpenGroup(null);
+      if (e.key === "Escape") {
+        setOpenGroup(null);
+        flyoutOpenerRef.current?.focus();
+      }
     }
     window.addEventListener("pointerdown", onDocPointerDown);
     window.addEventListener("keydown", onKeyDown);
@@ -221,6 +229,21 @@ export function Toolbar() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [openGroup]);
+
+  /** ArrowDown while a tool-group slot has focus opens its flyout and moves
+   * focus to the first member — the hold gesture's keyboard equivalent
+   * (holding a pointer down isn't an option without a pointer at all). */
+  function openGroupViaKeyboard(e: React.KeyboardEvent<HTMLButtonElement>, groupKey: string) {
+    if (e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const slotEl = e.currentTarget.parentElement;
+    flyoutOpenerRef.current = e.currentTarget;
+    setOpenGroup(groupKey);
+    requestAnimationFrame(() => {
+      const firstItem = slotEl?.querySelector('[role="menuitem"]');
+      (firstItem as HTMLElement | null)?.focus();
+    });
+  }
 
   function startHold(groupKey: string) {
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
@@ -253,6 +276,7 @@ export function Toolbar() {
     setTool(t);
     setGroupTool((prev) => ({ ...prev, [groupKey]: t }));
     setOpenGroup(null);
+    flyoutOpenerRef.current?.focus();
     revive();
   }
 
@@ -466,6 +490,7 @@ export function Toolbar() {
                 onPointerUp={cancelHold}
                 onPointerLeave={cancelHold}
                 onClick={() => handleGroupClick(remembered)}
+                onKeyDown={(e) => openGroupViaKeyboard(e, group.key)}
                 aria-pressed={groupActive}
                 aria-haspopup="true"
                 aria-expanded={isOpen}

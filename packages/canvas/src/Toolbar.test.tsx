@@ -386,4 +386,23 @@ describe("Illustrator-style tool-group flyouts", () => {
     expect(screen.queryByRole("menu")).toBeNull();
     expect(useCanvasStore.getState().tool).toBe("select");
   });
+
+  it("ArrowDown on a group slot opens its flyout without a pointer hold", () => {
+    render(<Toolbar />);
+    const shapesSlot = screen.getByRole("button", { name: "Rect" });
+
+    fireEvent.keyDown(shapesSlot, { key: "ArrowDown" });
+
+    expect(screen.getByRole("menu")).toBeTruthy();
+    expect(shapesSlot.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("a key other than ArrowDown on a group slot doesn't open the flyout", () => {
+    render(<Toolbar />);
+    const shapesSlot = screen.getByRole("button", { name: "Rect" });
+
+    fireEvent.keyDown(shapesSlot, { key: "ArrowRight" });
+
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
 });

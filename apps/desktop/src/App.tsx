@@ -7,6 +7,7 @@ import {
 } from "@draft/canvas";
 import {
   applyOperations,
+  approveNextAgentRead,
   ensurePage,
   getAgentConnectionCount,
   getAgentMode,
@@ -212,6 +213,15 @@ function App() {
     }
   }
 
+  async function handleApproveNextAgentRead() {
+    try {
+      await approveNextAgentRead();
+      setStatus("Approved the agent's next read");
+    } catch (err) {
+      setStatus(`Couldn't approve the next read: ${String(err)}`);
+    }
+  }
+
   function promptForDir(): string | null {
     const last = localStorage.getItem(LAST_PROJECT_DIR_KEY) ?? "";
     // A real folder picker (Tauri's dialog plugin) is a follow-up — this
@@ -272,6 +282,7 @@ function App() {
         status={status}
         onSave={handleSave}
         onLoad={handleLoad}
+        onApproveNextAgentRead={handleApproveNextAgentRead}
       />
       <div className="app-canvas">
         <Canvas />

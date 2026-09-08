@@ -279,6 +279,16 @@ fn get_agent_mode(live: State<'_, Arc<LiveState>>) -> Result<AgentMode, String> 
     Ok(*live.mode.lock().map_err(|_| "mode lock poisoned")?)
 }
 
+/// The user approving the agent's *next* read while in `Ask` mode — a
+/// single-use pre-authorization, not a standing grant. This is what
+/// actually makes `Ask` behave differently from `Watch` (a real
+/// security-audit finding: previously enforced identically, with no
+/// per-request confirmation at all).
+#[tauri::command]
+fn approve_next_agent_read(live: State<'_, Arc<LiveState>>) {
+    live.approve_next_ask_read();
+}
+
 /// Mirrors the human's canvas selection into the live state so an agent's
 /// `get_selection` tool call sees what the human is looking at right now,
 /// not just what objects exist.
@@ -385,6 +395,7 @@ pub fn run() {
             apply_operations,
             set_agent_mode,
             get_agent_mode,
+            approve_next_agent_read,
             get_agent_connection_count,
             get_page_snapshot,
             set_selection,

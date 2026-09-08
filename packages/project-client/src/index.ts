@@ -68,6 +68,13 @@ export async function getAgentMode(): Promise<AgentMode> {
   return invoke<AgentMode>("get_agent_mode");
 }
 
+/** Approves the agent's *next* read while in `Ask` mode — a single-use
+ * pre-authorization, not a standing grant (spec §13's "read only when the
+ * user explicitly asks it to"). No-op in effect under every other mode. */
+export async function approveNextAgentRead(): Promise<void> {
+  return invoke<void>("approve_next_agent_read");
+}
+
 /** The current number of open local-socket agent connections. */
 export async function getAgentConnectionCount(): Promise<number> {
   return invoke<number>("get_agent_connection_count");

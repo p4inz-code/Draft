@@ -27,11 +27,15 @@ impl AgentMode {
         matches!(self, AgentMode::Build)
     }
 
-    /// Whether this mode permits the agent to read the workspace at all.
-    /// Only `Manual` denies it — every mode above that is at least
-    /// read-capable (spec §13's `Ask` nuance — read "only when the user
-    /// explicitly asks" — is a UI-level distinction this crate doesn't
-    /// enforce; once in `Ask` mode or above, MCP tools may read).
+    /// Whether this mode is read-*capable* at all — a pure, mode-level
+    /// check, `true` for everything but `Manual`. This is **not** the full
+    /// per-request gate: `Ask` is read-capable by this check but still
+    /// requires a fresh, single-use human approval for each actual read,
+    /// enforced by `draft_mcp::live::LiveState::check_and_consume_read`
+    /// (the approval is live, per-session state that belongs with the rest
+    /// of `LiveState`, not in this crate's pure data types). Use this
+    /// method for "can this mode ever read" questions (UI copy, tests);
+    /// use `LiveState`'s gate for "is *this* read call allowed right now."
     pub fn allows_read(self) -> bool {
         !matches!(self, AgentMode::Manual)
     }

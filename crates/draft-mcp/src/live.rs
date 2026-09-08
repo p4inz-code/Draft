@@ -56,6 +56,15 @@ pub struct LiveState {
     pub log: Mutex<OperationLog>,
     /// The human's current canvas selection — see [`SelectionState`].
     pub selection: Mutex<SelectionState>,
+    /// Single-use pre-authorization for `AgentMode::Ask`'s next read — set
+    /// by the human via `approve_next_agent_read` (an explicit action in
+    /// the app), consumed by the very next read tool call that succeeds
+    /// under it. Irrelevant for every other mode: `Manual` never reads,
+    /// `Watch`/`Assist`/`Build` always can. This is what actually closes
+    /// the gap `AgentMode::allows_read`'s doc comment flags — `Ask` was
+    /// previously enforced identically to `Watch` (a real security-audit
+    /// finding), with no per-request confirmation at all.
+    pub ask_approval: Mutex<bool>,
 }
 
 impl LiveState {
@@ -69,11 +78,49 @@ impl LiveState {
             connections,
             log: Mutex::new(OperationLog::new()),
             selection: Mutex::new(SelectionState::default()),
+            ask_approval: Mutex::new(false),
         }
     }
 
     fn current_mode(&self) -> AgentMode {
         *self.mode.lock().expect("LiveState.mode poisoned")
+    }
+
+    /// The human approving the *next* agent read while in `Ask` mode — an
+    /// explicit, deliberate action (a button in the app), not a standing
+    /// grant. Harmless (and a no-op in effect) to call outside `Ask` mode,
+    /// since every other mode's read gate doesn't consult this at all.
+    pub fn approve_next_ask_read(&self) {
+        *self
+            .ask_approval
+            .lock()
+            .expect("LiveState.ask_approval poisoned") = true;
+    }
+
+    /// The actual per-request read gate every read tool below calls,
+    /// instead of the raw `AgentMode::allows_read()` — `Manual` denies,
+    /// `Watch`/`Assist`/`Build` always allow, and `Ask` allows exactly once
+    /// per approval (consuming it), denying again immediately after unless
+    /// the human approves the *next* one too. Returns the current mode on
+    /// denial, for `read_denied`'s error message.
+    fn check_and_consume_read(&self) -> Result<(), AgentMode> {
+        let mode = self.current_mode();
+        match mode {
+            AgentMode::Manual => Err(mode),
+            AgentMode::Ask => {
+                let mut approved = self
+                    .ask_approval
+                    .lock()
+                    .expect("LiveState.ask_approval poisoned");
+                if *approved {
+                    *approved = false;
+                    Ok(())
+                } else {
+                    Err(mode)
+                }
+            }
+            AgentMode::Watch | AgentMode::Assist | AgentMode::Build => Ok(()),
+        }
     }
 
     /// Appends an operation to the log with the current wall-clock time.
@@ -138,10 +185,17 @@ struct RecentChangesParams {
 }
 
 fn read_denied(mode: AgentMode) -> String {
+    let hint = match mode {
+        AgentMode::Ask => {
+            "Ask mode requires the user to approve each read individually — ask them to click \
+             \"Approve next read\" in the app, then retry this call"
+        }
+        _ => "the DRAFT user needs to raise the agent access mode above Manual in the app",
+    };
     serde_json::json!({
         "error": "no read access",
         "current_mode": mode,
-        "hint": "the DRAFT user needs to raise the agent access mode above Manual in the app",
+        "hint": hint,
     })
     .to_string()
 }
@@ -165,8 +219,7 @@ impl LiveMcpServer {
         description = "Get the live project's pages (id, name, object count). Requires the user to have granted at least Ask-level access."
     )]
     fn get_project(&self) -> String {
-        let mode = self.state.current_mode();
-        if !mode.allows_read() {
+        if let Err(mode) = self.state.check_and_consume_read() {
             return read_denied(mode);
         }
         let graph = self.state.graph.lock().expect("LiveState.graph poisoned");
@@ -185,8 +238,7 @@ impl LiveMcpServer {
 
     #[tool(description = "Get one live page's objects by page ID (e.g. \"page://<uuid>\").")]
     fn get_page(&self, Parameters(GetPageParams { page_id }): Parameters<GetPageParams>) -> String {
-        let mode = self.state.current_mode();
-        if !mode.allows_read() {
+        if let Err(mode) = self.state.check_and_consume_read() {
             return read_denied(mode);
         }
         let Ok(id) = page_id.parse::<PageId>() else {
@@ -210,8 +262,7 @@ impl LiveMcpServer {
         &self,
         Parameters(GetObjectParams { page_id, object_id }): Parameters<GetObjectParams>,
     ) -> String {
-        let mode = self.state.current_mode();
-        if !mode.allows_read() {
+        if let Err(mode) = self.state.check_and_consume_read() {
             return read_denied(mode);
         }
         let (Ok(page_id), Ok(object_id)) =
@@ -332,8 +383,7 @@ impl LiveMcpServer {
             since_sequence,
         }): Parameters<RecentChangesParams>,
     ) -> String {
-        let mode = self.state.current_mode();
-        if !mode.allows_read() {
+        if let Err(mode) = self.state.check_and_consume_read() {
             return read_denied(mode);
         }
         let limit = limit.unwrap_or(50).min(200);
@@ -367,8 +417,7 @@ impl LiveMcpServer {
         description = "Get what the human currently has selected on the canvas (page ID and object IDs, empty if nothing is selected). Requires the user to have granted at least Ask-level access."
     )]
     fn get_selection(&self) -> String {
-        let mode = self.state.current_mode();
-        if !mode.allows_read() {
+        if let Err(mode) = self.state.check_and_consume_read() {
             return read_denied(mode);
         }
         let selection = self

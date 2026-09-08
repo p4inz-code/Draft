@@ -89,6 +89,62 @@ async fn manual_mode_denies_reads_and_a_higher_mode_allows_them() {
 }
 
 #[tokio::test]
+async fn ask_mode_requires_a_fresh_approval_for_each_read() {
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let mut graph = Graph::new();
+    let page_id = PageId::new();
+    graph.ensure_page(page_id, "Level 1");
+
+    let state = Arc::new(LiveState::new(graph, AgentMode::Ask));
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    // Ask, with no approval yet: denied — this is the exact gap a security
+    // audit found (Ask previously behaved identically to Watch, with no
+    // per-request confirmation at all).
+    let client = connect_client(&pipe_name).await;
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_project"))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert_eq!(json["current_mode"], "ask");
+    assert!(json["error"].is_string());
+    client.cancel().await.unwrap();
+
+    // The user approves — what the app's "Approve next read" button does.
+    state.approve_next_ask_read();
+
+    let client = connect_client(&pipe_name).await;
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_project"))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert_eq!(json["live"], true);
+    client.cancel().await.unwrap();
+
+    // The approval was single-use — immediately denied again without a
+    // fresh approval, proving this isn't just a standing grant in disguise.
+    let client = connect_client(&pipe_name).await;
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_project"))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert!(json["error"].is_string());
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn get_selection_reflects_the_humans_current_selection() {
     let pipe_name = format!(
         r"\\.\pipe\draft-mcp-test-{}",

@@ -35,6 +35,7 @@ interface TitlebarProps {
   status: string | null;
   onSave: () => void;
   onLoad: () => void;
+  onApproveNextAgentRead: () => void;
 }
 
 /**
@@ -51,6 +52,7 @@ export function Titlebar({
   status,
   onSave,
   onLoad,
+  onApproveNextAgentRead,
 }: TitlebarProps) {
   return (
     <div className="app-titlebar" data-tauri-drag-region>
@@ -79,6 +81,16 @@ export function Titlebar({
             ))}
           </select>
         </label>
+        {agentMode === "ask" && (
+          <button
+            type="button"
+            className="app-header-btn"
+            onClick={onApproveNextAgentRead}
+            title="Ask mode requires approving each read individually — this authorizes exactly one, not a standing grant"
+          >
+            Approve next read
+          </button>
+        )}
         {status && <span className="status">{status}</span>}
         <span className="status" title="Agents connected over the local MCP socket">
           {agentConnections ?? "…"} agent{agentConnections === 1 ? "" : "s"} connected

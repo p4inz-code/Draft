@@ -567,8 +567,9 @@ next session opens with the one blocking item, not a feature.
   Line/Arrow, mirrored across the TS/Rust boundary and validated the same way `fill` already
   is. `FillPicker.tsx` now shows a Fill section and/or a Stroke section depending on what the
   selected shape supports (line/arrow have a stroke but no fill).
-- [ ] **Shape z-order** — bring-to-front / send-to-back; shapes currently only stack in
-  creation order with no way to reorder them.
+- [x] **Shape z-order** — `zIndex?: number` on `ShapeBase` (every kind), mirrored across the
+  TS/Rust boundary. Toolbar "Front"/"Back" buttons and Ctrl+]/Ctrl+[ shortcuts. Verified with
+  a render-order test and live in the running app.
 - [ ] **Edge-snapping connectors** — arrows/lines that anchor to a shape's edge and follow it
   when the shape moves, instead of floating free-floating endpoints.
 - [ ] **Keyboard-accessible canvas** (closes two audit-confirmed gaps, not just documents
@@ -626,7 +627,7 @@ overclaim.
 
 ### Part 1 — finish the rest of Session A first (small, closes real gaps)
 
-- [ ] Shape z-order (bring-to-front / send-to-back)
+- [x] Shape z-order (bring-to-front / send-to-back)
 - [ ] Keyboard-accessible canvas (arrow-key nudge, Tab-cycle selection, flyout via keyboard) —
   an audit-confirmed gap from two sessions ago, still just documented, not fixed
 - [ ] Real per-request confirmation for `Ask` agent-mode — the *other* audit-confirmed gap

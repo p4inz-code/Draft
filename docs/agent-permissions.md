@@ -7,7 +7,7 @@ Implemented in `crates/draft-security`. See [ADR-010](decisions/adr-010-agent-pe
 | Mode | Access |
 |---|---|
 | `Manual` (default) | None at all |
-| `Ask` | Read — **named** for a per-request confirmation prompt, but not enforced as one today (see below); behaves identically to `Watch` |
+| `Ask` | Read, but only one call at a time — each read requires a fresh, single-use approval (the app's "Approve next read" button); denied again immediately after unless approved again |
 | `Watch` | Read, agent observes changes as they happen |
 | `Assist` | Read + suggestions, no writes |
 | `Build` | Read + writes, subject to per-action permission checks |
@@ -19,12 +19,20 @@ deliberate, visible user action, never a default.
 
 ## Enforcement point (real, for both reads and writes)
 
-`AgentMode::allows_read()` gates the read tools (`get_project`/`get_page`/`get_object`) and
-`AgentMode::allows_write()` gates the write tools (`create_object`/`modify_object`/
-`delete_object`) — all in `LiveMcpServer` (`crates/draft-mcp/src/live.rs`). `Manual` denies
-every read tool; anything short of `Build` denies every write tool. Both return a clear JSON
-error naming the current mode instead of silently no-op'ing. Verified by
-`crates/draft-mcp/tests/mcp_local_socket.rs` (one test per gate).
+`LiveState::check_and_consume_read()` gates the five read tools (`get_project`/`get_page`/
+`get_object`/`recent_changes`/`get_selection`) and `AgentMode::allows_write()` gates the write
+tools (`create_object`/`modify_object`/`delete_object`) — all in `LiveMcpServer`
+(`crates/draft-mcp/src/live.rs`). `Manual` denies every read tool; `Ask` denies unless the
+human has approved the *next* read specifically (single-use, consumed on success — see below);
+anything short of `Build` denies every write tool. All return a clear JSON error naming the
+current mode instead of silently no-op'ing. Verified by `crates/draft-mcp/tests/
+mcp_local_socket.rs` (one test per mode's gate, including `Ask`'s full approve-once-then-deny-
+again lifecycle).
+
+`AgentMode::allows_read()` still exists as a simpler, pure "is this mode read-capable at all"
+check (true for everything but `Manual`) — useful for UI copy and tests, but it's not the
+actual per-request gate above; `Ask` answers `true` to this while still requiring a fresh
+approval for each real read.
 
 `PermissionGrant::check_write()` — the richer, timestamped grant type — exists and is
 unit-tested in isolation, but the live gate calls `AgentMode::allows_write()` directly
@@ -51,9 +59,10 @@ since every call re-checks the shared `Arc<Mutex<AgentMode>>`).
   this as "scoped where practical") — Session 3.
 - `request_user_permission` as an MCP tool an agent can call to ask for elevated access —
   Session 3.
-- **`Ask` mode's actual, per-request confirmation.** A security audit confirmed
-  `AgentMode::allows_read()` (`permissions.rs`) treats `Ask` exactly like `Watch` — every read
-  tool call succeeds immediately, with no prompt shown to the user for that specific call.
-  The mode's name and doc comment describe intended behavior ("only when the user explicitly
-  asks"), not current behavior. Until a real pending-request queue is built, `Ask` grants the
-  same standing access as `Watch`; don't rely on it for a narrower guarantee than that.
+- A genuine *interactive* confirmation flow for `Ask` (the agent's call blocking until the
+  human responds, with an in-app prompt naming the specific request). What's built instead is
+  simpler and doesn't require the agent's call to hang mid-request: the human pre-authorizes
+  the *next* read via a button before the agent even calls, and that authorization is consumed
+  by the first read that succeeds under it. Functionally this still closes the original gap
+  (a read genuinely doesn't happen without a fresh, specific human action first) — it's just a
+  "pre-approve" shape rather than a "block-and-prompt" shape.

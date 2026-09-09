@@ -632,7 +632,7 @@ next session opens with the one blocking item, not a feature.
 - [ ] A from-scratch clone-and-build sanity check on a clean checkout (CI green across three
   OSes is evidence, not proof, of "ready to use on another PC").
 
-## Session C — security audit + the first major release (planned for tomorrow, locked in for review)
+## Session C — security audit + the first major release (complete — `v0.1.0` shipped 2026-09-09)
 
 The user wants the *next* tagged release (after `v0.1.0-dev.2`) to be a real, major release —
 not another `-dev.N` snapshot — gated on a long, thorough, dedicated security audit, not the
@@ -718,11 +718,12 @@ security) — a dedicated pass, with findings fixed here, not just documented fo
   `tauri.conf.json`) was already plain `0.1.0` from earlier session prep — nothing to change.
   `CHANGELOG.md` rewritten with a full `[0.1.0]` entry covering everything since the
   project's start.
-- [ ] Tag + `gh release create` **without** `--prerelease`, full release notes summarizing
-  everything since the last major milestone
-- [ ] CI's `release-build` job (now proven working on all three OSes for `v0.1.0-dev.2`)
-  produces and attaches the real installers — this part is already de-risked, just needs a
-  tag push
+- [x] Tagged `v0.1.0` (annotated, not `-dev`/prerelease) and pushed. `gh release create`
+  published it as a real, non-draft, non-prerelease GitHub release with full notes
+  summarizing the release and linking to `CHANGELOG.md`/`SESSION_LOG.md`.
+- [x] CI's `release-build` job ran on the `v0.1.0` tag and succeeded on all three OSes,
+  producing real installers (Windows MSI + NSIS setup, macOS DMG, Linux AppImage/deb/rpm) —
+  all six downloaded and attached to the GitHub release.
 
 ## V2 (not scheduled)
 

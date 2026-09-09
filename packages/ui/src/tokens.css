@@ -31,16 +31,25 @@
   --draft-accent-contrast: #0d0d14;
   --draft-danger: #e5484d;
   /* Glassmorphic HUD surfaces (titlebar, floating toolbar) — a translucent
-   * version of --draft-surface, paired with backdrop-filter: blur(). */
-  --draft-overlay: rgba(248, 248, 250, 0.75);
+   * version of --draft-surface (an elevated panel color), NOT --draft-bg
+   * (the canvas's own background): the whole point of these surfaces is to
+   * read as a distinct floating layer above the canvas, and a tint of the
+   * canvas's own color made them visually merge with it behind the blur
+   * (found from a direct user report that the titlebar/toolbar and canvas
+   * "all look the same"). --draft-surface is white in light mode and a
+   * lighter near-black in dark mode — both distinguishable from --draft-bg
+   * once blurred. */
+  --draft-overlay: rgba(255, 255, 255, 0.75);
 
   --draft-radius-sm: 4px;
   --draft-radius-md: 8px;
   --draft-radius-lg: 12px;
 }
 
+/* System-follow is the default (no explicit choice yet) — see :root[data-theme]
+ * below for the explicit override an in-app toggle applies on top of this. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --draft-bg: #0d0d14;
     --draft-surface: #16161f;
     --draft-surface-2: #1c1c28;
@@ -51,6 +60,36 @@
     --draft-accent: #0ea5e9;
     --draft-accent-contrast: #0d0d14;
     --draft-danger: #e5484d;
-    --draft-overlay: rgba(13, 13, 20, 0.75);
+    --draft-overlay: rgba(22, 22, 31, 0.75);
   }
+}
+
+/* An explicit in-app theme choice (Settings panel) wins over the OS setting
+ * in both directions — light forced even under a dark OS, and vice versa. */
+:root[data-theme="dark"] {
+  --draft-bg: #0d0d14;
+  --draft-surface: #16161f;
+  --draft-surface-2: #1c1c28;
+  --draft-surface-3: #24242f;
+  --draft-text: #f8f8fa;
+  --draft-text-muted: #9a9bb5;
+  --draft-border: #24242f;
+  --draft-accent: #0ea5e9;
+  --draft-accent-contrast: #0d0d14;
+  --draft-danger: #e5484d;
+  --draft-overlay: rgba(22, 22, 31, 0.75);
+}
+
+:root[data-theme="light"] {
+  --draft-bg: #f8f8fa;
+  --draft-surface: #ffffff;
+  --draft-surface-2: #f0f0f4;
+  --draft-surface-3: #e6e6ec;
+  --draft-text: #1a1b2e;
+  --draft-text-muted: #5b5d75;
+  --draft-border: #e2e2ea;
+  --draft-accent: #0ea5e9;
+  --draft-accent-contrast: #0d0d14;
+  --draft-danger: #e5484d;
+  --draft-overlay: rgba(255, 255, 255, 0.75);
 }

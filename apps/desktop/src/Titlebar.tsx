@@ -27,6 +27,14 @@ function withWindow(action: (win: ReturnType<typeof getCurrentWindow>) => unknow
   }
 }
 
+const AGENT_MODE_HINTS: Record<AgentMode, string> = {
+  manual: "No agent access at all — the safest default, nothing to connect yet.",
+  ask: "Agents can read, but only one call at a time — you approve each read individually.",
+  watch: "Agents can read everything and see changes as they happen, but never write.",
+  assist: "Like Watch, plus agents can suggest changes (still no direct writes).",
+  build: "Full access — agents can read and write; you'll see their edits appear live.",
+};
+
 interface TitlebarProps {
   agentMode: AgentMode;
   onAgentModeChange: (mode: AgentMode) => void;
@@ -36,6 +44,7 @@ interface TitlebarProps {
   onSave: () => void;
   onLoad: () => void;
   onApproveNextAgentRead: () => void;
+  onOpenSettings: () => void;
 }
 
 /**
@@ -53,6 +62,7 @@ export function Titlebar({
   onSave,
   onLoad,
   onApproveNextAgentRead,
+  onOpenSettings,
 }: TitlebarProps) {
   return (
     <div className="app-titlebar" data-tauri-drag-region="deep">
@@ -68,14 +78,14 @@ export function Titlebar({
         <button type="button" className="app-header-btn" onClick={onLoad}>
           Open
         </button>
-        <label className="agent-mode-control">
+        <label className="agent-mode-control" title={AGENT_MODE_HINTS[agentMode]}>
           Agent access:
           <select
             value={agentMode}
             onChange={(e) => onAgentModeChange(e.target.value as AgentMode)}
           >
             {AGENT_MODES.map((mode) => (
-              <option key={mode} value={mode}>
+              <option key={mode} value={mode} title={AGENT_MODE_HINTS[mode]}>
                 {mode}
               </option>
             ))}
@@ -101,6 +111,15 @@ export function Titlebar({
       </div>
 
       <div className="app-titlebar-window-controls">
+        <button
+          type="button"
+          className="app-titlebar-window-btn"
+          aria-label="Settings"
+          title="Settings"
+          onClick={onOpenSettings}
+        >
+          &#x2699;
+        </button>
         <button
           type="button"
           className="app-titlebar-window-btn"

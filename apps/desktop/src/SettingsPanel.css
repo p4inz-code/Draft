@@ -1,0 +1,87 @@
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 3rem 1rem;
+  z-index: 100;
+}
+
+.settings-panel {
+  width: 320px;
+  max-width: calc(100vw - 2rem);
+  background: var(--draft-surface);
+  border: 1px solid var(--draft-border);
+  border-radius: var(--draft-radius-lg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  padding: 1rem 1.1rem 1.2rem;
+  color: var(--draft-text);
+}
+
+.settings-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.settings-panel-header h2 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.settings-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--draft-border);
+}
+
+.settings-section:first-of-type {
+  margin-top: 0.5rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.settings-section h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--draft-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.settings-theme-options {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.settings-theme-btn {
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 0.35rem 0;
+  border-radius: var(--draft-radius-sm);
+  border: 1px solid var(--draft-border);
+  background: var(--draft-surface-2);
+  color: var(--draft-text);
+  cursor: pointer;
+}
+
+.settings-theme-btn:hover {
+  border-color: var(--draft-accent);
+}
+
+.settings-theme-btn.is-active {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: var(--draft-accent);
+  color: var(--draft-accent);
+}
+
+.settings-hint {
+  font-size: 0.75rem;
+  color: var(--draft-text-muted);
+  margin: 0.5rem 0 0;
+  line-height: 1.4;
+}

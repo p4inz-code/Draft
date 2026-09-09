@@ -23,6 +23,7 @@ import {
   setSelection,
 } from "@draft/project-client";
 import type { AgentMode, ObjectId } from "@draft/shared";
+import { applyTheme, getStoredTheme } from "@draft/ui";
 // Side-effect only: @draft/ui's design tokens (--draft-*) are imported as a
 // side effect of its package entrypoint. Nothing here uses a named export
 // from @draft/ui anymore (Logo moved out of the titlebar), but the tokens
@@ -31,7 +32,15 @@ import type { AgentMode, ObjectId } from "@draft/shared";
 import "@draft/ui";
 import { useEffect, useState } from "react";
 import "./App.css";
+import { SettingsPanel } from "./SettingsPanel";
 import { Titlebar } from "./Titlebar";
+
+// Applied once at module load, not inside a component effect: a persisted
+// theme choice must survive every launch, not just while the Settings panel
+// (the only other place that calls useTheme) happens to be mounted — it
+// isn't, by default. Running this before React's first render also avoids a
+// flash of the wrong theme.
+applyTheme(getStoredTheme());
 
 const LAST_PROJECT_DIR_KEY = "draft.lastProjectDir";
 /** A stuck IPC call (Rust-side lock contention, a lost response) must not
@@ -106,6 +115,7 @@ function App() {
   const [status, setStatus] = useState<string | null>(null);
   const [agentMode, setAgentModeState] = useState<AgentMode>("manual");
   const [agentConnections, setAgentConnections] = useState<number | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     getCoreVersion()
@@ -283,11 +293,13 @@ function App() {
         onSave={handleSave}
         onLoad={handleLoad}
         onApproveNextAgentRead={handleApproveNextAgentRead}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
       <div className="app-canvas">
         <Canvas />
         <Toolbar />
       </div>
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

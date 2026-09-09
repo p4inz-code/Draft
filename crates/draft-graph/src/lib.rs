@@ -171,6 +171,19 @@ impl Graph {
                 Ok(())
             }
             Operation::MoveObject { page, object, x, y } => {
+                // Unlike CreateObject/UpdateObject, this bypasses
+                // parse_shape entirely (there's no JSON payload to
+                // validate — just the two f64 fields), so it needs its own
+                // finiteness check here rather than inheriting one for
+                // free. Without it, a non-finite x/y (e.g. an agent-
+                // supplied `1e400`, which serde_json parses as
+                // f64::INFINITY without a parse error) would silently
+                // corrupt the stored position.
+                if !x.is_finite() || !y.is_finite() {
+                    return Err(GraphError::InvalidShape(format!(
+                        "x/y must be finite numbers, got ({x:?}, {y:?})"
+                    )));
+                }
                 let page = self
                     .pages
                     .get_mut(page)
@@ -231,6 +244,40 @@ mod tests {
             .apply(&Operation::DeleteObject { page, object })
             .unwrap();
         assert_eq!(graph.page(page).unwrap().object_count(), 0);
+    }
+
+    #[test]
+    fn move_object_rejects_a_non_finite_position_instead_of_storing_it() {
+        // Regression: MoveObject bypasses parse_shape entirely (there's no
+        // JSON payload, just two f64 fields), so it used to have no
+        // finiteness check at all — an agent-supplied x/y of `1e400`
+        // (parses to f64::INFINITY, not a JSON parse error) would silently
+        // corrupt the stored position.
+        let mut graph = Graph::new();
+        let page = graph.create_page("Level 1");
+        let object = ObjectId::new();
+        graph
+            .apply(&Operation::CreateObject {
+                page,
+                object,
+                payload: json!({"kind": "rectangle", "x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0}),
+            })
+            .unwrap();
+
+        let err = graph
+            .apply(&Operation::MoveObject {
+                page,
+                object,
+                x: f64::INFINITY,
+                y: 0.0,
+            })
+            .unwrap_err();
+        assert!(matches!(err, GraphError::InvalidShape(_)));
+        // The object's position must be unchanged, not partially applied.
+        assert_eq!(
+            graph.page(page).unwrap().object(object).unwrap().position(),
+            (0.0, 0.0)
+        );
     }
 
     #[test]

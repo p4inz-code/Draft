@@ -88,8 +88,26 @@ pub async fn serve_forever_on(state: Arc<LiveState>, pipe_name: &str) -> std::io
     use rmcp::ServiceExt;
 
     loop {
-        let pipe = create_secured_pipe_instance(pipe_name)?;
-        pipe.connect().await?;
+        // A transient failure here (e.g. a client that connects then aborts
+        // mid-handshake, or momentary resource exhaustion creating the pipe
+        // instance) must not end the *entire* server — every future agent
+        // connection would otherwise fail for the rest of the session, with
+        // no automatic recovery. Log and retry the accept step itself,
+        // rather than propagating with `?` and returning from the loop; a
+        // short backoff keeps a persistent failure from spinning hot.
+        let pipe = match create_secured_pipe_instance(pipe_name) {
+            Ok(pipe) => pipe,
+            Err(err) => {
+                eprintln!("draft-mcp: failed to create a pipe instance, retrying: {err}");
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                continue;
+            }
+        };
+        if let Err(err) = pipe.connect().await {
+            eprintln!("draft-mcp: pipe connect failed, retrying: {err}");
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            continue;
+        }
 
         let state = Arc::clone(&state);
         tokio::spawn(async move {
@@ -235,7 +253,19 @@ pub async fn serve_forever_on(
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
 
     loop {
-        let (stream, _addr) = listener.accept().await?;
+        // Same reasoning as the Windows accept loop above: a transient
+        // accept() failure (e.g. ECONNABORTED — a client that reset the
+        // connection before the accept finished, a well-documented, non-
+        // fatal condition servers are expected to retry past) must not end
+        // the whole server. Log and keep accepting instead of propagating.
+        let (stream, _addr) = match listener.accept().await {
+            Ok(conn) => conn,
+            Err(err) => {
+                eprintln!("draft-mcp: accept failed, retrying: {err}");
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                continue;
+            }
+        };
         let state = Arc::clone(&state);
         tokio::spawn(async move {
             let guard = ConnectionGuard::new(Arc::clone(&state));

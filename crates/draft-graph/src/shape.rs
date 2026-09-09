@@ -244,6 +244,70 @@ impl KnownShape {
         Ok(self)
     }
 
+    /// Rejects a non-finite `x`/`y` — on `ShapeBase`, so every kind needs
+    /// checking here, same reasoning as `validate_z_index`. Unlike `width`/
+    /// `height` (below), position has no `.abs()`-style normalization step
+    /// that could otherwise be mistaken for handling this — an infinite or
+    /// NaN position would otherwise be stored as-is, corrupting the shape
+    /// silently rather than being rejected at this boundary like every
+    /// other numeric field the canvas actually renders.
+    fn validate_position(self) -> Result<Self, String> {
+        let base = self.base();
+        if !base.x.is_finite() || !base.y.is_finite() {
+            return Err(format!(
+                "x/y must be finite numbers, got ({:?}, {:?})",
+                base.x, base.y
+            ));
+        }
+        Ok(self)
+    }
+
+    /// Rejects a non-finite `width`/`height` (rectangle/ellipse/diamond/
+    /// image) or `dx`/`dy` (line/arrow). Must run before `normalized()`'s
+    /// `.abs()` step — `f64::INFINITY.abs()` is still infinity, so that step
+    /// alone can't turn a malformed value into a valid one the way it does
+    /// for a merely-negative one.
+    fn validate_dimensions(self) -> Result<Self, String> {
+        let dims = match &self {
+            KnownShape::Rectangle { width, height, .. }
+            | KnownShape::Ellipse { width, height, .. }
+            | KnownShape::Diamond { width, height, .. }
+            | KnownShape::Image { width, height, .. } => Some((*width, *height)),
+            KnownShape::Line { dx, dy, .. } | KnownShape::Arrow { dx, dy, .. } => Some((*dx, *dy)),
+            KnownShape::Text { .. } | KnownShape::Freehand { .. } => None,
+        };
+        if let Some((a, b)) = dims {
+            if !a.is_finite() || !b.is_finite() {
+                return Err(format!(
+                    "width/height (or dx/dy) must be finite numbers, got ({a:?}, {b:?})"
+                ));
+            }
+        }
+        Ok(self)
+    }
+
+    /// Rejects an empty `points` array (nothing to draw — the freehand
+    /// equivalent of a zero-size shape) or any non-finite coordinate within
+    /// it, for the one shape kind (`Freehand`) that carries a variable-
+    /// length numeric payload none of the other validators above touch.
+    fn validate_points(self) -> Result<Self, String> {
+        let KnownShape::Freehand { points, .. } = &self else {
+            return Ok(self);
+        };
+        if points.is_empty() {
+            return Err("freehand points must not be empty".to_string());
+        }
+        if let Some((x, y)) = points
+            .iter()
+            .find(|(x, y)| !x.is_finite() || !y.is_finite())
+        {
+            return Err(format!(
+                "freehand points must all be finite, got ({x:?}, {y:?})"
+            ));
+        }
+        Ok(self)
+    }
+
     /// Rejects a non-finite `rotation` (NaN/infinity — never producible by
     /// the canvas's own drag-to-rotate math, but a malformed MCP write
     /// could still send one) at the same validation boundary as `fill`.
@@ -451,6 +515,9 @@ impl<'de> Deserialize<'de> for Shape {
                     .and_then(KnownShape::validate_rotation)
                     .and_then(KnownShape::validate_stroke)
                     .and_then(KnownShape::validate_z_index)
+                    .and_then(KnownShape::validate_position)
+                    .and_then(KnownShape::validate_dimensions)
+                    .and_then(KnownShape::validate_points)
                     .map(|s| Shape::Known(s.normalized()))
                     .map_err(serde::de::Error::custom)
             }
@@ -510,6 +577,51 @@ mod tests {
     fn a_non_finite_z_index_is_rejected() {
         let err = serde_json::from_str::<Shape>(
             r#"{"kind": "text", "x": 0.0, "y": 0.0, "text": "hi", "zIndex": 1e400}"#,
+        )
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn a_non_finite_position_is_rejected() {
+        let err = serde_json::from_str::<Shape>(
+            r#"{"kind": "text", "x": 1e400, "y": 0.0, "text": "hi"}"#,
+        )
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn non_finite_width_or_height_is_rejected() {
+        let err = serde_json::from_str::<Shape>(
+            r#"{"kind": "rectangle", "x": 0.0, "y": 0.0, "width": 1e400, "height": 10.0}"#,
+        )
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn non_finite_dx_or_dy_is_rejected() {
+        let err = serde_json::from_str::<Shape>(
+            r#"{"kind": "line", "x": 0.0, "y": 0.0, "dx": 1e400, "dy": 0.0}"#,
+        )
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn empty_freehand_points_are_rejected() {
+        let err = serde_json::from_str::<Shape>(
+            r#"{"kind": "freehand", "x": 0.0, "y": 0.0, "points": []}"#,
+        )
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn a_non_finite_freehand_point_is_rejected() {
+        let err = serde_json::from_str::<Shape>(
+            r#"{"kind": "freehand", "x": 0.0, "y": 0.0, "points": [[1e400, 0.0]]}"#,
         )
         .unwrap_err();
         assert!(!err.to_string().is_empty());

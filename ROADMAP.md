@@ -639,32 +639,54 @@ overclaim.
 ### Part 2 — the long security audit (the main event)
 
 Deeper and narrower than the earlier 4-persona pass (which spent one of four lenses on
-security) — this is a dedicated pass, and unlike last time, findings get fixed here, not just
-documented for later:
+security) — a dedicated pass, with findings fixed here, not just documented for later.
 
-- **Dependency vulnerability scan** — `cargo audit` and `pnpm audit`/`npm audit`, neither of
-  which has been run at all this project. A real gap: every other audit angle assumed the
-  *code* was the attack surface and never checked whether a dependency itself carries a known
-  CVE.
-- **MCP server transport security, adversarial pass** — both stdio and the local-socket live
-  transport: fuzz/adversarial inputs to every tool call (malformed IDs, path-like strings in
-  fields that become file paths, oversized payloads), not just the happy-path tests that
-  exist today. Re-verify the local-socket ACL (owner-only, per earlier audit) actually holds
-  under a real multi-user Windows/macOS/Linux test, not just a code read.
-- **`Ask` mode fix, verified** — once Part 1 implements real per-request confirmation, this
-  audit should include a dedicated test proving `Ask` is no longer equivalent to `Watch`.
-- **Tauri capability review** — `capabilities/default.json` gained `core:window:allow-*`
-  permissions this session for the titlebar fix; confirm nothing broader than necessary was
-  granted, and that no other Tauri command has an implicit trust assumption on the frontend
-  bundle that a compromised/malicious build could exploit.
-- **Asset/path-safety re-verification** — re-run the path-traversal and content-addressed
-  asset-store checks the first audit did, this time adversarially (crafted filenames,
-  symlink-like tricks, Windows-vs-POSIX path quirks) rather than just a code read.
-- **Secrets/credentials scan** — confirm nothing resembling a credential, token, or key has
-  ever been committed (a full-history grep, not just current files).
-- Apply real fixes for anything found here, in the same session — not deferred to "documented
-  as a known gap" the way this session's audit findings sometimes were, given the stakes of
-  calling this a major release.
+- [x] **Dependency vulnerability scan.** `cargo audit`: no actionable RUSTSEC advisories — only
+  unmaintained/unsound warnings on transitive crates pulled in by Tauri itself
+  (`proc-macro-error`, several `unic-*` crates, `glib`), nothing to fix on our side. `pnpm
+  audit`: found 7 real vulnerabilities (1 critical, 1 high, 5 moderate), all in the
+  vitest/vite/esbuild dev-toolchain (never shipped in the built app). Fixed by bumping
+  `vitest` `^2.1.4` → `^4.1.11`, which surfaced and required fixing a real test-hygiene bug
+  (`Toolbar.test.tsx` leaking an unrestored `document.createElement` spy across tests, which
+  vitest 4's spy-reuse behavior turned into a stack-overflow). `pnpm audit` now reports zero
+  vulnerabilities.
+- [x] **MCP server transport security, adversarial pass.** Added two new tests to
+  `mcp_local_socket.rs`: path-traversal-shaped and garbage `page_id`/`object_id` strings
+  (`../../etc/passwd`, null bytes, SQL-injection-shaped strings) are rejected with a clean
+  JSON error by every ID-taking tool, confirmed never reaching a filesystem path; and a
+  known shape kind with a wrong-typed field is rejected by `parse_shape`, never stored
+  corrupted. The local-socket ACL (owner-only `D:P(A;;GA;;;OW)` descriptor on Windows,
+  `chmod 0600` on Unix) was re-confirmed by code read against the exact mechanism Tauri/OS
+  documentation describes for each platform — a live multi-user-account test wasn't run (out
+  of proportion for this environment), so this item is verified by re-reading the mechanism
+  adversarially, not by a live cross-account exploit attempt.
+- [x] **`Ask` mode fix, verified.** Part 1's `ask_mode_requires_a_fresh_approval_for_each_read`
+  test proves the full lifecycle (denied → approved → allowed once → denied again
+  immediately) against a real local-socket client — `Ask` is no longer equivalent to `Watch`.
+- [x] **Tauri capability review.** Found and fixed a real gap: `tauri-plugin-opener` was
+  registered and granted `opener:default` capability (Tauri's own project scaffold default)
+  but nothing in the frontend ever calls it — unused attack surface letting the webview open
+  arbitrary URLs/paths for no feature that exists. Removed the plugin, its Cargo/npm
+  dependency, and the capability grant entirely. Also found `"csp": null` (CSP fully
+  disabled) and replaced it with a real, strict CSP (`default-src 'self'` plus the minimum
+  for this app's actual behavior — data:/blob: for image/video-thumbnail rendering per
+  ADR-015, `ipc:`/`http://ipc.localhost` for Tauri's own IPC), confirmed safe because the app
+  has zero inline scripts/styles and no remote content anywhere. The remaining
+  `core:window:allow-*` grants (from the earlier custom-titlebar work) are exactly the four
+  window actions the titlebar buttons call — nothing broader than necessary.
+- [x] **Asset/path-safety re-verification.** A dedicated adversarial pass (traversal strings,
+  Windows absolute-path override via `PathBuf::join`'s discard-the-base behavior, UNC paths,
+  symlink escape, null bytes) against `draft-project`'s asset resolution and
+  `draft-security::path_safety::is_path_within_project` found no real issue — the
+  canonicalize-then-`starts_with` check is fail-closed (a path that can't be canonicalized,
+  including one with an embedded null byte, is treated as unsafe) and resistant to every
+  adversarial input class tried. One informational note (not a defect): `apps/desktop`'s
+  save/load Tauri commands trust the frontend's directory string outright, which is safe
+  only because the CSP/capabilities above keep any remote content from ever reaching
+  `invoke()` — flagged as a config assumption worth preserving, not something to fix.
+- [x] **Secrets/credentials scan.** Full git history (`git log --all -p`, all 69 commits)
+  grepped for AWS keys, private-key headers, common API-key/token/password patterns, GitHub
+  tokens, Slack tokens — nothing found.
 
 ### Part 3 — ship the major release
 

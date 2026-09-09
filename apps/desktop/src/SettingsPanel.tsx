@@ -69,6 +69,23 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         </section>
 
         <section className="settings-section">
+          <h3>Connect an agent</h3>
+          <p className="settings-hint">
+            While this app is open, any agent you've granted access to (see "Agent access" above)
+            can already read/write your live canvas over a local connection — nothing extra to
+            configure.
+          </p>
+          <p className="settings-hint">
+            To connect a standard MCP client (Claude Desktop, Claude Code, Codex CLI, and others) to
+            a saved project directly, point it at the <code>draft-mcp</code> command with your
+            project's folder as the one argument. This build doesn't bundle that binary in the
+            installer yet — build it from source with{" "}
+            <code>cargo build --release -p draft-mcp</code>, then use the resulting binary's path as
+            the client's command.
+          </p>
+        </section>
+
+        <section className="settings-section">
           <h3>More settings</h3>
           <p className="settings-hint">Additional preferences will be added in future versions.</p>
         </section>

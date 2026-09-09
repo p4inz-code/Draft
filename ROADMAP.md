@@ -34,6 +34,20 @@ it — not just because code exists. See [docs/testing.md](docs/testing.md) for 
   machine needs troubleshooting," and CI is now a reliable enough source of real installers
   that a broken local build no longer blocks shipping one.
 
+- [ ] **The `draft-mcp` stdio CLI binary isn't bundled in the installer, so connecting a
+  standard MCP client (Claude Desktop, Codex CLI, etc.) to a *saved* project today requires
+  the user to `cargo build --release -p draft-mcp` from source themselves.** Raised directly
+  by the user asking that "connecting with agent is ez as for new user" — right now it isn't,
+  for this one path (the *live*, already-running-desktop-app path via the local-socket
+  transport needs zero setup beyond raising Agent access, and the in-app Settings panel's new
+  "Connect an agent" section explains both honestly). Fixing this for real means packaging
+  `draft-mcp` as a Tauri sidecar binary (`externalBin` in `tauri.conf.json`, a per-platform
+  build step placing it at the right target-triple-suffixed path) and surfacing its resolved
+  path in-app — real installer/build-pipeline surgery, not a quick settings-panel tweak, and
+  not something to rush immediately before this release given `release-build`'s CI job is
+  already working and shouldn't be touched casually. Tracked here rather than attempted
+  hastily.
+
 ## Foundation phase (pre-Session-1)
 
 Repository, architecture, and documentation groundwork (product spec §35), ahead of the

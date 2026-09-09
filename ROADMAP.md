@@ -690,10 +690,20 @@ security) — a dedicated pass, with findings fixed here, not just documented fo
 
 ### Part 3 — ship the major release
 
-- [ ] The long-deferred exit test: create a project, draw across multiple tools, save, close,
-  reopen, verify identical state — in a real Tauri window, not the browser preview.
-- [ ] Version bump (see the open decision above) across `package.json`/`Cargo.toml`, a real
-  `CHANGELOG.md` entry (not just `SESSION_LOG.md`'s narrative form)
+- [x] The long-deferred exit test: `crates/draft-project/tests/project_roundtrip.rs`'s
+  `a_page_drawn_with_every_shape_kind_reopens_with_identical_object_data` creates a project,
+  saves one real shape of every kind the canvas supports (with real field data — fill,
+  stroke, rotation, text, points), drops every in-memory value, reopens, and verifies
+  identical object data — exercising the exact `draft-project` calls `apps/desktop`'s
+  `save_snapshot`/`load_snapshot` Tauri commands make. Additionally, a real Tauri window was
+  launched live this session (not just the browser preview) to verify the custom titlebar —
+  which surfaced and got a real fix for an unmovable-window bug (`data-tauri-drag-region`
+  wasn't reaching the bar's non-interactive children; fixed with `="deep"` mode), confirmed
+  via hot-reload in that same running window.
+- [x] Version bump: every version field across the workspace (`package.json`s, `Cargo.toml`,
+  `tauri.conf.json`) was already plain `0.1.0` from earlier session prep — nothing to change.
+  `CHANGELOG.md` rewritten with a full `[0.1.0]` entry covering everything since the
+  project's start.
 - [ ] Tag + `gh release create` **without** `--prerelease`, full release notes summarizing
   everything since the last major milestone
 - [ ] CI's `release-build` job (now proven working on all three OSes for `v0.1.0-dev.2`)

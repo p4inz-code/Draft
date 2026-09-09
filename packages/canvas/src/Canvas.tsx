@@ -109,6 +109,81 @@ export function Canvas() {
   // for something that only needs to survive within the same session).
   const clipboardRef = useRef<Shape[]>([]);
 
+  // The source of truth every drag-consuming handler reads (`handlePointerMove`,
+  // `finishActiveDrag`, the keydown handler), updated synchronously by
+  // `updateDrag`/`updateMarqueeRect` below rather than via the `drag`/
+  // `marqueeRect` state variables directly. This matters because a keyboard
+  // shortcut can call finishActiveDrag() (ending a drag) and then a further
+  // pointermove can still fire within the very same tick, before React has
+  // re-rendered with the new state — reading `drag` (the closure/state
+  // value from the last render) at that point would still see the
+  // now-supposedly-ended drag and keep acting on it. `drag`/`marqueeRect`
+  // themselves are kept too, purely to drive rendering (resize handles, the
+  // marquee rectangle) — they're not used for any drag-logic decisions.
+  const dragRef = useRef<DragState>(drag);
+  const marqueeRectRef = useRef<typeof marqueeRect>(marqueeRect);
+
+  function updateDrag(next: DragState) {
+    dragRef.current = next;
+    setDrag(next);
+  }
+
+  function updateMarqueeRect(next: typeof marqueeRect) {
+    marqueeRectRef.current = next;
+    setMarqueeRect(next);
+  }
+
+  /**
+   * Finalizes whatever pointer drag is currently in progress, exactly as if
+   * the pointer had been released right now — the same commit logic
+   * `handlePointerUp` runs. A keyboard shortcut (undo/redo, a tool switch,
+   * Tab-cycling selection, Delete, bring-to-front/send-to-back, arrow-nudge)
+   * can fire while a mouse button is still physically held down mid-drag;
+   * without this, the drag's `pointermove`s keep silently mutating the
+   * original shape in the background (the keyboard action already changed
+   * the tool/selection/undo-stack out from under it), and the eventual real
+   * pointerup either double-commits an operation or, if `beginAction` was
+   * already consumed by the interrupting undo, silently drops the rest of
+   * the gesture instead of committing it. Closing the drag out first makes
+   * every keyboard action start from a clean, fully-committed state — a
+   * no-op when no drag is in progress.
+   */
+  function finishActiveDrag() {
+    const activeDrag = dragRef.current;
+    if (activeDrag.kind === "none") return;
+    const state = store.getState();
+    const activeMarquee = marqueeRectRef.current;
+    if (activeDrag.kind === "marquee" && activeMarquee) {
+      const rect = {
+        minX: Math.min(activeMarquee.x.x, activeMarquee.y.x),
+        minY: Math.min(activeMarquee.x.y, activeMarquee.y.y),
+        maxX: Math.max(activeMarquee.x.x, activeMarquee.y.x),
+        maxY: Math.max(activeMarquee.x.y, activeMarquee.y.y),
+      };
+      const hits = Object.values(state.shapes)
+        .filter((o) => boundsIntersect(shapeBounds(o.shape), rect))
+        .map((o) => o.id);
+      const expanded = new Set<ObjectId>();
+      for (const id of hits) {
+        for (const member of state.groupMembers(id)) expanded.add(member);
+      }
+      state.select([...expanded]);
+    } else if (activeDrag.kind === "draw") {
+      const obj = state.shapes[activeDrag.objectId];
+      if (obj && isZeroSize(obj.shape)) state.deleteShapes([activeDrag.objectId]);
+      state.commitAction();
+    } else if (
+      activeDrag.kind === "move-selection" ||
+      activeDrag.kind === "erase" ||
+      activeDrag.kind === "resize" ||
+      activeDrag.kind === "rotate"
+    ) {
+      state.commitAction();
+    }
+    updateDrag({ kind: "none" });
+    updateMarqueeRect(null);
+  }
+
   function finishEditingText(id: ObjectId, text: string) {
     const state = store.getState();
     const obj = state.shapes[id];
@@ -152,7 +227,7 @@ export function Canvas() {
     };
     const anchorWorld = rotatePoint(anchor, center, rotation);
     store.getState().beginAction();
-    setDrag({ kind: "resize", objectId, handle, anchor, anchorWorld, center, rotation });
+    updateDrag({ kind: "resize", objectId, handle, anchor, anchorWorld, center, rotation });
   }
 
   function handleRotateHandlePointerDown(
@@ -168,9 +243,10 @@ export function Canvas() {
       y: (localBounds.minY + localBounds.maxY) / 2,
     };
     store.getState().beginAction();
-    setDrag({ kind: "rotate", objectId, center });
+    updateDrag({ kind: "rotate", objectId, center });
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: finishActiveDrag is redefined every render, but only ever reads store.getState()/refs/stable useState setters — never stale props or state — so closing over any render's copy behaves identically; re-subscribing this listener on every render (its actual effect if added to the deps) would be pure churn, not a correctness fix.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const state = store.getState();
@@ -178,6 +254,13 @@ export function Canvas() {
         e.target instanceof HTMLElement &&
         (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA");
       if (isEditableTarget) return;
+
+      // Finalize any in-progress pointer drag before this shortcut's own
+      // store transaction begins — see finishActiveDrag's doc comment for
+      // why an interrupted drag (undo/redo, a tool switch, Delete, etc. all
+      // fired while a mouse button is still physically held down) is unsafe
+      // to leave running in the background. A no-op when nothing is active.
+      finishActiveDrag();
 
       const numberedTool = NUMBER_KEY_TOOLS[e.key];
       const letterTool = LETTER_KEY_TOOLS[e.key.toLowerCase()];
@@ -349,7 +432,7 @@ export function Canvas() {
 
     if (e.button === 1) {
       e.currentTarget.setPointerCapture(e.pointerId);
-      setDrag({ kind: "pan" });
+      updateDrag({ kind: "pan" });
       return;
     }
 
@@ -372,11 +455,11 @@ export function Canvas() {
       if (hitId) {
         if (!state.selection.includes(hitId)) state.select(state.groupMembers(hitId));
         state.beginAction();
-        setDrag({ kind: "move-selection", lastWorld: world });
+        updateDrag({ kind: "move-selection", lastWorld: world });
       } else {
         state.clearSelection();
-        setMarqueeRect({ x: world, y: world });
-        setDrag({ kind: "marquee", startWorld: world });
+        updateMarqueeRect({ x: world, y: world });
+        updateDrag({ kind: "marquee", startWorld: world });
       }
       return;
     }
@@ -385,7 +468,7 @@ export function Canvas() {
       state.beginAction();
       const hitId = hitTest(state.shapes, world);
       if (hitId) state.deleteShapes([hitId]);
-      setDrag({ kind: "erase" });
+      updateDrag({ kind: "erase" });
       return;
     }
 
@@ -394,7 +477,7 @@ export function Canvas() {
     const shape = newShapeForTool(tool, world);
     if (!shape) return;
     const id = state.addShape(shape);
-    setDrag({ kind: "draw", objectId: id, startWorld: world });
+    updateDrag({ kind: "draw", objectId: id, startWorld: world });
   }
 
   function handleDoubleClick(e: React.MouseEvent<SVGSVGElement>) {
@@ -411,26 +494,33 @@ export function Canvas() {
   function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
     const world = worldPointFromEvent(e);
     const state = store.getState();
+    // Reads the ref, not the `drag` state variable/closure directly: a
+    // keyboard shortcut can call finishActiveDrag() (which writes the ref
+    // synchronously) and then this handler can still fire again within the
+    // same tick, before React has re-rendered with the updated `drag` state
+    // — using the state closure here would keep resizing/moving/rotating
+    // against a drag that was supposed to have already ended.
+    const activeDrag = dragRef.current;
 
-    switch (drag.kind) {
+    switch (activeDrag.kind) {
       case "pan":
         state.pan(e.movementX, e.movementY);
         return;
       case "marquee":
-        setMarqueeRect({ x: drag.startWorld, y: world });
+        updateMarqueeRect({ x: activeDrag.startWorld, y: world });
         return;
       case "move-selection": {
-        const dx = world.x - drag.lastWorld.x;
-        const dy = world.y - drag.lastWorld.y;
+        const dx = world.x - activeDrag.lastWorld.x;
+        const dy = world.y - activeDrag.lastWorld.y;
         for (const id of state.selection) {
           const obj = state.shapes[id];
           if (obj) state.moveShape(id, obj.shape.x + dx, obj.shape.y + dy);
         }
-        setDrag({ kind: "move-selection", lastWorld: world });
+        updateDrag({ kind: "move-selection", lastWorld: world });
         return;
       }
       case "draw": {
-        const obj = state.shapes[drag.objectId];
+        const obj = state.shapes[activeDrag.objectId];
         if (!obj) return;
         const { shape } = obj;
         if (shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "diamond") {
@@ -440,12 +530,12 @@ export function Canvas() {
           // negative width/height that `ShapeView` (Math.abs) and
           // `shapeBounds` (min/max) disagreed on, the exact desync
           // ADR-014 describes but only actually closed for the resize path.
-          const pointer = e.shiftKey ? constrainToSquare(drag.startWorld, world) : world;
-          const minX = Math.min(drag.startWorld.x, pointer.x);
-          const minY = Math.min(drag.startWorld.y, pointer.y);
-          const maxX = Math.max(drag.startWorld.x, pointer.x);
-          const maxY = Math.max(drag.startWorld.y, pointer.y);
-          state.updateShape(drag.objectId, {
+          const pointer = e.shiftKey ? constrainToSquare(activeDrag.startWorld, world) : world;
+          const minX = Math.min(activeDrag.startWorld.x, pointer.x);
+          const minY = Math.min(activeDrag.startWorld.y, pointer.y);
+          const maxX = Math.max(activeDrag.startWorld.x, pointer.x);
+          const maxY = Math.max(activeDrag.startWorld.y, pointer.y);
+          state.updateShape(activeDrag.objectId, {
             ...shape,
             x: minX,
             y: minY,
@@ -453,12 +543,12 @@ export function Canvas() {
             height: maxY - minY,
           });
         } else if (shape.kind === "arrow" || shape.kind === "line") {
-          const rawDx = world.x - drag.startWorld.x;
-          const rawDy = world.y - drag.startWorld.y;
+          const rawDx = world.x - activeDrag.startWorld.x;
+          const rawDy = world.y - activeDrag.startWorld.y;
           const { dx, dy } = e.shiftKey
             ? constrainAngleTo45(rawDx, rawDy)
             : { dx: rawDx, dy: rawDy };
-          state.updateShape(drag.objectId, { ...shape, dx, dy });
+          state.updateShape(activeDrag.objectId, { ...shape, dx, dy });
         } else if (shape.kind === "freehand") {
           const last = shape.points[shape.points.length - 1];
           const nextX = world.x - shape.x;
@@ -471,7 +561,7 @@ export function Canvas() {
             !last ||
             Math.hypot(nextX - last[0], nextY - last[1]) >= MIN_FREEHAND_POINT_DISTANCE
           ) {
-            state.updateShape(drag.objectId, {
+            state.updateShape(activeDrag.objectId, {
               ...shape,
               points: [...shape.points, [nextX, nextY]],
             });
@@ -485,9 +575,9 @@ export function Canvas() {
         return;
       }
       case "resize": {
-        const obj = state.shapes[drag.objectId];
+        const obj = state.shapes[activeDrag.objectId];
         if (!obj || !isResizableShape(obj.shape)) return;
-        const { anchor, anchorWorld, center, rotation } = drag;
+        const { anchor, anchorWorld, center, rotation } = activeDrag;
         // `world` is in screen/world space; `anchor` was captured in the
         // shape's own *local* (unrotated) frame at drag start — rotate the
         // live pointer back by the shape's (frozen, gesture-start) rotation
@@ -518,7 +608,7 @@ export function Canvas() {
           { x: 0, y: 0 },
           rotation,
         );
-        state.updateShape(drag.objectId, {
+        state.updateShape(activeDrag.objectId, {
           ...obj.shape,
           x: anchorWorld.x - pivotOffset.x - halfExtent.x,
           y: anchorWorld.y - pivotOffset.y - halfExtent.y,
@@ -528,14 +618,16 @@ export function Canvas() {
         return;
       }
       case "rotate": {
-        const obj = state.shapes[drag.objectId];
+        const obj = state.shapes[activeDrag.objectId];
         if (!obj || !isRotatableShape(obj.shape)) return;
         // 0° is "pointer directly above center" (atan2 = -90°), so +90
         // maps that back to a neutral, unrotated angle.
         let rotation =
-          (Math.atan2(world.y - drag.center.y, world.x - drag.center.x) * 180) / Math.PI + 90;
+          (Math.atan2(world.y - activeDrag.center.y, world.x - activeDrag.center.x) * 180) /
+            Math.PI +
+          90;
         if (e.shiftKey) rotation = Math.round(rotation / 45) * 45;
-        state.updateShape(drag.objectId, { ...obj.shape, rotation });
+        state.updateShape(activeDrag.objectId, { ...obj.shape, rotation });
         return;
       }
       default:
@@ -544,38 +636,10 @@ export function Canvas() {
   }
 
   function handlePointerUp() {
-    const state = store.getState();
-    if (drag.kind === "marquee" && marqueeRect) {
-      const rect = {
-        minX: Math.min(marqueeRect.x.x, marqueeRect.y.x),
-        minY: Math.min(marqueeRect.x.y, marqueeRect.y.y),
-        maxX: Math.max(marqueeRect.x.x, marqueeRect.y.x),
-        maxY: Math.max(marqueeRect.x.y, marqueeRect.y.y),
-      };
-      const hits = Object.values(state.shapes)
-        .filter((o) => boundsIntersect(shapeBounds(o.shape), rect))
-        .map((o) => o.id);
-      // Expand to full group membership — otherwise a marquee that only
-      // partially overlaps a group selects just the enclosed members, and
-      // dragging then silently pulls a grouped shape's mates apart.
-      const expanded = new Set<ObjectId>();
-      for (const id of hits) {
-        for (const member of state.groupMembers(id)) expanded.add(member);
-      }
-      state.select([...expanded]);
-    }
-    if (drag.kind === "draw") {
-      // A click with no drag leaves a zero-size, invisible shape (e.g. a
-      // 0x0 rectangle) — discard it rather than committing clutter no one
-      // can see or select.
-      const obj = state.shapes[drag.objectId];
-      if (obj && isZeroSize(obj.shape)) state.deleteShapes([drag.objectId]);
-      state.commitAction();
-    } else if (drag.kind === "move-selection" || drag.kind === "erase" || drag.kind === "resize") {
-      state.commitAction();
-    }
-    setDrag({ kind: "none" });
-    setMarqueeRect(null);
+    // Identical to finishActiveDrag() — kept as one shared implementation
+    // (see its own doc comment) so a keyboard shortcut that interrupts a
+    // drag and a real pointerup that ends one commit exactly the same way.
+    finishActiveDrag();
   }
 
   function handleWheel(e: React.WheelEvent<SVGSVGElement>) {

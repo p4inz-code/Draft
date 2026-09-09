@@ -315,6 +315,32 @@ describe("shape rotation", () => {
 
     unmount();
   });
+
+  it("a completed rotate gesture is recorded as an operation, not just applied to local state", () => {
+    // Regression: handlePointerUp's commit dispatch was missing "rotate"
+    // entirely, so every rotate was visible on screen but never appended to
+    // state.operations — invisible to anything driven by that log (save,
+    // live sync to Rust, MCP reads).
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    const { addShape, select } = useCanvasStore.getState();
+    const id = addShape({ kind: "rectangle", x: 0, y: 0, width: 100, height: 100 });
+    setTool("select");
+    act(() => select([id]));
+    const opsBefore = useCanvasStore.getState().operations.length;
+
+    const rotateHandle = container.querySelector('[aria-label="Rotate"]');
+    if (!rotateHandle) throw new Error("rotate handle not found");
+    pointerDownAt(rotateHandle, 50, -24);
+    firePointer(svg, "pointermove", 150, 50);
+    firePointer(svg, "pointerup", 150, 50);
+
+    expect(useCanvasStore.getState().operations.length).toBeGreaterThan(opsBefore);
+
+    unmount();
+  });
 });
 
 describe("Shift-to-constrain while drawing", () => {
@@ -535,6 +561,91 @@ describe("resizing a rotated shape", () => {
     const rotatedNwCorner = rotatePoint({ x: shape.x, y: shape.y }, newCenter, shape.rotation ?? 0);
     expect(rotatedNwCorner.x).toBeCloseTo(75);
     expect(rotatedNwCorner.y).toBeCloseTo(-25);
+
+    unmount();
+  });
+});
+
+describe("a keyboard shortcut interrupting an in-progress drag", () => {
+  it("undo mid-drag reverts the move instead of silently losing it", () => {
+    // Regression: pressing Ctrl+Z while a move-selection drag is still
+    // active (mouse button physically held down) used to pop the drag's own
+    // beginAction snapshot off the undo stack immediately, so the eventual
+    // real pointerup's commitAction found an empty stack and silently
+    // no-op'd — the mid-drag movement was never recorded and could never be
+    // undone afterward either. finishActiveDrag() now commits the
+    // in-progress move first, so Ctrl+Z has a real, undoable operation to
+    // revert.
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    const { addShape, select } = useCanvasStore.getState();
+    const id = addShape({ kind: "rectangle", x: 0, y: 0, width: 20, height: 20 });
+    setTool("select");
+    act(() => select([id]));
+
+    // Start dragging the shape (mouse still down).
+    pointerDownAt(svg, 10, 10);
+    firePointer(svg, "pointermove", 40, 10);
+
+    const movedShape = useCanvasStore.getState().shapes[id]?.shape;
+    expect(movedShape?.x).not.toBe(0);
+
+    // Ctrl+Z fires while the button is still down.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true }));
+
+    // The move was committed and then undone — back to the original position.
+    const undoneShape = useCanvasStore.getState().shapes[id]?.shape;
+    expect(undoneShape?.x).toBe(0);
+    expect(undoneShape?.y).toBe(0);
+
+    // The since-abandoned drag no longer owns any state — releasing the
+    // (already-logically-ended) pointer must not commit or move anything
+    // further.
+    firePointer(svg, "pointerup", 40, 10);
+    expect(useCanvasStore.getState().shapes[id]?.shape.x).toBe(0);
+
+    unmount();
+  });
+
+  it("switching tools mid-resize stops the drag from continuing to resize the shape", () => {
+    // Regression: pressing a tool-shortcut key while dragging a resize
+    // handle used to leave the pointer's DragState untouched — the tool/
+    // selection changed, but the still-held-down pointer kept silently
+    // resizing the original shape in the background with no visible
+    // handles. finishActiveDrag() now commits and clears the drag as soon
+    // as the shortcut fires, so a further pointermove has no drag left to
+    // act on.
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    const { addShape, select } = useCanvasStore.getState();
+    const id = addShape({ kind: "rectangle", x: 0, y: 0, width: 100, height: 100 });
+    setTool("select");
+    act(() => select([id]));
+
+    const seHandle = container.querySelector('[aria-label="Resize (se)"]');
+    if (!seHandle) throw new Error("se resize handle not found");
+    pointerDownAt(seHandle, 100, 100);
+    firePointer(svg, "pointermove", 150, 150);
+
+    const midDragShape = useCanvasStore.getState().shapes[id]?.shape;
+    expect(midDragShape?.width).toBeCloseTo(150);
+
+    // Switch tools mid-drag via its letter shortcut.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "v" }));
+
+    // Further pointer movement (the button is still physically down) must
+    // no longer affect the shape — the drag was finalized when the
+    // shortcut fired.
+    firePointer(svg, "pointermove", 300, 300);
+    firePointer(svg, "pointerup", 300, 300);
+
+    const finalShape = useCanvasStore.getState().shapes[id]?.shape;
+    expect(finalShape?.width).toBeCloseTo(150);
+    expect(finalShape?.height).toBeCloseTo(150);
 
     unmount();
   });

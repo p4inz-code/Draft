@@ -725,6 +725,39 @@ security) — a dedicated pass, with findings fixed here, not just documented fo
   producing real installers (Windows MSI + NSIS setup, macOS DMG, Linux AppImage/deb/rpm) —
   all six downloaded and attached to the GitHub release.
 
+## Ecosystem expansion (researched 2026-09-09, not scheduled)
+
+The user asked, post-`v0.1.0`, how to expand DRAFT's ecosystem broadly. Four candidate axes
+were researched (agent/MCP reach, a third-party plugin API, the deferred semantic taxonomy,
+and reach/surface via the `apps/web` bridge + more media formats); two were picked as
+highest-leverage based on real market research (not assumption) and written up in full:
+
+- [ADR-017](docs/decisions/adr-017-mcp-ecosystem-reach.md) — **agent/MCP ecosystem reach.**
+  DRAFT already has real, tested MCP tooling (two working transports) that almost nobody
+  outside this dev session can currently reach: the stdio binary isn't bundled in the
+  installer, and the live transport has no standard-client reach at all. MCP itself has grown
+  to 12,000–17,000+ public servers and 97M+ monthly SDK downloads since late 2024, with native
+  support in Claude Desktop/Code, VS Code Copilot, Cursor, Windsurf, Zed, and Continue —
+  fixing *distribution* of what already exists is the highest-leverage move, ahead of building
+  any new protocol surface. Recommends bundling `draft-mcp` as a Tauri sidecar and verifying
+  real third-party client compatibility before considering a remote (HTTP/SSE) transport.
+- [docs/specs/requirement-shape.md](docs/specs/requirement-shape.md) — **the semantic taxonomy's
+  first concrete slice.** ADR-014 deferred `Region`/`Requirement`/`Flow` pending "a concrete
+  driving feature" — spec-driven development (specs as the primary, AI-agent-readable,
+  executable project artifact) is a major 2026 industry trend, and every competing
+  AI-diagramming tool found in research (Miro, Whimsical, Eraser, FigJam, Jeda.ai) generates
+  diagrams *from* a prompt rather than offering live, bidirectional, typed agent access to a
+  human-edited canvas as the spec artifact itself — the gap DRAFT's existing architecture
+  (typed operation log + live MCP server) already fills structurally. Specs a minimal
+  `Requirement` shape kind: a human marks drawing shapes as satisfying a named requirement, an
+  agent reads/updates its status through the same tool surface it already uses for shapes.
+
+A full plugin API (below) and `apps/web`/media-format reach were assessed as real but lower
+priority — the former has no current third-party demand signal to build against, the latter
+is a distribution/reach improvement rather than a differentiated ecosystem lever. Sequencing:
+ADR-017 first (a differentiated feature is less valuable if nobody can connect an agent to
+use it), the `Requirement` slice next.
+
 ## V2 (not scheduled)
 
 - [ ] Full plugin ecosystem (foundation is plugin-ready per the crate/package boundaries in

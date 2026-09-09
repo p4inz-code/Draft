@@ -464,6 +464,150 @@ async fn watch_mode_denies_writes_and_build_mode_allows_them() {
 }
 
 #[tokio::test]
+async fn malformed_and_path_traversal_shaped_ids_are_rejected_cleanly() {
+    // Adversarial: page_id/object_id are typed IDs (ADR-014's `PageId`/
+    // `ObjectId`), parsed via `FromStr` before ever touching the graph — so
+    // no attacker-controlled string reaches a filesystem path or a raw
+    // HashMap probe unvalidated. Confirms path-traversal-shaped and garbage
+    // strings are rejected with a clean error, not a panic, for every tool
+    // that takes an ID.
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let state = Arc::new(LiveState::new(Graph::new(), AgentMode::Build));
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    let adversarial_ids = [
+        "../../../../etc/passwd",
+        "..\\..\\..\\windows\\system32\\config\\sam",
+        "\0",
+        "",
+        "page://not-a-uuid",
+        "'; DROP TABLE pages; --",
+    ];
+
+    let client = connect_client(&pipe_name).await;
+    for bad_id in adversarial_ids {
+        let get_page_args = serde_json::Map::from_iter([(
+            "page_id".to_string(),
+            serde_json::Value::String(bad_id.to_string()),
+        )]);
+        let result = client
+            .call_tool(CallToolRequestParams::new("get_page").with_arguments(get_page_args))
+            .await
+            .expect("call itself succeeds even though the id is rejected");
+        let json = first_text_content(&result);
+        assert!(
+            json["error"].is_string(),
+            "expected a clean error for page_id {bad_id:?}, got {json}"
+        );
+
+        let get_object_args = serde_json::Map::from_iter([
+            (
+                "page_id".to_string(),
+                serde_json::Value::String(bad_id.to_string()),
+            ),
+            (
+                "object_id".to_string(),
+                serde_json::Value::String(bad_id.to_string()),
+            ),
+        ]);
+        let result = client
+            .call_tool(CallToolRequestParams::new("get_object").with_arguments(get_object_args))
+            .await
+            .expect("call itself succeeds even though the id is rejected");
+        let json = first_text_content(&result);
+        assert!(
+            json["error"].is_string(),
+            "expected a clean error for object_id {bad_id:?}, got {json}"
+        );
+
+        let create_args = serde_json::Map::from_iter([
+            (
+                "page_id".to_string(),
+                serde_json::Value::String(bad_id.to_string()),
+            ),
+            ("payload".to_string(), serde_json::json!({"kind": "widget"})),
+        ]);
+        let result = client
+            .call_tool(CallToolRequestParams::new("create_object").with_arguments(create_args))
+            .await
+            .expect("call itself succeeds even though the id is rejected");
+        let json = first_text_content(&result);
+        assert!(
+            json["error"].is_string(),
+            "expected a clean error creating on page_id {bad_id:?}, got {json}"
+        );
+    }
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_malformed_known_shape_kind_is_rejected_not_stored() {
+    // Adversarial: `payload` is arbitrary agent-controlled JSON. A
+    // recognized `kind` ("rectangle") with a field of the wrong type (a
+    // string where `width` must be numeric) must be rejected by
+    // `parse_shape`'s validation, not silently coerced or stored corrupted
+    // for the canvas to choke on later.
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let mut graph = Graph::new();
+    let page_id = PageId::new();
+    graph.ensure_page(page_id, "Level 1");
+    let state = Arc::new(LiveState::new(graph, AgentMode::Build));
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    let client = connect_client(&pipe_name).await;
+    let create_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "payload".to_string(),
+            serde_json::json!({
+                "kind": "rectangle", "x": 0.0, "y": 0.0,
+                "width": "not-a-number", "height": 10.0
+            }),
+        ),
+    ]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("create_object").with_arguments(create_args))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert!(json["error"].is_string(), "expected rejection, got {json}");
+    assert_eq!(
+        state
+            .graph
+            .lock()
+            .unwrap()
+            .page(page_id)
+            .unwrap()
+            .object_count(),
+        0,
+        "the malformed shape must not have been stored"
+    );
+
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn get_object_never_returns_raw_asset_bytes_for_an_image() {
     // ADR-015: an image object's payload only ever carries a reference
     // (`assetId`) into the content-addressed asset store, never the file's

@@ -346,7 +346,6 @@ pub fn run() {
     let live_state = Arc::new(LiveState::new(Graph::new(), AgentMode::default()));
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .manage(live_state)
         .setup(|app| {
             let live_state = app.state::<Arc<LiveState>>().inner().clone();

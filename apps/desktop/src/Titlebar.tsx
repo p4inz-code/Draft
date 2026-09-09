@@ -55,13 +55,13 @@ export function Titlebar({
   onApproveNextAgentRead,
 }: TitlebarProps) {
   return (
-    <div className="app-titlebar" data-tauri-drag-region>
-      <div className="app-titlebar-brand" data-tauri-drag-region>
+    <div className="app-titlebar" data-tauri-drag-region="deep">
+      <div className="app-titlebar-brand">
         <img src={symbolIcon} alt="" width={16} height={16} />
         <span>DRAFT</span>
       </div>
 
-      <div className="app-titlebar-actions" data-tauri-drag-region>
+      <div className="app-titlebar-actions">
         <button type="button" className="app-header-btn" onClick={onSave}>
           Save
         </button>

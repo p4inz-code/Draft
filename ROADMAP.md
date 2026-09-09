@@ -758,6 +758,24 @@ is a distribution/reach improvement rather than a differentiated ecosystem lever
 ADR-017 first (a differentiated feature is less valuable if nobody can connect an agent to
 use it), the `Requirement` slice next.
 
+**2026-09-10 correction — the competitive claim above needed revising.** Follow-up research
+(the user asked to widen scope toward "big professionals," architects and product/UX teams
+specifically) found that the "nobody else offers live agent-canvas access" framing above is
+no longer accurate: Figma shipped native agent-canvas editing in early 2026, Miro launched a
+bidirectional MCP server in February 2026 (built with Anthropic/AWS/GitHub/Google), and two
+dedicated local-first, agent-native canvas startups (Pen.dev, OpenDesign) already occupy
+close to DRAFT's exact stated positioning. This doesn't kill the two directions above — it
+sharpens them. Full corrected analysis, a competitor landscape table, and a revised
+per-segment recommendation are written up as an artifact (not committed to the repo — a
+strategy memo, not engineering documentation): the surviving differentiators are DRAFT's
+*typed* operation log (versus Miro's raw-SVG diffing), its genuinely *live* bidirectional sync
+(versus Miro's pull/iterate/push-back batch cycle), and having no per-seat business model to
+protect (versus both incumbents' Enterprise-gated agent access) — a different pricing axis
+entirely, not just a lower price on the same one. Recommends prioritizing the architect
+segment over product/UX for now (Figma's own native agent-canvas depth makes that segment a
+much harder near-term fight), and re-messaging around "typed + live," not "we have agents
+too," since that claim alone is no longer differentiated.
+
 ## V2 (not scheduled)
 
 - [ ] Full plugin ecosystem (foundation is plugin-ready per the crate/package boundaries in

@@ -38,6 +38,7 @@ describe("Toolbar image import", () => {
 
   afterEach(() => {
     global.Image = originalImage;
+    vi.restoreAllMocks();
     cleanup();
   });
 

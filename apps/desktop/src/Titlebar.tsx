@@ -61,7 +61,7 @@ export function Titlebar({
         <span>DRAFT</span>
       </div>
 
-      <div className="app-titlebar-actions">
+      <div className="app-titlebar-actions" data-tauri-drag-region>
         <button type="button" className="app-header-btn" onClick={onSave}>
           Save
         </button>

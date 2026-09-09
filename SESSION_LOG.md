@@ -9,6 +9,91 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-09 — A bug-bounty pass: theme system, and real drag/MCP/validation fixes
+
+**Commits:** `a3c58c5` (theme system + settings scaffold), `6bcc395` (rotate-commit and
+drag-interruption fixes), `b7a6c16` (MCP accept-loop resiliency + non-finite validation),
+`3181594` (agent-connection guidance)
+
+Later the same day as the entries below, on top of the finished security audit and a
+release ready to tag, the user asked for two more things directly: the titlebar/toolbar
+"looking the same" as the canvas fixed with a real light/dark theme (matching kanvaz), and
+a genuinely adversarial, whole-codebase bug hunt — "test everything... hard bug bounty."
+
+**Theme system and visual separation.** Root cause of "looks the same": `--draft-overlay`
+(the titlebar/toolbar's glass background) was a translucent version of `--draft-bg` —
+literally the canvas's own background color, so blur was the only separation. Changed it to
+derive from `--draft-surface` (the elevated-panel color) in both palettes, added a titlebar
+shadow to match the toolbar dock's existing one. Added a real `:root[data-theme]` override
+system in `@draft/ui/tokens.css` plus a new `theme.ts` module (`getStoredTheme`/`applyTheme`/
+`useTheme`) and a `SettingsPanel` scaffold (deliberately minimal — the user's own framing:
+more settings arrive later) housing the System/Light/Dark toggle. Found and fixed a real bug
+live in the browser preview: a saved theme choice didn't survive a reload, because
+`applyTheme(getStoredTheme())` only ever ran inside `useTheme()`'s mount effect, and that
+hook only lives in `SettingsPanel` — a component not mounted by default. Fixed by calling it
+once at `App.tsx`'s module scope instead.
+
+**The bug bounty.** Four background research agents, each given a different high-value
+subsystem and told to hunt adversarially (concrete input → concrete wrong output, not
+style nits): `packages/canvas/src/store.ts`, `crates/draft-graph`/`crates/draft-events`,
+`crates/draft-mcp`'s concurrency/connection handling, and `Canvas.tsx`'s pointer/keyboard
+interaction logic. Two agents independently found the same top bug from different angles —
+a strong signal it was real and severe.
+
+- **Every rotate gesture silently dropped its operation-log entry.** `handlePointerUp`'s
+  commit dispatch (draw/move-selection/erase/resize) simply never listed `"rotate"` — the
+  shape visibly rotated (each pointermove calls `updateShape` directly), but `commitAction()`
+  was never called, so the rotation never became an `Operation` and was invisible to save,
+  live sync, and MCP reads alike.
+- **A keyboard shortcut firing while a mouse button was still physically held down** (Ctrl+Z,
+  a tool-switch key, Tab-cycle, Delete, Ctrl+]/[, arrow-nudge) left the drag running invisibly
+  in the background: undo mid-drag popped the drag's own undo-stack entry immediately, so the
+  eventual real pointerup's commit found an empty stack and silently no-op'd, permanently
+  losing that movement; a tool-switch or Tab-cycle mid-resize/rotate changed what was shown
+  selected while the still-captured pointer kept resizing the *original* shape via its frozen
+  anchor/center; Delete mid-drag could double-commit the same operation. Fixed by extracting
+  a shared `finishActiveDrag()` (the same commit logic `handlePointerUp` already had, now
+  covering `"rotate"` too) and calling it at the top of every keyboard shortcut, closing out
+  any in-progress drag before the shortcut's own action runs. Since a keydown can fire and a
+  further pointermove can still land within the same tick — before React re-renders with the
+  updated drag state — drag-consuming logic now reads a synchronously-updated ref
+  (`dragRef`/`marqueeRectRef`) instead of the `drag` state closure, which a first pass at this
+  fix got wrong (verified by a failing test before the ref-based fix, passing after).
+- **A single failed accept/connect killed the entire MCP local-socket server, permanently.**
+  Both platforms' accept loops used `?` on the accept/connect step itself — a client that
+  connects then aborts mid-handshake, or `ECONNABORTED` on Unix (a documented, expected-to-be-
+  transient condition), propagated out and ended the loop, failing every future agent
+  connection for the rest of the session with no auto-restart. Fixed by logging and retrying
+  (with a short backoff) instead of propagating.
+- **Several numeric shape fields accepted `Infinity`/`NaN` with no rejection** — unlike
+  `rotation`/`fill`/`strokeWidth`/`zIndex`, which already validate at the same boundary.
+  `Operation::MoveObject` bypasses shape validation entirely (just two `f64` fields, no JSON
+  payload) and had no finiteness check of its own; `width`/`height`/`dx`/`dy`/`x`/`y` were
+  never checked in the `Deserialize` validation chain (`normalized()`'s `.abs()` doesn't help,
+  since `Infinity.abs()` is still `Infinity`); `Freehand`'s `points` array had no validation
+  at all, empty or otherwise. Added the missing checks and 6 new tests.
+- **Settings panel gained an honest "Connect an agent" section**, closing out the earlier
+  "new-user onboarding" ask as far as is honestly possible today: the live path needs no
+  setup, the stdio path currently requires building `draft-mcp` from source since it isn't
+  bundled in the installer yet (real sidecar-packaging work tracked in ROADMAP's Known
+  issues, not rushed in this pass).
+
+Lower-severity findings from the same bounty — a TOCTOU window between an agent-mode check
+and a write applying, the broadcast changes-channel silently evicting old entries for a
+lagging receiver, remote MCP writes racing an in-progress local drag/text-edit (last-writer-
+wins), and no `pointerId` discrimination for concurrent touch/pen input — were assessed and
+left as accepted, lower-priority tradeoffs rather than fixed in this pass; each is either
+already self-healing, already the standard shape for this class of system, or would need a
+larger architectural change (real conflict resolution for concurrent editing) to fix safely
+under time pressure. Not hidden — noted here for whoever picks this up next.
+
+Verified throughout: `cargo fmt/clippy/test --workspace` and `pnpm build/lint/test` green
+after every change (117 TS tests, up from 114; 33 tests in `draft-graph`, up from 27); the
+two drag-interruption regression tests were confirmed to fail against the pre-fix code before
+passing against the fix, the same discipline as this session's earlier marquee-bug fix.
+
+---
+
 ## 2026-09-09 — Session C Parts 2 & 3: the security audit, and shipping v0.1.0
 
 **Commits:** `e5efe4a` (vitest security bump), `43ed4e6` (Tauri hardening + adversarial MCP

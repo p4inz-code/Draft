@@ -9,6 +9,87 @@ Entries are newest-first. Each one names the commits it covers so it's traceable
 
 ---
 
+## 2026-09-09 — Session C Parts 2 & 3: the security audit, and shipping v0.1.0
+
+**Commits:** `e5efe4a` (vitest security bump), `43ed4e6` (Tauri hardening + adversarial MCP
+tests), `13d3526` (ROADMAP Part 2 checkboxes), `7ce1d7f` (exit test + titlebar fix +
+CHANGELOG), `967351e` (deeper titlebar-drag fix)
+
+Same day as Part 1 above, continuing straight into the long security audit and the release
+itself per the standing plan.
+
+**Dependency vulnerability scan.** Neither `cargo audit` nor `pnpm audit` had ever been run
+on this project. `cargo audit` turned up nothing actionable — only unmaintained/unsound
+warnings on crates pulled in transitively by Tauri itself, nothing to fix here. `pnpm audit`
+found 7 real vulnerabilities (1 critical, 1 high, 5 moderate), all in the vitest/vite/esbuild
+dev-toolchain — never shipped in the built app, but worth closing outright. Bumping vitest
+`^2.1.4` → `^4.1.11` (the first patched line) surfaced a genuine test-hygiene bug in
+`Toolbar.test.tsx`: a `document.createElement` spy from one test was never restored, and
+under vitest 4's new spy-reuse behavior (v2 wrapped a new spy each call; v4 returns the
+*same* spy if the property's already spied), the second test's "real" reference ended up
+bound to itself — self-recursion, stack overflow. Fixed by restoring all mocks in that
+block's `afterEach`, which should have been there from the start.
+
+**Tauri capability review** found a real, if low-severity, gap: `tauri-plugin-opener` — part
+of Tauri's own project scaffold — was registered and granted `opener:default` capability,
+but nothing in the frontend has ever called it. Removed the plugin, its Cargo/npm
+dependency, and the capability grant entirely: unused attack surface with no feature behind
+it. Also found `"csp": null` (Content-Security-Policy fully disabled) and replaced it with a
+real, strict policy, confirmed safe by checking the app has zero inline scripts/styles and no
+remote content anywhere it loads from.
+
+**Adversarial MCP transport testing.** Added two new tests to `mcp_local_socket.rs`:
+path-traversal-shaped and garbage `page_id`/`object_id` strings (`../../etc/passwd`, null
+bytes, SQL-injection-shaped strings) are rejected with a clean JSON error by every ID-taking
+tool — never panicking, never reaching a filesystem path, since every ID is parsed through
+`PageId`/`ObjectId`'s `FromStr` before use; and a known shape kind with a wrong-typed field is
+rejected by `parse_shape`, never silently stored corrupted.
+
+**A dedicated adversarial path-safety re-verification** (a background research agent, not
+just a code skim) checked `draft-project`'s asset resolution and
+`draft-security::path_safety::is_path_within_project` against traversal strings, Windows
+absolute-path override via `PathBuf::join`'s discard-the-base behavior, UNC paths, symlink
+escape, and null bytes — found no real issue. The canonicalize-then-`starts_with` check is
+fail-closed (anything that can't be canonicalized, including a null-byte path, is treated as
+unsafe) and held up against every adversarial input tried. One informational note, not a
+defect: `apps/desktop`'s save/load Tauri commands trust the frontend's directory string
+outright, which is safe only because the CSP/capabilities above keep any remote content from
+ever reaching `invoke()`.
+
+**Secrets scan**: grepped the full git history (all 69 commits, `git log --all -p`) for AWS
+keys, private-key headers, common API-key/token/password patterns, GitHub/Slack tokens —
+nothing found.
+
+**Shipping v0.1.0.** Every version field across the workspace (`package.json`s,
+`Cargo.toml`, `tauri.conf.json`) was already plain `0.1.0` from earlier prep, so no version
+bump was needed. Wrote a real `CHANGELOG.md` [0.1.0] entry covering everything since the
+project's start (not just this session), replacing the stale pre-Session-3 placeholder.
+Wrote the product spec's actual exit test — create a project, one shape of every kind the
+canvas supports with real field data (fill, stroke, rotation, text, points), save, drop every
+in-memory value, reopen, verify identical — exercising the exact `draft-project` calls
+`apps/desktop`'s `save_snapshot`/`load_snapshot` Tauri commands make.
+
+**A real bug found live, from the user actually running the app**: launched the real Tauri
+dev window to do the exit test's final click-through, and the user reported the window was
+unmovable. Root cause: the titlebar's middle section (`.app-titlebar-actions`, holding
+Save/Open/agent-access/status — most of the bar's width) never carried Tauri's
+`data-tauri-drag-region` attribute at all, so clicking its empty space hit an element with no
+drag behavior. First fix (adding the plain attribute to that div) was incomplete — it only
+covers a div's own direct empty space, not its children (the "Agent access:" label text, the
+status spans), since Tauri only extends drag handling to descendants when the newer `"deep"`
+mode is used. Switched the outer bar to `data-tauri-drag-region="deep"` instead, verified live
+via hot-reload in the still-running dev window rather than guessing.
+
+Verified throughout: `pnpm build/lint/test` and `cargo fmt/clippy/test --workspace` green
+after every change; `pnpm audit` now reports zero vulnerabilities (was 7); the exit test and
+the two new adversarial MCP tests all pass; CI green on every pushed commit.
+
+Still open at end of session: a broader "find more utility-function bugs" sweep the user
+asked for, running as a background research pass — findings to be triaged and fixed as they
+land, before the actual `git tag v0.1.0` + `gh release create`.
+
+---
+
 ## 2026-09-09 — Session C Part 1 complete: z-order, keyboard accessibility, a real marquee bug, Ask-mode security fix
 
 **Commits:** `9a59418` (z-order), `3dfd107` (keyboard accessibility), `affc562` (marquee

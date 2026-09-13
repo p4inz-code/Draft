@@ -4,35 +4,39 @@
 
 <p align="center"><strong>If you can't explain it to AI, show it to AI.</strong></p>
 
-DRAFT is a cross-platform visual workspace where you sketch, draw, annotate, and organize
-ideas — and an MCP-compatible AI agent reads that workspace directly instead of you
-re-explaining it in text or re-uploading screenshots. It's built especially for game and
-level design, but works for any visual planning: software architecture, UI mockups,
-storyboards, diagrams.
+You sketch. The agent sees exactly what you sketched: not a screenshot, not a description you
+typed after the fact, but the actual shapes, positions, and status of your canvas, live, as
+structured data over MCP. Draw a level layout and ask an agent to spot the dead ends. Mark a
+UI mockup's broken states and watch it fix them without writing a single sentence about where
+they are. That's the whole idea: stop translating what's in your head into words for a model
+that would understand it instantly if it could just *look*.
+
+DRAFT is a cross-platform visual workspace built for exactly that handoff. It's especially
+good for game and level design, but anything you'd normally sketch (software architecture, UI
+mockups, storyboards, diagrams) works the same way.
 
 DRAFT is **not** a drawing app, an AI image generator, a whiteboard clone, or an
-Anthropic/Claude-specific plugin. It's the visual context layer that sits between a human's
-intent and an AI agent's understanding of it. See [docs/product.md](docs/product.md) for the
-full picture.
+Anthropic/Claude-specific plugin. It's the visual context layer that sits between what you
+mean and what an AI agent can act on. See [docs/product.md](docs/product.md) for the full
+picture.
 
 ## Status
 
-DRAFT is in active foundation development (pre-v1) — real, but not yet feature-complete.
+DRAFT is in active foundation development (pre-v1). It's real, but not yet feature-complete.
 The desktop app (`apps/desktop`, Tauri + React) already has a working infinite canvas: draw
 and resize rectangles, ellipses, diamonds, lines, arrows, freehand strokes, and text; fill
 colors; group/ungroup; undo/redo; import images/SVGs/video (reference-only); pan/zoom; save
 and reopen a project. Illustrator-style tool shortcuts and grouped tool flyouts, a custom
-frameless titlebar, and a Figma-style floating toolbar round out the chrome. Two real MCP
-transports exist in `crates/draft-mcp` (stdio for any standard MCP client, plus a live
-local-socket channel for the running desktop app), gated by a visible, revocable "Agent
-access" permission control — see [docs/mcp.md](docs/mcp.md) for exactly what each transport
-can do today.
+frameless titlebar, and a Figma-style panel round out the chrome. Two real MCP transports
+exist in `crates/draft-mcp` (stdio for any standard MCP client, plus a live local-socket
+channel for the running desktop app), gated by a visible, revocable "Agent access" permission
+control. See [docs/mcp.md](docs/mcp.md) for exactly what each transport can do today.
 
-**Not ready yet:** `apps/web` is still a placeholder shell — the browser build doesn't talk
-to a live desktop session ([ADR-016](docs/decisions/adr-016-web-desktop-bridge.md) has the
+**Not ready yet:** `apps/web` is still a placeholder shell: the browser build doesn't talk to
+a live desktop session ([ADR-016](docs/decisions/adr-016-web-desktop-bridge.md) has the
 plan). Keyboard-only canvas use isn't supported (drawing/selecting/moving a shape currently
 needs a pointer). See [ROADMAP.md](ROADMAP.md) for the full, honestly-tracked checklist of
-what's done versus planned — nothing here should be assumed finished just because it's
+what's done versus planned. Nothing here should be assumed finished just because it's
 mentioned above.
 
 ## Repository layout
@@ -40,7 +44,7 @@ mentioned above.
 ```
 apps/
   desktop/     Tauri 2 + React desktop shell
-  web/         Vite + React web shell (minimal — see ROADMAP.md)
+  web/         Vite + React web shell (minimal, see ROADMAP.md)
 crates/
   draft-core/      shared IDs, error types
   draft-project/   project format (read/write/migrate)
@@ -95,22 +99,22 @@ cargo fmt --all
 
 ## Documentation
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — high-level system design
-- [docs/product.md](docs/product.md) — what DRAFT is and isn't, and who it's for
-- [docs/project-format.md](docs/project-format.md) — the `.draft` project bundle format
-- [docs/project-graph.md](docs/project-graph.md) — the Project Graph model
-- [docs/mcp.md](docs/mcp.md) — the MCP server design
-- [docs/agent-permissions.md](docs/agent-permissions.md) — the agent permission model
-- [docs/decisions/](docs/decisions/) — ADRs for the significant technical decisions
-- [ROADMAP.md](ROADMAP.md) — what's built, what's next
-- [SESSION_LOG.md](SESSION_LOG.md) — dated narrative of each work session: decisions, bugs
+- [ARCHITECTURE.md](ARCHITECTURE.md): high-level system design
+- [docs/product.md](docs/product.md): what DRAFT is and isn't, and who it's for
+- [docs/project-format.md](docs/project-format.md): the `.draft` project bundle format
+- [docs/project-graph.md](docs/project-graph.md): the Project Graph model
+- [docs/mcp.md](docs/mcp.md): the MCP server design
+- [docs/agent-permissions.md](docs/agent-permissions.md): the agent permission model
+- [docs/decisions/](docs/decisions/): ADRs for the significant technical decisions
+- [ROADMAP.md](ROADMAP.md): what's built, what's next
+- [SESSION_LOG.md](SESSION_LOG.md): dated narrative of each work session: decisions, bugs
   found and fixed, what got verified and how
-- [CONTRIBUTING.md](CONTRIBUTING.md) — development workflow
-- [SECURITY.md](SECURITY.md) — reporting a vulnerability
+- [CONTRIBUTING.md](CONTRIBUTING.md): development workflow
+- [SECURITY.md](SECURITY.md): reporting a vulnerability
 
 ## License
 
-DRAFT is **free forever** but **not open source** — the source is available in this
+DRAFT is **free forever** but **not open source**. The source is available in this
 repository for transparency, but it's proprietary. See [LICENSE.md](LICENSE.md) for the
 exact terms.
 

@@ -35,6 +35,19 @@ const AGENT_MODE_HINTS: Record<AgentMode, string> = {
   build: "Full access — agents can read and write; you'll see their edits appear live.",
 };
 
+/** Window-control glyphs, from Feather Icons (feather.dev, MIT) — real path
+ * data inlined the same way packages/canvas/src/ToolIcons.tsx does. */
+const WINDOW_ICON_PROPS = {
+  width: 14,
+  height: 14,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
 interface TitlebarProps {
   agentMode: AgentMode;
   onAgentModeChange: (mode: AgentMode) => void;
@@ -44,7 +57,6 @@ interface TitlebarProps {
   onSave: () => void;
   onLoad: () => void;
   onApproveNextAgentRead: () => void;
-  onOpenSettings: () => void;
 }
 
 /**
@@ -62,7 +74,6 @@ export function Titlebar({
   onSave,
   onLoad,
   onApproveNextAgentRead,
-  onOpenSettings,
 }: TitlebarProps) {
   return (
     <div className="app-titlebar" data-tauri-drag-region="deep">
@@ -114,19 +125,13 @@ export function Titlebar({
         <button
           type="button"
           className="app-titlebar-window-btn"
-          aria-label="Settings"
-          title="Settings"
-          onClick={onOpenSettings}
-        >
-          &#x2699;
-        </button>
-        <button
-          type="button"
-          className="app-titlebar-window-btn"
           aria-label="Minimize"
           onClick={() => withWindow((win) => win.minimize())}
         >
-          &#x2212;
+          {/* Feather "minus" */}
+          <svg {...WINDOW_ICON_PROPS} aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
         </button>
         <button
           type="button"
@@ -134,7 +139,10 @@ export function Titlebar({
           aria-label="Maximize"
           onClick={() => withWindow((win) => win.toggleMaximize())}
         >
-          &#x25a1;
+          {/* Feather "square" */}
+          <svg {...WINDOW_ICON_PROPS} aria-hidden="true">
+            <rect x="4" y="4" width="16" height="16" rx="1.5" ry="1.5" />
+          </svg>
         </button>
         <button
           type="button"
@@ -142,7 +150,11 @@ export function Titlebar({
           aria-label="Close"
           onClick={() => withWindow((win) => win.close())}
         >
-          &#x2715;
+          {/* Feather "x" */}
+          <svg {...WINDOW_ICON_PROPS} aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
         </button>
       </div>
     </div>

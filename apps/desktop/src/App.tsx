@@ -32,7 +32,7 @@ import { applyTheme, getStoredTheme } from "@draft/ui";
 import "@draft/ui";
 import { useEffect, useState } from "react";
 import "./App.css";
-import { SettingsPanel } from "./SettingsPanel";
+import { SettingsSidebar } from "./SettingsSidebar";
 import { Titlebar } from "./Titlebar";
 
 // Applied once at module load, not inside a component effect: a persisted
@@ -115,7 +115,6 @@ function App() {
   const [status, setStatus] = useState<string | null>(null);
   const [agentMode, setAgentModeState] = useState<AgentMode>("manual");
   const [agentConnections, setAgentConnections] = useState<number | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     getCoreVersion()
@@ -293,15 +292,12 @@ function App() {
         onSave={handleSave}
         onLoad={handleLoad}
         onApproveNextAgentRead={handleApproveNextAgentRead}
-        onOpenSettings={() => setSettingsOpen(true)}
       />
       <div className="app-canvas">
         <Canvas />
         <Toolbar />
       </div>
-      {settingsOpen && (
-        <SettingsPanel onClose={() => setSettingsOpen(false)} coreVersion={coreVersion} />
-      )}
+      <SettingsSidebar coreVersion={coreVersion} />
     </div>
   );
 }

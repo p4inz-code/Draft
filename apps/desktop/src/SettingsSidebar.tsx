@@ -1,6 +1,6 @@
 import { type Theme, useTheme } from "@draft/ui";
-import { type ReactElement, useEffect, useState } from "react";
-import "./SettingsPanel.css";
+import { type ReactElement, useEffect, useRef, useState } from "react";
+import "./SettingsSidebar.css";
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "system", label: "System" },
@@ -11,17 +11,16 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 type SectionKey = "appearance" | "agents" | "about";
 
 /** Feather Icons (feather.dev, MIT) path data, inlined the same way
- * ToolIcons.tsx does — see its own doc comment for why. */
+ * packages/canvas/src/ToolIcons.tsx does — see its own doc comment for why. */
 const ICON_PROPS = {
-  width: 16,
-  height: 16,
+  width: 15,
+  height: 15,
   viewBox: "0 0 24 24",
   fill: "none",
   stroke: "currentColor",
   strokeWidth: 2,
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
-  "aria-hidden": true,
 };
 
 const SECTIONS: { key: SectionKey; label: string; icon: ReactElement }[] = [
@@ -76,50 +75,83 @@ const SECTIONS: { key: SectionKey; label: string; icon: ReactElement }[] = [
   },
 ];
 
-interface SettingsPanelProps {
-  onClose: () => void;
+/** How long with no interaction before the open sidebar auto-collapses back
+ * to just its edge handle — matches the floating toolbar's own idle-fade
+ * convention (Toolbar.tsx's IDLE_MS) rather than inventing a second value. */
+const IDLE_MS = 3000;
+
+interface SettingsSidebarProps {
   coreVersion: string | null;
 }
 
 /**
- * A centered, sectioned settings modal (sidebar nav + content pane) —
- * Figma/Notion's own preferences pattern — rather than a corner popover, per
- * the user's own direction to make this feel like a considered, premium
- * surface. Structurally still a scaffold underneath: three sections today,
- * more land here in future versions rather than needing a new top-level
- * surface each time.
+ * A docked edge sidebar, not a modal — a slim handle (Feather "chevron-left")
+ * sits fixed to the right edge; opening slides the full panel out from under
+ * it. Auto-collapses after IDLE_MS of no interaction, the same fade
+ * discipline the floating toolbar already uses, so a settings surface left
+ * open doesn't just sit there permanently covering canvas. Still a scaffold
+ * underneath (three sections today; more land here in future versions).
  */
-export function SettingsPanel({ onClose, coreVersion }: SettingsPanelProps) {
-  const [theme, setTheme] = useTheme();
+export function SettingsSidebar({ coreVersion }: SettingsSidebarProps) {
+  const [open, setOpen] = useState(false);
   const [active, setActive] = useState<SectionKey>("appearance");
+  const [theme, setTheme] = useTheme();
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // The close button is the primary keyboard path; Escape is the
-  // conventional secondary one for any dismissible overlay.
+  /** (Re)starts the auto-collapse countdown — called once when the sidebar
+   * opens, and again on every interaction inside it while open, matching
+   * the toolbar's own revive-on-activity pattern. */
+  function revive() {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => setOpen(false), IDLE_MS);
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: revive is redefined every render but only ever closes over the ref/setState, so omitting it is safe and avoids resetting the timer on every unrelated re-render.
+  useEffect(() => {
+    if (!open) {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      return;
+    }
+    revive();
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [open]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (open && e.key === "Escape") setOpen(false);
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [open]);
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: pointer-only convenience (click outside to dismiss) — the close button and the Escape handler above are the real keyboard paths.
-    <div className="settings-overlay" onClick={onClose}>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: only stops the overlay's dismiss-on-click from firing for clicks inside the panel — not itself a keyboard-operable control. */}
-      <div
-        className="settings-modal"
-        // biome-ignore lint/a11y/useSemanticElements: <dialog> brings native modal semantics (showModal, focus trapping) this scaffold doesn't implement yet — a real upgrade path, not something to fake with the element name alone.
-        role="dialog"
-        aria-label="Settings"
-        onClick={(e) => e.stopPropagation()}
+    <div
+      className={`settings-sidebar-dock${open ? " is-open" : ""}`}
+      onPointerMove={open ? revive : undefined}
+    >
+      <button
+        type="button"
+        className="settings-sidebar-handle"
+        aria-label={open ? "Close settings" : "Open settings"}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
       >
-        <nav className="settings-sidebar" aria-label="Settings sections">
+        {/* Feather "chevron-left" / "chevron-right" */}
+        <svg {...ICON_PROPS} width={16} height={16} aria-hidden="true">
+          {open ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 18 15 12 9 6" />}
+        </svg>
+      </button>
+
+      <div className="settings-sidebar-panel" aria-hidden={!open}>
+        <nav className="settings-sidebar-nav" aria-label="Settings sections">
           <div className="settings-sidebar-title">Settings</div>
           {SECTIONS.map((section) => (
             <button
               key={section.key}
               type="button"
+              tabIndex={open ? 0 : -1}
               className={`settings-nav-item${active === section.key ? " is-active" : ""}`}
               aria-current={active === section.key}
               onClick={() => setActive(section.key)}
@@ -130,16 +162,7 @@ export function SettingsPanel({ onClose, coreVersion }: SettingsPanelProps) {
           ))}
         </nav>
 
-        <div className="settings-content">
-          <button
-            type="button"
-            className="settings-close"
-            onClick={onClose}
-            aria-label="Close settings"
-          >
-            &#x2715;
-          </button>
-
+        <div className="settings-sidebar-content">
           {active === "appearance" && (
             <section className="settings-pane">
               <h2 className="settings-pane-title">Appearance</h2>
@@ -149,6 +172,7 @@ export function SettingsPanel({ onClose, coreVersion }: SettingsPanelProps) {
                   <button
                     key={option.value}
                     type="button"
+                    tabIndex={open ? 0 : -1}
                     aria-pressed={theme === option.value}
                     className={`settings-segmented-btn${theme === option.value ? " is-active" : ""}`}
                     onClick={() => setTheme(option.value)}

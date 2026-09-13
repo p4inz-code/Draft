@@ -1,86 +1,105 @@
 import type { Tool } from "./store";
 
 /**
- * Small hand-drawn line icons for the toolbar, one per drawing tool —
- * custom SVG, not an icon-font/library dependency, matching the "built from
- * scratch" instruction for DRAFT's chrome. 16x16, `currentColor` stroke so
- * they inherit the button's own text/accent color for free (active state,
- * hover, idle-fade all already work via CSS with no icon-specific styling).
+ * Toolbar icons, drawn from Feather Icons (feather.dev, MIT licensed) — real
+ * path data inlined directly rather than a runtime icon-font/library
+ * dependency, matching the "built from scratch, no icon dependency"
+ * convention for DRAFT's chrome while still using clean, recognized shapes
+ * instead of ad-hoc line art. 24x24 native viewBox (Feather's own coordinate
+ * system, unmodified), rendered at 16x16, 2px round-joined stroke —
+ * Feather's own visual defaults — so every icon in this set reads as one
+ * consistent family.
  */
 export function ToolIcon({ tool }: { tool: Tool }) {
   const common = {
     width: 16,
     height: 16,
-    viewBox: "0 0 16 16",
+    viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 1.4,
+    strokeWidth: 2,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     "aria-hidden": true,
   };
 
   switch (tool) {
+    // Feather "mouse-pointer"
     case "select":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M3 2.5 12.5 8.5 8.5 9.5 10.5 13 9 13.7 7 10.2 4.3 12.7 Z" />
+          <path d="M3 3l7.07 17 2.51-7.39L20 10.07z" />
+          <path d="M13 13l6 6" />
         </svg>
       );
+    // Feather "square"
     case "rectangle":
       return (
         <svg {...common} aria-hidden="true">
-          <rect x={2.5} y={3.5} width={11} height={9} rx={1} />
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
         </svg>
       );
+    // Feather "circle"
     case "ellipse":
       return (
         <svg {...common} aria-hidden="true">
-          <ellipse cx={8} cy={8} rx={5.5} ry={4.5} />
+          <circle cx="12" cy="12" r="9" />
         </svg>
       );
+    // In the same family as Feather's own geometric icons (square/circle) —
+    // Feather has no diamond of its own.
     case "diamond":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M8 2.5 13.5 8 8 13.5 2.5 8 Z" />
+          <polygon points="12 2 22 12 12 22 2 12" />
         </svg>
       );
+    // Feather "type"
     case "text":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M3 3.5h10M8 3.5v9" />
+          <polyline points="4 7 4 4 20 4 20 7" />
+          <line x1="9" y1="20" x2="15" y2="20" />
+          <line x1="12" y1="4" x2="12" y2="20" />
         </svg>
       );
     case "line":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M3 13 13 3" />
+          <line x1="5" y1="19" x2="19" y2="5" />
         </svg>
       );
+    // Feather "arrow-up-right"
     case "arrow":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M3 13 13 3M7 3h6v6" />
+          <line x1="7" y1="17" x2="17" y2="7" />
+          <polyline points="7 7 17 7 17 17" />
         </svg>
       );
+    // Feather "edit-3"
     case "freehand":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M3 12c1.5-3 2-6.5 3.5-8S9 3 9.5 5s0 4.5 1.5 5 2.5-1 3-2.5" />
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         </svg>
       );
+    // Feather "x-square"
     case "eraser":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M10.5 2.5 13.5 5.5 6.5 12.5H4L2.5 11 10.5 2.5Z" />
-          <path d="M6 9 9.5 12.5" />
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+          <line x1="15" y1="9" x2="9" y2="15" />
         </svg>
       );
+    // Feather "flag"
     case "requirement":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M4 13V2.5" />
-          <path d="M4 2.5h7l-2 2.5 2 2.5H4" fill="currentColor" stroke="none" />
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+          <line x1="4" y1="22" x2="4" y2="15" />
         </svg>
       );
     default:

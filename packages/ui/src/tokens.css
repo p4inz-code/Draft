@@ -45,6 +45,20 @@
   --draft-radius-sm: 4px;
   --draft-radius-md: 8px;
   --draft-radius-lg: 12px;
+  --draft-radius-xl: 16px;
+
+  /* A shared elevation/motion scale so every surface (titlebar, toolbar,
+   * settings panel, future ones) reads as one system instead of each
+   * hand-picking its own shadow/timing — the difference between "polished"
+   * and "assembled from parts." Shadow color is a fixed dark tone in both
+   * themes (a light-mode shadow needs the same softness a dark one does;
+   * only its opacity/spread would ever need to differ, and these are
+   * conservative enough to work unchanged in both). */
+  --draft-shadow-sm: 0 2px 8px rgba(13, 13, 20, 0.12);
+  --draft-shadow-md: 0 8px 24px rgba(13, 13, 20, 0.18);
+  --draft-shadow-lg: 0 16px 48px rgba(13, 13, 20, 0.28);
+  --draft-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --draft-transition-fast: 120ms;
 }
 
 /* System-follow is the default (no explicit choice yet) — see :root[data-theme]

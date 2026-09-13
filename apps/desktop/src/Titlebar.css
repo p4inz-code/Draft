@@ -7,7 +7,8 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--draft-border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--draft-text) 6%, transparent),
+    var(--draft-shadow-sm);
   /* The whole bar drags the window (Tauri's own data-tauri-drag-region
    * attribute) except wherever an interactive control overrides it below. */
   user-select: none;
@@ -16,7 +17,7 @@
 .app-titlebar-brand {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -28,7 +29,7 @@
 .app-titlebar-actions {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   min-width: 0;
   flex: 1;
 }
@@ -36,7 +37,7 @@
 .app-header-btn {
   font-family: inherit;
   font-size: 0.8rem;
-  padding: 0.3rem 0.7rem;
+  padding: 0.32rem 0.75rem;
   border-radius: var(--draft-radius-sm);
   border: 1px solid var(--draft-border);
   background: var(--draft-surface);
@@ -44,31 +45,60 @@
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
+  transition: border-color var(--draft-transition-fast) var(--draft-ease), background-color
+    var(--draft-transition-fast) var(--draft-ease), transform var(--draft-transition-fast)
+    var(--draft-ease);
 }
 
 .app-header-btn:hover {
   border-color: var(--draft-accent);
+  background: var(--draft-surface-2);
   color: var(--draft-text);
+}
+
+.app-header-btn:active {
+  transform: scale(0.96);
+}
+
+.app-header-btn:focus-visible,
+.app-titlebar-window-btn:focus-visible,
+.agent-mode-control select:focus-visible {
+  outline: 2px solid var(--draft-accent);
+  outline-offset: 1px;
 }
 
 .agent-mode-control {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   font-size: 0.75rem;
   color: var(--draft-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
+/* A plain <select> can't be fully re-skinned (its native dropdown popup is
+ * outside CSS's reach), but the closed-state control itself can read as a
+ * deliberate part of this system rather than an unstyled form control —
+ * the same border/radius/hover language every other control here uses,
+ * plus a custom chevron replacing the OS default via appearance: none. */
 .agent-mode-control select {
   font-family: inherit;
   font-size: 0.8rem;
-  padding: 0.2rem 0.4rem;
+  padding: 0.28rem 1.6rem 0.28rem 0.55rem;
   border-radius: var(--draft-radius-sm);
   border: 1px solid var(--draft-border);
-  background: var(--draft-surface);
+  background: var(--draft-surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a8ca3' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 0.55rem center;
+  appearance: none;
   color: var(--draft-text);
+  cursor: pointer;
+  transition: border-color var(--draft-transition-fast) var(--draft-ease);
+}
+
+.agent-mode-control select:hover {
+  border-color: var(--draft-accent);
 }
 
 /* Status readouts (live-sync errors, connection count, core version) are the
@@ -93,6 +123,8 @@
   align-items: center;
   gap: 0.15rem;
   margin-left: 0.75rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--draft-border);
   flex-shrink: 0;
 }
 
@@ -109,6 +141,8 @@
   font-size: 0.75rem;
   line-height: 1;
   cursor: pointer;
+  transition: background-color var(--draft-transition-fast) var(--draft-ease), color
+    var(--draft-transition-fast) var(--draft-ease);
 }
 
 .app-titlebar-window-btn:hover {

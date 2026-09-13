@@ -299,7 +299,9 @@ function App() {
         <Canvas />
         <Toolbar />
       </div>
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsPanel onClose={() => setSettingsOpen(false)} coreVersion={coreVersion} />
+      )}
     </div>
   );
 }

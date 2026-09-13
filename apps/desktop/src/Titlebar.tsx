@@ -83,36 +83,54 @@ export function Titlebar({
       </div>
 
       <div className="app-titlebar-actions">
-        <button type="button" className="app-header-btn" onClick={onSave}>
-          Save
-        </button>
-        <button type="button" className="app-header-btn" onClick={onLoad}>
-          Open
-        </button>
-        <label className="agent-mode-control" title={AGENT_MODE_HINTS[agentMode]}>
-          Agent access:
-          <select
-            value={agentMode}
-            onChange={(e) => onAgentModeChange(e.target.value as AgentMode)}
-          >
-            {AGENT_MODES.map((mode) => (
-              <option key={mode} value={mode} title={AGENT_MODE_HINTS[mode]}>
-                {mode}
-              </option>
-            ))}
-          </select>
-        </label>
-        {agentMode === "ask" && (
-          <button
-            type="button"
-            className="app-header-btn"
-            onClick={onApproveNextAgentRead}
-            title="Ask mode requires approving each read individually — this authorizes exactly one, not a standing grant"
-          >
-            Approve next read
+        <div className="titlebar-group">
+          <button type="button" className="app-header-btn" onClick={onSave}>
+            Save
           </button>
+          <button type="button" className="app-header-btn" onClick={onLoad}>
+            Open
+          </button>
+        </div>
+
+        <span className="titlebar-divider" aria-hidden="true" />
+
+        <div className="titlebar-group">
+          <label className="agent-mode-control" title={AGENT_MODE_HINTS[agentMode]}>
+            Agent access:
+            <select
+              value={agentMode}
+              onChange={(e) => onAgentModeChange(e.target.value as AgentMode)}
+            >
+              {AGENT_MODES.map((mode) => (
+                <option key={mode} value={mode} title={AGENT_MODE_HINTS[mode]}>
+                  {mode}
+                </option>
+              ))}
+            </select>
+          </label>
+          {agentMode === "ask" && (
+            <button
+              type="button"
+              className="app-header-btn"
+              onClick={onApproveNextAgentRead}
+              title="Ask mode requires approving each read individually — this authorizes exactly one, not a standing grant"
+            >
+              Approve next read
+            </button>
+          )}
+        </div>
+
+        {status && (
+          <>
+            <span className="titlebar-divider" aria-hidden="true" />
+            <span className="status status-error" title={status}>
+              {status}
+            </span>
+          </>
         )}
-        {status && <span className="status">{status}</span>}
+
+        <span className="titlebar-spacer" />
+
         <span className="status" title="Agents connected over the local MCP socket">
           {agentConnections ?? "…"} agent{agentConnections === 1 ? "" : "s"} connected
         </span>

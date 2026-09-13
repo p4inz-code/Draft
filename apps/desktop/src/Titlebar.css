@@ -34,6 +34,33 @@
   flex: 1;
 }
 
+/* Clusters related controls (Save/Open; Agent access + its conditional
+ * approve button) so the divider between them reads as "a different group
+ * of actions," not just more buttons in an undifferentiated row. */
+.titlebar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.titlebar-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.3rem 0;
+  background: var(--draft-border);
+  flex-shrink: 0;
+}
+
+/* Pushes the passive read-only info (connection count, core version) to the
+ * end of the bar, separating it from the actionable controls on the left —
+ * the same "primary actions left, ambient status right" split most toolbars
+ * use, instead of one undifferentiated row of buttons and text. */
+.titlebar-spacer {
+  flex: 1;
+  min-width: 0.5rem;
+}
+
 .app-header-btn {
   font-family: inherit;
   font-size: 0.8rem;
@@ -116,6 +143,20 @@
 
 .status strong {
   color: var(--draft-accent);
+}
+
+/* A transient error (e.g. a live-sync failure) needs to actually stand out
+ * from routine ambient status text, not blend into the same gray as
+ * "N agents connected" — a distinct pill instead of plain inline text, and
+ * capped so one long error message can't dominate the whole bar (the full
+ * text is still available via the title tooltip). */
+.status-error {
+  max-width: 16rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--draft-radius-sm);
+  background: color-mix(in srgb, var(--draft-danger) 14%, transparent);
+  color: var(--draft-danger);
+  flex-shrink: 1;
 }
 
 .app-titlebar-window-controls {

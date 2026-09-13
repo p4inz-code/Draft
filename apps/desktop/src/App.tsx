@@ -293,9 +293,11 @@ function App() {
         onLoad={handleLoad}
         onApproveNextAgentRead={handleApproveNextAgentRead}
       />
-      <div className="app-canvas">
-        <Canvas />
-        <Toolbar />
+      <div className="app-body">
+        <div className="app-canvas">
+          <Canvas />
+          <Toolbar />
+        </div>
         <SettingsSidebar coreVersion={coreVersion} />
       </div>
     </div>

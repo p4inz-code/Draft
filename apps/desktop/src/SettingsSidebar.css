@@ -1,70 +1,17 @@
-/* A docked edge panel, not a modal — flush to the top-right corner of the
- * canvas area and spanning its full height, the same "properties panel"
- * placement Figma's own right dock uses (anchored to the content area, not
- * floating/centered over it). `.app-canvas` (App.css) is the positioned
- * ancestor, already excluding the titlebar's own height. */
-.settings-sidebar-dock {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: stretch;
-  z-index: 50;
-  pointer-events: none;
-}
-
-.settings-sidebar-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  /* Flush in the top-right corner when closed — not vertically centered in
-   * the canvas (the "floating in the middle" placement this replaced), and
-   * not offset from the corner either, per direct feedback that even a
-   * small gap still read as "floating" rather than corner-docked. */
-  align-self: flex-start;
-  height: 64px;
-  border: 1px solid var(--draft-border);
-  border-right: none;
-  border-radius: var(--draft-radius-md) 0 0 var(--draft-radius-md);
-  background: var(--draft-overlay);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  color: var(--draft-text-muted);
-  cursor: pointer;
-  box-shadow: var(--draft-shadow-sm);
-  pointer-events: auto;
-  transition: color var(--draft-transition-fast) var(--draft-ease), background-color
-    var(--draft-transition-fast) var(--draft-ease);
-}
-
-.settings-sidebar-handle:hover {
-  color: var(--draft-accent);
-  background: var(--draft-surface);
-}
-
-.settings-sidebar-handle:focus-visible {
-  outline: 2px solid var(--draft-accent);
-  outline-offset: -2px;
-}
-
+/* A permanently docked panel, not an overlay — a real flex sibling of
+ * `.app-canvas` (see App.tsx/App.css's `.app-body` row), not absolutely
+ * positioned on top of it. Figma's own right-hand panel is always present
+ * rather than something a user opens/closes, so there's no toggle handle
+ * and no open/closed transform here. */
 .settings-sidebar-panel {
   display: flex;
+  flex-direction: column;
   width: 300px;
-  align-self: stretch;
+  flex-shrink: 0;
   background: var(--draft-surface);
   border-left: 1px solid var(--draft-border);
-  box-shadow: var(--draft-shadow-lg);
   color: var(--draft-text);
   overflow: hidden;
-  transform: translateX(100%);
-  transition: transform 220ms var(--draft-ease);
-  pointer-events: auto;
-}
-
-.settings-sidebar-dock.is-open .settings-sidebar-panel {
-  transform: translateX(0);
 }
 
 /* A slim, single-line strip — not a bordered nav rail — since the panel

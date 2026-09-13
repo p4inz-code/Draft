@@ -24,16 +24,20 @@ body {
   height: 100vh;
 }
 
+/* Row below the titlebar: the canvas area and the Settings panel side by
+ * side as real flex siblings — the panel is permanently docked (Figma's own
+ * right-hand panel is always present, not an overlay toggled open/closed),
+ * so it takes real layout space instead of floating on top of the canvas. */
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .app-canvas {
   position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
-  /* The settings sidebar's closed state translates its panel off-screen via
-   * `transform`, which doesn't affect layout but does still count toward
-   * the scrollable-overflow region browsers compute — without clipping it
-   * here, that invisible-but-still-there 300px of translated content made
-   * the whole window horizontally scrollable (found from a real screenshot
-   * of the actual app, not the dev-server preview, showing a stray native
-   * scrollbar). */
   overflow: hidden;
 }

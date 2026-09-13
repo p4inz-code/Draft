@@ -233,11 +233,22 @@
 
 .settings-segmented {
   display: inline-flex;
+  max-width: 100%;
   padding: 0.2rem;
   background: var(--draft-surface-2);
   border: 1px solid var(--draft-border);
   border-radius: var(--draft-radius-md);
   gap: 0.15rem;
+}
+
+/* The theme control's three options ("System"/"Light"/"Dark") are short
+ * enough to sit in a row; a control with longer labels (e.g. "Download
+ * automatically") needs to stack instead of overflowing the panel's fixed
+ * width — this modifier is for that case, applied per-control, not
+ * globally, so the short theme control keeps its compact row layout. */
+.settings-segmented--stack {
+  flex-direction: column;
+  width: 100%;
 }
 
 .settings-segmented-btn {
@@ -249,8 +260,15 @@
   background: transparent;
   color: var(--draft-text-muted);
   cursor: pointer;
+  white-space: normal;
+  text-align: center;
   transition: background-color var(--draft-transition-fast) var(--draft-ease), color
     var(--draft-transition-fast) var(--draft-ease);
+}
+
+.settings-segmented--stack .settings-segmented-btn {
+  width: 100%;
+  text-align: left;
 }
 
 .settings-segmented-btn:hover {

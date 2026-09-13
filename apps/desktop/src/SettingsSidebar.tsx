@@ -271,7 +271,10 @@ export function SettingsSidebar({ coreVersion }: SettingsSidebarProps) {
               <p className="settings-pane-desc">
                 Choose how DRAFT should handle a new version once automatic updates are set up.
               </p>
-              <div className="settings-segmented" aria-label="Update preference">
+              <div
+                className="settings-segmented settings-segmented--stack"
+                aria-label="Update preference"
+              >
                 <button
                   type="button"
                   aria-pressed={updatePreference === "ask"}

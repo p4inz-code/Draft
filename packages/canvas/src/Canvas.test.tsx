@@ -39,17 +39,25 @@ function firePointer(
   type: string,
   x: number,
   y: number,
-  opts: { shiftKey?: boolean } = {},
+  opts: { shiftKey?: boolean; movementX?: number; movementY?: number } = {},
 ) {
+  const { movementX, movementY, ...mouseEventOpts } = opts;
   const event = new MouseEvent(type, {
     clientX: x,
     clientY: y,
     button: 0,
     bubbles: true,
     cancelable: true,
-    ...opts,
+    ...mouseEventOpts,
   });
   Object.defineProperty(event, "pointerId", { value: 1, configurable: true });
+  // jsdom's MouseEvent constructor doesn't accept movementX/Y either — the
+  // pan handler (Canvas.tsx's handlePointerMove) reads them directly off the
+  // event, so a pan test needs them defined the same way pointerId is above.
+  if (movementX !== undefined)
+    Object.defineProperty(event, "movementX", { value: movementX, configurable: true });
+  if (movementY !== undefined)
+    Object.defineProperty(event, "movementY", { value: movementY, configurable: true });
   // fireEvent.* wraps its dispatch in act() so React flushes synchronously;
   // a raw dispatchEvent doesn't get that for free.
   act(() => {
@@ -915,6 +923,68 @@ describe("the Requirement tool", () => {
       "[satisfied] must not panic on empty freehand strokes",
     );
 
+    unmount();
+  });
+});
+
+describe("the Hand tool and Space-to-pan", () => {
+  it("pans the camera on a left-drag while the Hand tool is active, instead of drawing", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector("svg") as SVGSVGElement;
+    setTool("hand");
+
+    pointerDownAt(svg, 100, 100);
+    firePointer(svg, "pointermove", 130, 115, { movementX: 30, movementY: 15 });
+
+    const camera = useCanvasStore.getState().camera;
+    expect(camera.x).not.toBe(createCamera().x);
+    expect(camera.y).not.toBe(createCamera().y);
+    expect(Object.keys(useCanvasStore.getState().shapes)).toHaveLength(0);
+
+    unmount();
+  });
+
+  it("pans on a left-drag while Space is held, even with a drawing tool active", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector("svg") as SVGSVGElement;
+    setTool("rectangle");
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }));
+    pointerDownAt(svg, 100, 100);
+    firePointer(svg, "pointermove", 120, 100, { movementX: 20, movementY: 0 });
+
+    expect(useCanvasStore.getState().camera.x).not.toBe(createCamera().x);
+    expect(Object.keys(useCanvasStore.getState().shapes)).toHaveLength(0);
+
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "Space" }));
+    unmount();
+  });
+
+  it("stops panning and resumes the active tool once Space is released", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector("svg") as SVGSVGElement;
+    setTool("rectangle");
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }));
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "Space" }));
+    pointerDownAt(svg, 100, 100);
+
+    expect(Object.keys(useCanvasStore.getState().shapes)).toHaveLength(1);
+
+    unmount();
+  });
+
+  it("ignores Space while typing in a text field, so it still types a literal space", () => {
+    const { unmount } = render(<Canvas />);
+    const textarea = document.createElement("textarea");
+    document.body.appendChild(textarea);
+    textarea.focus();
+
+    const event = new KeyboardEvent("keydown", { code: "Space", bubbles: true });
+    const prevented = !textarea.dispatchEvent(event);
+
+    expect(prevented).toBe(false);
+    document.body.removeChild(textarea);
     unmount();
   });
 });

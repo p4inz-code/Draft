@@ -31,7 +31,8 @@ export type Tool =
   | "line"
   | "freehand"
   | "eraser"
-  | "requirement";
+  | "requirement"
+  | "hand";
 
 /**
  * Number-key shortcuts, one per tool, in the same left-to-right order the
@@ -68,6 +69,7 @@ export const LETTER_KEY_TOOLS: Record<string, Tool> = {
   a: "arrow",
   p: "freehand",
   e: "eraser",
+  h: "hand",
 };
 
 interface HistoryEntry {

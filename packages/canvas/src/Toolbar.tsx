@@ -17,6 +17,7 @@ const TOOL_LABELS: Record<Tool, string> = {
   freehand: "Draw",
   eraser: "Eraser",
   requirement: "Requirement",
+  hand: "Hand",
 };
 
 /** Illustrator-style tool groups: the drawing-tool row collapses each of
@@ -44,6 +45,7 @@ const TOOLBAR_SLOTS: ToolbarSlot[] = [
   { kind: "group", group: TOOL_GROUPS[1] },
   { kind: "tool", tool: "requirement" },
   { kind: "tool", tool: "eraser" },
+  { kind: "tool", tool: "hand" },
 ];
 
 /** How long a slot must be held before it counts as "hold" (opens the
@@ -450,7 +452,7 @@ export function Toolbar() {
     <div
       className={dockClass}
       onPointerEnter={revive}
-      title="Tip: middle-mouse-drag pans regardless of the active tool"
+      title="Tip: middle-mouse-drag or hold Space to pan regardless of the active tool"
     >
       <div className="draft-toolbar-island" role="toolbar" aria-label="Draw tools">
         {TOOLBAR_SLOTS.map((slot) => {

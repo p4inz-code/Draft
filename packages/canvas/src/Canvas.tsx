@@ -103,6 +103,13 @@ export function Canvas() {
   const [drag, setDrag] = useState<DragState>({ kind: "none" });
   const [marqueeRect, setMarqueeRect] = useState<{ x: Point; y: Point } | null>(null);
   const [editingTextId, setEditingTextId] = useState<ObjectId | null>(null);
+  // Holding Space temporarily pans regardless of the active tool — the same
+  // Figma/Adobe convention as the dedicated Hand tool, just momentary
+  // instead of a persistent tool switch. Read via the ref inside pointer
+  // handlers (same staleness reasoning as `dragRef`); the state copy only
+  // drives the cursor style.
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const spaceHeldRef = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
   // In-memory clipboard (not the OS clipboard — copying a shape isn't text,
   // and this avoids the async permission dance of the real Clipboard API
@@ -273,7 +280,12 @@ export function Canvas() {
       // e.key === "z", not "Control"), so skipping this is always safe.
       const isBareModifierKey =
         e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta";
-      if (!isBareModifierKey) finishActiveDrag();
+      // Space is held-to-pan (like Shift's constrain above), so the browser's
+      // key-repeat while it's held fires a fresh keydown roughly 30x/second —
+      // without this, one of those repeats would call finishActiveDrag() and
+      // cancel the in-progress pan drag before the pointer was ever released.
+      const isSpaceRepeat = e.code === "Space" && e.repeat;
+      if (!isBareModifierKey && !isSpaceRepeat) finishActiveDrag();
 
       const numberedTool = NUMBER_KEY_TOOLS[e.key];
       const letterTool = LETTER_KEY_TOOLS[e.key.toLowerCase()];
@@ -398,6 +410,32 @@ export function Canvas() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [store]);
 
+  useEffect(() => {
+    function isEditableTarget(target: EventTarget | null) {
+      return (
+        target instanceof HTMLElement &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+      );
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.code !== "Space" || e.repeat || isEditableTarget(e.target)) return;
+      e.preventDefault();
+      spaceHeldRef.current = true;
+      setSpaceHeld(true);
+    }
+    function onKeyUp(e: KeyboardEvent) {
+      if (e.code !== "Space") return;
+      spaceHeldRef.current = false;
+      setSpaceHeld(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+
   const worldPointFromEvent = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => screenToWorld(camera, screenPointFromEvent(e)),
     [camera],
@@ -443,7 +481,7 @@ export function Canvas() {
     const world = worldPointFromEvent(e);
     const state = store.getState();
 
-    if (e.button === 1) {
+    if (e.button === 1 || tool === "hand" || spaceHeldRef.current) {
       e.currentTarget.setPointerCapture(e.pointerId);
       updateDrag({ kind: "pan" });
       return;
@@ -708,7 +746,15 @@ export function Canvas() {
   // a point" — showing crosshair unconditionally (the previous behavior)
   // made the select tool look like it was in some kind of drawing mode even
   // when it wasn't doing anything unusual.
-  const cursor = tool === "select" ? "default" : "crosshair";
+  const isPanning = drag.kind === "pan";
+  const cursor =
+    tool === "hand" || spaceHeld
+      ? isPanning
+        ? "grabbing"
+        : "grab"
+      : tool === "select"
+        ? "default"
+        : "crosshair";
 
   return (
     <div className="draft-canvas-wrapper">

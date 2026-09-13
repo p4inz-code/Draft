@@ -1,15 +1,17 @@
-/* A docked edge sidebar, not a modal — fixed to the right edge, vertically
- * centered, matching the floating toolbar's own "a control surface that
- * lives on the canvas, not blocking it" convention rather than a blocking
- * overlay. */
+/* A docked edge panel, not a modal — flush to the top-right corner of the
+ * canvas area and spanning its full height, the same "properties panel"
+ * placement Figma's own right dock uses (anchored to the content area, not
+ * floating/centered over it). `.app-canvas` (App.css) is the positioned
+ * ancestor, already excluding the titlebar's own height. */
 .settings-sidebar-dock {
-  position: fixed;
-  top: 50%;
+  position: absolute;
+  top: 0;
   right: 0;
-  transform: translateY(-50%);
+  bottom: 0;
   display: flex;
   align-items: stretch;
   z-index: 50;
+  pointer-events: none;
 }
 
 .settings-sidebar-handle {
@@ -28,6 +30,7 @@
   color: var(--draft-text-muted);
   cursor: pointer;
   box-shadow: var(--draft-shadow-sm);
+  pointer-events: auto;
   transition: color var(--draft-transition-fast) var(--draft-ease), background-color
     var(--draft-transition-fast) var(--draft-ease);
 }
@@ -44,17 +47,16 @@
 
 .settings-sidebar-panel {
   display: flex;
-  width: 340px;
-  height: 460px;
-  max-height: calc(100vh - 4rem);
+  width: 300px;
+  align-self: stretch;
   background: var(--draft-surface);
-  border: 1px solid var(--draft-border);
-  border-radius: var(--draft-radius-lg) 0 0 var(--draft-radius-lg);
+  border-left: 1px solid var(--draft-border);
   box-shadow: var(--draft-shadow-lg);
   color: var(--draft-text);
   overflow: hidden;
   transform: translateX(100%);
   transition: transform 220ms var(--draft-ease);
+  pointer-events: auto;
 }
 
 .settings-sidebar-dock.is-open .settings-sidebar-panel {
@@ -205,6 +207,28 @@
   margin: 0.4rem 0 0;
   overflow-x: auto;
   color: var(--draft-text);
+}
+
+.settings-check-updates {
+  font-family: inherit;
+  font-size: 0.76rem;
+  padding: 0.4rem 0.8rem;
+  margin-top: 0.9rem;
+  border: 1px solid var(--draft-border);
+  border-radius: var(--draft-radius-sm);
+  background: var(--draft-surface-2);
+  color: var(--draft-text);
+  cursor: pointer;
+  transition: border-color var(--draft-transition-fast) var(--draft-ease);
+}
+
+.settings-check-updates:hover {
+  border-color: var(--draft-accent);
+}
+
+.settings-check-updates:focus-visible {
+  outline: 2px solid var(--draft-accent);
+  outline-offset: 1px;
 }
 
 .settings-segmented {

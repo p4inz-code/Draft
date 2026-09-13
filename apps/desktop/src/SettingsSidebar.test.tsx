@@ -87,4 +87,21 @@ describe("SettingsSidebar", () => {
     expect(getByText("About DRAFT")).toBeTruthy();
     expect(getByText("0.1.0")).toBeTruthy();
   });
+
+  it("persists the update preference and honestly reports checks aren't wired up yet", () => {
+    localStorage.clear();
+    const { container, getByText } = render(<SettingsSidebar coreVersion="0.1.0" />);
+    fireEvent.click(handle(container));
+    fireEvent.click(getByText("Updates"));
+
+    // Defaults to "Ask first" when nothing is stored.
+    expect(getByText("Ask first").getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(getByText("Download automatically"));
+    expect(getByText("Download automatically").getAttribute("aria-pressed")).toBe("true");
+    expect(localStorage.getItem("draft.updatePreference")).toBe("auto");
+
+    fireEvent.click(getByText("Check for updates"));
+    expect(getByText(/aren't set up yet/)).toBeTruthy();
+  });
 });

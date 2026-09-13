@@ -8,7 +8,7 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "dark", label: "Dark" },
 ];
 
-type SectionKey = "appearance" | "agents" | "about";
+type SectionKey = "appearance" | "agents" | "updates" | "about";
 
 /** Feather Icons (feather.dev, MIT) path data, inlined the same way
  * packages/canvas/src/ToolIcons.tsx does — see its own doc comment for why. */
@@ -62,6 +62,18 @@ const SECTIONS: { key: SectionKey; label: string; icon: ReactElement }[] = [
     ),
   },
   {
+    key: "updates",
+    label: "Updates",
+    // Feather "download-cloud"
+    icon: (
+      <svg {...ICON_PROPS} aria-hidden="true">
+        <polyline points="8 17 12 21 16 17" />
+        <line x1="12" y1="12" x2="12" y2="21" />
+        <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+      </svg>
+    ),
+  },
+  {
     key: "about",
     label: "About",
     // Feather "info"
@@ -74,6 +86,18 @@ const SECTIONS: { key: SectionKey; label: string; icon: ReactElement }[] = [
     ),
   },
 ];
+
+export type UpdatePreference = "ask" | "auto";
+const UPDATE_PREFERENCE_KEY = "draft.updatePreference";
+
+function getStoredUpdatePreference(): UpdatePreference {
+  try {
+    const stored = localStorage.getItem(UPDATE_PREFERENCE_KEY);
+    return stored === "auto" ? "auto" : "ask";
+  } catch {
+    return "ask";
+  }
+}
 
 /** How long with no interaction before the open sidebar auto-collapses back
  * to just its edge handle — matches the floating toolbar's own idle-fade
@@ -96,7 +120,32 @@ export function SettingsSidebar({ coreVersion }: SettingsSidebarProps) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<SectionKey>("appearance");
   const [theme, setTheme] = useTheme();
+  const [updatePreference, setUpdatePreferenceState] =
+    useState<UpdatePreference>(getStoredUpdatePreference);
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function setUpdatePreference(next: UpdatePreference) {
+    setUpdatePreferenceState(next);
+    try {
+      localStorage.setItem(UPDATE_PREFERENCE_KEY, next);
+    } catch {
+      // Best-effort persistence only — the choice still applies for this session.
+    }
+  }
+
+  function checkForUpdates() {
+    // Honest placeholder, not a fake check: a real update check needs a
+    // signed release manifest this project doesn't host yet (see
+    // ROADMAP.md's Known Issues — tauri-plugin-updater requires a signing
+    // keypair and a hosted latest.json, neither of which exist). The
+    // preference above is real and will take effect the moment that
+    // exists; faking a "you're up to date" result here would be lying
+    // about a check that never happened.
+    setUpdateStatus(
+      "Automatic update checks aren't set up yet — see About for the current version.",
+    );
+  }
 
   /** (Re)starts the auto-collapse countdown — called once when the sidebar
    * opens, and again on every interaction inside it while open, matching
@@ -213,6 +262,42 @@ export function SettingsSidebar({ coreVersion }: SettingsSidebarProps) {
               <p className="settings-hint">
                 Then point your client's config at the resulting binary.
               </p>
+            </section>
+          )}
+
+          {active === "updates" && (
+            <section className="settings-pane">
+              <h2 className="settings-pane-title">Updates</h2>
+              <p className="settings-pane-desc">
+                Choose how DRAFT should handle a new version once automatic updates are set up.
+              </p>
+              <div className="settings-segmented" aria-label="Update preference">
+                <button
+                  type="button"
+                  aria-pressed={updatePreference === "ask"}
+                  className={`settings-segmented-btn${updatePreference === "ask" ? " is-active" : ""}`}
+                  onClick={() => setUpdatePreference("ask")}
+                >
+                  Ask first
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={updatePreference === "auto"}
+                  className={`settings-segmented-btn${updatePreference === "auto" ? " is-active" : ""}`}
+                  onClick={() => setUpdatePreference("auto")}
+                >
+                  Download automatically
+                </button>
+              </div>
+              <p className="settings-hint">
+                "Ask first" notifies you and waits for confirmation before downloading; "Download
+                automatically" fetches a new version in the background and asks only before
+                installing it.
+              </p>
+              <button type="button" className="settings-check-updates" onClick={checkForUpdates}>
+                Check for updates
+              </button>
+              {updateStatus && <p className="settings-hint">{updateStatus}</p>}
             </section>
           )}
 

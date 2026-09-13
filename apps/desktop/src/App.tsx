@@ -296,8 +296,8 @@ function App() {
       <div className="app-canvas">
         <Canvas />
         <Toolbar />
+        <SettingsSidebar coreVersion={coreVersion} />
       </div>
-      <SettingsSidebar coreVersion={coreVersion} />
     </div>
   );
 }

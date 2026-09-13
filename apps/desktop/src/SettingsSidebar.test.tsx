@@ -74,25 +74,32 @@ describe("SettingsSidebar", () => {
     expect(dock(container).className).not.toMatch(/is-open/);
   });
 
-  it("switching sections shows that section's content", () => {
+  it("shows every section's content by default, all expanded like Figma's own panel", () => {
     const { container, getByText } = render(<SettingsSidebar coreVersion="0.1.0" />);
     fireEvent.click(handle(container));
 
     expect(getByText("Choose how DRAFT looks on this device.")).toBeTruthy();
+    expect(getByText("Live access — already on")).toBeTruthy();
+    expect(getByText("Check for updates")).toBeTruthy();
+    expect(getByText("0.1.0")).toBeTruthy();
+  });
+
+  it("collapses and re-expands a section's body when its header is clicked", () => {
+    const { container, getByText, queryByText } = render(<SettingsSidebar coreVersion="0.1.0" />);
+    fireEvent.click(handle(container));
+    expect(getByText("Live access — already on")).toBeTruthy();
 
     fireEvent.click(getByText("Agents"));
-    expect(getByText("Connect an agent")).toBeTruthy();
+    expect(queryByText("Live access — already on")).toBeNull();
 
-    fireEvent.click(getByText("About"));
-    expect(getByText("About DRAFT")).toBeTruthy();
-    expect(getByText("0.1.0")).toBeTruthy();
+    fireEvent.click(getByText("Agents"));
+    expect(getByText("Live access — already on")).toBeTruthy();
   });
 
   it("persists the update preference and honestly reports checks aren't wired up yet", () => {
     localStorage.clear();
     const { container, getByText } = render(<SettingsSidebar coreVersion="0.1.0" />);
     fireEvent.click(handle(container));
-    fireEvent.click(getByText("Updates"));
 
     // Defaults to "Ask first" when nothing is stored.
     expect(getByText("Ask first").getAttribute("aria-pressed")).toBe("true");

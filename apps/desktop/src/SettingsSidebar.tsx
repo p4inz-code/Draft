@@ -87,6 +87,8 @@ const SECTIONS: { key: SectionKey; label: string; icon: ReactElement }[] = [
   },
 ];
 
+const ALL_SECTION_KEYS = SECTIONS.map((s) => s.key);
+
 export type UpdatePreference = "ask" | "auto";
 const UPDATE_PREFERENCE_KEY = "draft.updatePreference";
 
@@ -113,17 +115,29 @@ interface SettingsSidebarProps {
  * sits fixed to the right edge; opening slides the full panel out from under
  * it. Auto-collapses after IDLE_MS of no interaction, the same fade
  * discipline the floating toolbar already uses, so a settings surface left
- * open doesn't just sit there permanently covering canvas. Still a scaffold
- * underneath (three sections today; more land here in future versions).
+ * open doesn't just sit there permanently covering canvas.
+ *
+ * Laid out like Figma's own right-hand panel: one scrollable column of
+ * stacked, individually collapsible sections (no separate icon nav rail) —
+ * each section is its own disclosure, all expanded by default.
  */
 export function SettingsSidebar({ coreVersion }: SettingsSidebarProps) {
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState<SectionKey>("appearance");
+  const [expanded, setExpanded] = useState<Set<SectionKey>>(() => new Set(ALL_SECTION_KEYS));
   const [theme, setTheme] = useTheme();
   const [updatePreference, setUpdatePreferenceState] =
     useState<UpdatePreference>(getStoredUpdatePreference);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function toggleSection(key: SectionKey) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   function setUpdatePreference(next: UpdatePreference) {
     setUpdatePreferenceState(next);
@@ -194,132 +208,157 @@ export function SettingsSidebar({ coreVersion }: SettingsSidebarProps) {
       </button>
 
       <div className="settings-sidebar-panel" aria-hidden={!open}>
-        <nav className="settings-sidebar-nav" aria-label="Settings sections">
-          <div className="settings-sidebar-title">Settings</div>
-          {SECTIONS.map((section) => (
-            <button
-              key={section.key}
-              type="button"
-              tabIndex={open ? 0 : -1}
-              className={`settings-nav-item${active === section.key ? " is-active" : ""}`}
-              aria-current={active === section.key}
-              onClick={() => setActive(section.key)}
-            >
-              <span className="settings-nav-icon">{section.icon}</span>
-              {section.label}
-            </button>
-          ))}
-        </nav>
+        <div className="settings-panel-header">
+          <span className="settings-panel-title">Settings</span>
+        </div>
 
         <div className="settings-sidebar-content">
-          {active === "appearance" && (
-            <section className="settings-pane">
-              <h2 className="settings-pane-title">Appearance</h2>
-              <p className="settings-pane-desc">Choose how DRAFT looks on this device.</p>
-              <div className="settings-segmented" aria-label="Theme">
-                {THEME_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    tabIndex={open ? 0 : -1}
-                    aria-pressed={theme === option.value}
-                    className={`settings-segmented-btn${theme === option.value ? " is-active" : ""}`}
-                    onClick={() => setTheme(option.value)}
+          {SECTIONS.map((section) => {
+            const isExpanded = expanded.has(section.key);
+            return (
+              <section className="settings-section" key={section.key}>
+                <button
+                  type="button"
+                  className="settings-section-header"
+                  tabIndex={open ? 0 : -1}
+                  aria-expanded={isExpanded}
+                  onClick={() => toggleSection(section.key)}
+                >
+                  <span className="settings-section-icon">{section.icon}</span>
+                  <span className="settings-section-label">{section.label}</span>
+                  {/* Feather "chevron-down", rotated via CSS when collapsed */}
+                  <svg
+                    {...ICON_PROPS}
+                    width={13}
+                    height={13}
+                    className="settings-section-chevron"
+                    aria-hidden="true"
                   >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <p className="settings-hint">
-                "System" follows your OS's light/dark setting; the other two override it for this
-                app only.
-              </p>
-            </section>
-          )}
-
-          {active === "agents" && (
-            <section className="settings-pane">
-              <h2 className="settings-pane-title">Connect an agent</h2>
-              <div className="settings-card settings-card-live">
-                <span className="settings-card-dot" aria-hidden="true" />
-                <div>
-                  <p className="settings-card-title">Live access — already on</p>
-                  <p className="settings-card-body">
-                    Any agent you've granted access to (see "Agent access" in the titlebar) can
-                    read/write this canvas the moment it's open — nothing to configure.
-                  </p>
-                </div>
-              </div>
-              <p className="settings-pane-desc" style={{ marginTop: "1.1rem" }}>
-                To connect a standard MCP client (Claude Desktop, Claude Code, Codex CLI, and
-                others) to a saved project directly, point it at the <code>draft-mcp</code> command
-                with your project's folder as the one argument.
-              </p>
-              <p className="settings-hint">
-                This build doesn't bundle that binary in the installer yet — build it from source:
-              </p>
-              <pre className="settings-code">cargo build --release -p draft-mcp</pre>
-              <p className="settings-hint">
-                Then point your client's config at the resulting binary.
-              </p>
-            </section>
-          )}
-
-          {active === "updates" && (
-            <section className="settings-pane">
-              <h2 className="settings-pane-title">Updates</h2>
-              <p className="settings-pane-desc">
-                Choose how DRAFT should handle a new version once automatic updates are set up.
-              </p>
-              <div
-                className="settings-segmented settings-segmented--stack"
-                aria-label="Update preference"
-              >
-                <button
-                  type="button"
-                  aria-pressed={updatePreference === "ask"}
-                  className={`settings-segmented-btn${updatePreference === "ask" ? " is-active" : ""}`}
-                  onClick={() => setUpdatePreference("ask")}
-                >
-                  Ask first
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
                 </button>
-                <button
-                  type="button"
-                  aria-pressed={updatePreference === "auto"}
-                  className={`settings-segmented-btn${updatePreference === "auto" ? " is-active" : ""}`}
-                  onClick={() => setUpdatePreference("auto")}
-                >
-                  Download automatically
-                </button>
-              </div>
-              <p className="settings-hint">
-                "Ask first" notifies you and waits for confirmation before downloading; "Download
-                automatically" fetches a new version in the background and asks only before
-                installing it.
-              </p>
-              <button type="button" className="settings-check-updates" onClick={checkForUpdates}>
-                Check for updates
-              </button>
-              {updateStatus && <p className="settings-hint">{updateStatus}</p>}
-            </section>
-          )}
 
-          {active === "about" && (
-            <section className="settings-pane">
-              <h2 className="settings-pane-title">About DRAFT</h2>
-              <dl className="settings-kv">
-                <dt>Version</dt>
-                <dd>{coreVersion ?? "…"}</dd>
-                <dt>License</dt>
-                <dd>Free forever, source-available</dd>
-              </dl>
-              <p className="settings-pane-desc" style={{ marginTop: "1.1rem" }}>
-                DRAFT is free to use for any purpose, with no subscription and no paid tier — the
-                source stays visible for trust, without a future paywall.
-              </p>
-              <p className="settings-hint">More settings will be added in future versions.</p>
-            </section>
-          )}
+                {isExpanded && (
+                  <div className="settings-section-body">
+                    {section.key === "appearance" && (
+                      <>
+                        <p className="settings-pane-desc">Choose how DRAFT looks on this device.</p>
+                        <div className="settings-segmented" aria-label="Theme">
+                          {THEME_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              tabIndex={open ? 0 : -1}
+                              aria-pressed={theme === option.value}
+                              className={`settings-segmented-btn${theme === option.value ? " is-active" : ""}`}
+                              onClick={() => setTheme(option.value)}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="settings-hint">
+                          "System" follows your OS's light/dark setting; the other two override it
+                          for this app only.
+                        </p>
+                      </>
+                    )}
+
+                    {section.key === "agents" && (
+                      <>
+                        <div className="settings-card settings-card-live">
+                          <span className="settings-card-dot" aria-hidden="true" />
+                          <div>
+                            <p className="settings-card-title">Live access — already on</p>
+                            <p className="settings-card-body">
+                              Any agent you've granted access to (see "Agent access" in the
+                              titlebar) can read/write this canvas the moment it's open — nothing to
+                              configure.
+                            </p>
+                          </div>
+                        </div>
+                        <p className="settings-pane-desc" style={{ marginTop: "0.9rem" }}>
+                          To connect a standard MCP client (Claude Desktop, Claude Code, Codex CLI,
+                          and others) to a saved project directly, point it at the{" "}
+                          <code>draft-mcp</code> command with your project's folder as the one
+                          argument.
+                        </p>
+                        <p className="settings-hint">
+                          This build doesn't bundle that binary in the installer yet — build it from
+                          source:
+                        </p>
+                        <pre className="settings-code">cargo build --release -p draft-mcp</pre>
+                        <p className="settings-hint">
+                          Then point your client's config at the resulting binary.
+                        </p>
+                      </>
+                    )}
+
+                    {section.key === "updates" && (
+                      <>
+                        <p className="settings-pane-desc">
+                          Choose how DRAFT should handle a new version once automatic updates are
+                          set up.
+                        </p>
+                        <div
+                          className="settings-segmented settings-segmented--stack"
+                          aria-label="Update preference"
+                        >
+                          <button
+                            type="button"
+                            aria-pressed={updatePreference === "ask"}
+                            className={`settings-segmented-btn${updatePreference === "ask" ? " is-active" : ""}`}
+                            onClick={() => setUpdatePreference("ask")}
+                          >
+                            Ask first
+                          </button>
+                          <button
+                            type="button"
+                            aria-pressed={updatePreference === "auto"}
+                            className={`settings-segmented-btn${updatePreference === "auto" ? " is-active" : ""}`}
+                            onClick={() => setUpdatePreference("auto")}
+                          >
+                            Download automatically
+                          </button>
+                        </div>
+                        <p className="settings-hint">
+                          "Ask first" notifies you and waits for confirmation before downloading;
+                          "Download automatically" fetches a new version in the background and asks
+                          only before installing it.
+                        </p>
+                        <button
+                          type="button"
+                          className="settings-check-updates"
+                          onClick={checkForUpdates}
+                        >
+                          Check for updates
+                        </button>
+                        {updateStatus && <p className="settings-hint">{updateStatus}</p>}
+                      </>
+                    )}
+
+                    {section.key === "about" && (
+                      <>
+                        <dl className="settings-kv">
+                          <dt>Version</dt>
+                          <dd>{coreVersion ?? "…"}</dd>
+                          <dt>License</dt>
+                          <dd>Free forever, source-available</dd>
+                        </dl>
+                        <p className="settings-pane-desc" style={{ marginTop: "0.9rem" }}>
+                          DRAFT is free to use for any purpose, with no subscription and no paid
+                          tier — the source stays visible for trust, without a future paywall.
+                        </p>
+                        <p className="settings-hint">
+                          More settings will be added in future versions.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -67,70 +67,94 @@
   transform: translateX(0);
 }
 
-.settings-sidebar-nav {
-  width: 128px;
+/* A slim, single-line strip — not a bordered nav rail — since the panel
+ * itself has no separate section-switcher any more (see `.settings-section`
+ * below): each section is its own disclosure in one scrollable column, the
+ * same shape Figma's own right-hand panel uses instead of a left icon rail. */
+.settings-panel-header {
   flex-shrink: 0;
-  background: var(--draft-surface-2);
-  border-right: 1px solid var(--draft-border);
-  padding: 0.8rem 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--draft-border);
 }
 
-.settings-sidebar-title {
-  font-size: 0.68rem;
+.settings-panel-title {
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--draft-text-muted);
-  padding: 0.2rem 0.5rem 0.6rem;
 }
 
-.settings-nav-item {
+.settings-section {
+  border-bottom: 1px solid var(--draft-border);
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+}
+
+.settings-section-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
   font-family: inherit;
-  font-size: 0.78rem;
-  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.65rem 0.9rem;
   border: none;
-  border-radius: var(--draft-radius-sm);
   background: transparent;
-  color: var(--draft-text-muted);
+  color: var(--draft-text);
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--draft-transition-fast) var(--draft-ease), color
-    var(--draft-transition-fast) var(--draft-ease);
+  transition: background-color var(--draft-transition-fast) var(--draft-ease);
 }
 
-.settings-nav-icon {
+.settings-section-header:hover {
+  background: var(--draft-surface-2);
+}
+
+.settings-section-header:focus-visible {
+  outline: 2px solid var(--draft-accent);
+  outline-offset: -2px;
+}
+
+.settings-section-icon {
   display: flex;
-  color: currentColor;
-  opacity: 0.85;
+  color: var(--draft-text-muted);
   flex-shrink: 0;
 }
 
-.settings-nav-item:hover {
-  background: var(--draft-surface-3);
-  color: var(--draft-text);
+.settings-section-label {
+  flex: 1;
+  min-width: 0;
 }
 
-.settings-nav-item.is-active {
-  background: color-mix(in srgb, var(--draft-accent) 14%, transparent);
-  color: var(--draft-accent);
+.settings-section-chevron {
+  flex-shrink: 0;
+  color: var(--draft-text-muted);
+  transition: transform var(--draft-transition-fast) var(--draft-ease);
 }
 
-.settings-nav-item:focus-visible {
-  outline: 2px solid var(--draft-accent);
-  outline-offset: -2px;
+.settings-section-header[aria-expanded="false"] .settings-section-chevron {
+  transform: rotate(-90deg);
+}
+
+.settings-section-body {
+  padding: 0 0.9rem 0.9rem;
+  animation: settings-section-body-in var(--draft-transition-fast) var(--draft-ease);
+}
+
+@keyframes settings-section-body-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
 }
 
 .settings-sidebar-content {
   flex: 1;
   min-width: 0;
-  padding: 1.3rem 1.4rem;
   overflow-y: auto;
   /* A thin, theme-colored scrollbar instead of the OS default — this panel
    * is small enough that a full-width native scrollbar reads as a jarring,
@@ -158,23 +182,6 @@
 
 .settings-sidebar-content::-webkit-scrollbar-thumb:hover {
   background-color: var(--draft-text-muted);
-}
-
-.settings-pane {
-  animation: settings-pane-in var(--draft-transition-fast) var(--draft-ease);
-}
-
-@keyframes settings-pane-in {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-}
-
-.settings-pane-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  margin: 0 0 0.3rem;
 }
 
 .settings-pane-desc {

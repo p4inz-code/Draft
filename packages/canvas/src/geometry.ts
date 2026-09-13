@@ -100,6 +100,15 @@ export function shapeBounds(shape: Shape): Bounds {
       }
       return { minX, minY, maxX, maxY };
     }
+    case "requirement":
+      // A fixed-size hit box around its pin — it has no width/height of its
+      // own, unlike every drawing shape above.
+      return {
+        minX: shape.x - 10,
+        minY: shape.y - 10,
+        maxX: shape.x + 10,
+        maxY: shape.y + 10,
+      };
   }
 }
 

@@ -16,6 +16,7 @@ const TOOL_LABELS: Record<Tool, string> = {
   arrow: "Arrow",
   freehand: "Draw",
   eraser: "Eraser",
+  requirement: "Requirement",
 };
 
 /** Illustrator-style tool groups: the drawing-tool row collapses each of
@@ -41,6 +42,7 @@ const TOOLBAR_SLOTS: ToolbarSlot[] = [
   { kind: "group", group: TOOL_GROUPS[0] },
   { kind: "tool", tool: "text" },
   { kind: "group", group: TOOL_GROUPS[1] },
+  { kind: "tool", tool: "requirement" },
   { kind: "tool", tool: "eraser" },
 ];
 

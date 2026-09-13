@@ -76,6 +76,13 @@ export function ToolIcon({ tool }: { tool: Tool }) {
           <path d="M6 9 9.5 12.5" />
         </svg>
       );
+    case "requirement":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M4 13V2.5" />
+          <path d="M4 2.5h7l-2 2.5 2 2.5H4" fill="currentColor" stroke="none" />
+        </svg>
+      );
     default:
       return null;
   }

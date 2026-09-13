@@ -30,7 +30,8 @@ export type Tool =
   | "arrow"
   | "line"
   | "freehand"
-  | "eraser";
+  | "eraser"
+  | "requirement";
 
 /**
  * Number-key shortcuts, one per tool, in the same left-to-right order the

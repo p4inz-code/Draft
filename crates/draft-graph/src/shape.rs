@@ -10,6 +10,7 @@
 //! stays deferred per `docs/project-graph.md` — those layer meaning onto
 //! objects, they aren't object kinds themselves.
 
+use draft_core::ObjectId;
 use serde::{Deserialize, Serialize};
 
 /// Fields every known shape kind carries, flattened into each variant's
@@ -147,6 +148,35 @@ pub enum KnownShape {
         #[serde(rename = "mediaKind", default, skip_serializing_if = "Option::is_none")]
         media_kind: Option<MediaKind>,
     },
+    /// The semantic taxonomy's first slice (see `docs/specs/requirement-shape.md`):
+    /// a first-class, agent-writable object marking that a named requirement
+    /// exists and is (or isn't) satisfied — not a drawing shape, but a real
+    /// canvas object with its own position, so it renders and can be
+    /// selected/moved/deleted like any other. `linked_object_ids` names which
+    /// drawing shapes this requirement constrains; intentionally *not*
+    /// validated against the page's current object set here (see the spec's
+    /// open question) — nothing else in this crate does cross-object
+    /// referential-integrity checks, and a dangling reference (the linked
+    /// shape was since deleted) is a state a reader tolerates, not a write
+    /// this crate rejects.
+    Requirement {
+        #[serde(flatten)]
+        base: ShapeBase,
+        status: RequirementStatus,
+        description: String,
+        #[serde(rename = "linkedObjectIds", default)]
+        linked_object_ids: Vec<ObjectId>,
+    },
+}
+
+/// Two states for v1 (see the spec's open question about whether this is
+/// enough) — deliberately not a richer workflow (in-progress, blocked, ...)
+/// until real usage shows two states aren't sufficient.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementStatus {
+    Open,
+    Satisfied,
 }
 
 /// The only variant today is `Video` — an imported still image has no
@@ -181,6 +211,7 @@ const KNOWN_KINDS: &[&str] = &[
     "arrow",
     "freehand",
     "image",
+    "requirement",
 ];
 
 impl KnownShape {
@@ -193,7 +224,8 @@ impl KnownShape {
             | KnownShape::Text { base, .. }
             | KnownShape::Arrow { base, .. }
             | KnownShape::Freehand { base, .. }
-            | KnownShape::Image { base, .. } => base,
+            | KnownShape::Image { base, .. }
+            | KnownShape::Requirement { base, .. } => base,
         }
     }
 
@@ -206,7 +238,8 @@ impl KnownShape {
             | KnownShape::Text { base, .. }
             | KnownShape::Arrow { base, .. }
             | KnownShape::Freehand { base, .. }
-            | KnownShape::Image { base, .. } => base,
+            | KnownShape::Image { base, .. }
+            | KnownShape::Requirement { base, .. } => base,
         }
     }
 
@@ -274,7 +307,9 @@ impl KnownShape {
             | KnownShape::Diamond { width, height, .. }
             | KnownShape::Image { width, height, .. } => Some((*width, *height)),
             KnownShape::Line { dx, dy, .. } | KnownShape::Arrow { dx, dy, .. } => Some((*dx, *dy)),
-            KnownShape::Text { .. } | KnownShape::Freehand { .. } => None,
+            KnownShape::Text { .. }
+            | KnownShape::Freehand { .. }
+            | KnownShape::Requirement { .. } => None,
         };
         if let Some((a, b)) = dims {
             if !a.is_finite() || !b.is_finite() {
@@ -623,6 +658,64 @@ mod tests {
         let err = serde_json::from_str::<Shape>(
             r#"{"kind": "freehand", "x": 0.0, "y": 0.0, "points": [[1e400, 0.0]]}"#,
         )
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn requirement_round_trips_with_its_linked_objects() {
+        let linked = ObjectId::new();
+        let shape = roundtrip(serde_json::json!({
+            "kind": "requirement", "x": 0.0, "y": 0.0,
+            "status": "open", "description": "must handle empty freehand strokes",
+            "linkedObjectIds": [linked.to_string()],
+        }));
+        match shape {
+            Shape::Known(KnownShape::Requirement {
+                status,
+                description,
+                linked_object_ids,
+                ..
+            }) => {
+                assert_eq!(status, RequirementStatus::Open);
+                assert_eq!(description, "must handle empty freehand strokes");
+                assert_eq!(linked_object_ids, vec![linked]);
+            }
+            other => panic!("expected a Requirement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn requirement_defaults_to_no_linked_objects_when_absent() {
+        let shape = roundtrip(serde_json::json!({
+            "kind": "requirement", "x": 0.0, "y": 0.0,
+            "status": "satisfied", "description": "no links yet"
+        }));
+        match shape {
+            Shape::Known(KnownShape::Requirement {
+                linked_object_ids, ..
+            }) => assert!(linked_object_ids.is_empty()),
+            other => panic!("expected a Requirement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_malformed_requirement_status_is_rejected() {
+        let err = serde_json::from_value::<Shape>(serde_json::json!({
+            "kind": "requirement", "x": 0.0, "y": 0.0,
+            "status": "in_progress", "description": "not one of the two known states"
+        }))
+        .unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn a_malformed_linked_object_id_is_rejected() {
+        let err = serde_json::from_value::<Shape>(serde_json::json!({
+            "kind": "requirement", "x": 0.0, "y": 0.0,
+            "status": "open", "description": "bad link",
+            "linkedObjectIds": ["not-a-real-object-id"],
+        }))
         .unwrap_err();
         assert!(!err.to_string().is_empty());
     }

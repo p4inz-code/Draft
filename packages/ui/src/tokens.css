@@ -30,6 +30,7 @@
    * passes comfortably in both modes rather than only one. */
   --draft-accent-contrast: #0d0d14;
   --draft-danger: #e5484d;
+  --draft-good: #1f9d6e;
   /* Glassmorphic HUD surfaces (titlebar, floating toolbar) — a translucent
    * version of --draft-surface (an elevated panel color), NOT --draft-bg
    * (the canvas's own background): the whole point of these surfaces is to
@@ -60,6 +61,7 @@
     --draft-accent: #0ea5e9;
     --draft-accent-contrast: #0d0d14;
     --draft-danger: #e5484d;
+    --draft-good: #1f9d6e;
     --draft-overlay: rgba(22, 22, 31, 0.75);
   }
 }
@@ -77,6 +79,7 @@
   --draft-accent: #0ea5e9;
   --draft-accent-contrast: #0d0d14;
   --draft-danger: #e5484d;
+  --draft-good: #1f9d6e;
   --draft-overlay: rgba(22, 22, 31, 0.75);
 }
 
@@ -91,5 +94,6 @@
   --draft-accent: #0ea5e9;
   --draft-accent-contrast: #0d0d14;
   --draft-danger: #e5484d;
+  --draft-good: #1f9d6e;
   --draft-overlay: rgba(255, 255, 255, 0.75);
 }

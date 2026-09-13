@@ -448,6 +448,27 @@ export function Canvas() {
       return;
     }
 
+    if (tool === "requirement") {
+      // A stamp, not a drag-to-size shape (see docs/specs/requirement-shape.md's
+      // "no dedicated editor" v1 scope) — placed and committed in one step,
+      // then immediately selected so the human can see and move it right
+      // away, and the tool switches back to "select" since there's nothing
+      // further to configure the way text's inline editor needs.
+      state.beginAction();
+      const id = state.addShape({
+        kind: "requirement",
+        x: world.x,
+        y: world.y,
+        status: "open",
+        description: "New requirement",
+        linkedObjectIds: [],
+      });
+      state.commitAction();
+      state.select([id]);
+      state.setTool("select");
+      return;
+    }
+
     e.currentTarget.setPointerCapture(e.pointerId);
 
     if (tool === "select") {
@@ -486,8 +507,21 @@ export function Canvas() {
     const world = screenToWorld(camera, { x: e.clientX - rect.left, y: e.clientY - rect.top });
     const state = store.getState();
     const hitId = hitTest(state.shapes, world);
-    if (hitId && state.shapes[hitId].shape.kind === "text") {
+    if (!hitId) return;
+    const hitShape = state.shapes[hitId].shape;
+    if (hitShape.kind === "text") {
       startEditingExistingText(hitId);
+    } else if (hitShape.kind === "requirement") {
+      // The one human-facing interaction v1 ships beyond pure MCP writes
+      // (see docs/specs/requirement-shape.md) — a human marking a
+      // requirement satisfied (or reopening one) without needing an agent
+      // connected, matching the spec's own goal of not requiring one.
+      state.beginAction();
+      state.updateShape(hitId, {
+        ...hitShape,
+        status: hitShape.status === "open" ? "satisfied" : "open",
+      });
+      state.commitAction();
     }
   }
 
@@ -945,6 +979,10 @@ function isZeroSize(shape: Shape): boolean {
       return shape.points.length <= 1;
     case "text":
     case "image":
+    case "requirement":
+      // Never created via the drag-to-draw path (it's placed instantly, see
+      // the "requirement" tool branch in handlePointerDown) — this case only
+      // exists for exhaustiveness.
       return false;
   }
 }

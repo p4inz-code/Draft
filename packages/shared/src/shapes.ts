@@ -135,6 +135,26 @@ export interface ImageShape extends ShapeBase {
   mediaKind?: "video";
 }
 
+/**
+ * The semantic taxonomy's first slice (docs/specs/requirement-shape.md): a
+ * first-class, agent-writable object marking that a named requirement
+ * exists and is (or isn't) satisfied — not a drawing shape, but a real
+ * canvas object with its own position, selectable/movable/deletable like
+ * any other. `linkedObjectIds` names which drawing shapes this requirement
+ * constrains; deliberately *not* validated against the page's current
+ * object set (mirrors `draft-graph::shape::KnownShape::Requirement`'s own
+ * doc comment) — a dangling reference is a state a reader tolerates, not
+ * something either side rejects on write.
+ */
+export interface RequirementShape extends ShapeBase {
+  kind: "requirement";
+  /** Two states for v1 — see the spec's open question about whether more
+   * are needed once this sees real use. */
+  status: "open" | "satisfied";
+  description: string;
+  linkedObjectIds: ObjectId[];
+}
+
 export type Shape =
   | RectangleShape
   | EllipseShape
@@ -143,7 +163,8 @@ export type Shape =
   | ArrowShape
   | LineShape
   | FreehandShape
-  | ImageShape;
+  | ImageShape
+  | RequirementShape;
 
 /** Shapes with a `width`/`height` bounding box — the ones resize handles apply to. */
 export type ResizableShape = RectangleShape | EllipseShape | DiamondShape | ImageShape;

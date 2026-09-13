@@ -801,6 +801,91 @@ describe("text tool focus retry", () => {
   });
 });
 
+describe("the Requirement tool", () => {
+  it("places a Requirement at the click point, selects it, and switches back to select", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("requirement");
+    pointerDownAt(svg, 40, 60);
+
+    const shapes = Object.values(useCanvasStore.getState().shapes);
+    expect(shapes).toHaveLength(1);
+    const shape = shapes[0]?.shape;
+    if (!shape || shape.kind !== "requirement") throw new Error("expected a requirement");
+    expect(shape.x).toBe(40);
+    expect(shape.y).toBe(60);
+    expect(shape.status).toBe("open");
+    expect(shape.linkedObjectIds).toEqual([]);
+
+    expect(useCanvasStore.getState().selection).toEqual([shapes[0]?.id]);
+    expect(useCanvasStore.getState().tool).toBe("select");
+
+    unmount();
+  });
+
+  it("is recorded as a real operation, not just local state", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+    const opsBefore = useCanvasStore.getState().operations.length;
+
+    setTool("requirement");
+    pointerDownAt(svg, 10, 10);
+
+    expect(useCanvasStore.getState().operations.length).toBeGreaterThan(opsBefore);
+    unmount();
+  });
+
+  it("double-clicking a Requirement toggles its status between open and satisfied", () => {
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    const { addShape } = useCanvasStore.getState();
+    const id = addShape({
+      kind: "requirement",
+      x: 20,
+      y: 20,
+      status: "open",
+      description: "toggle me",
+      linkedObjectIds: [],
+    });
+    setTool("select");
+
+    fireEvent.doubleClick(svg, { clientX: 20, clientY: 20 });
+    expect(useCanvasStore.getState().shapes[id]?.shape).toMatchObject({ status: "satisfied" });
+
+    fireEvent.doubleClick(svg, { clientX: 20, clientY: 20 });
+    expect(useCanvasStore.getState().shapes[id]?.shape).toMatchObject({ status: "open" });
+
+    unmount();
+  });
+
+  it("renders distinctly by status and carries its description in a title tooltip", () => {
+    const { container, unmount } = render(<Canvas />);
+    const { addShape } = useCanvasStore.getState();
+    act(() => {
+      addShape({
+        kind: "requirement",
+        x: 5,
+        y: 5,
+        status: "satisfied",
+        description: "must not panic on empty freehand strokes",
+        linkedObjectIds: [],
+      });
+    });
+
+    expect(container.querySelector("circle")).not.toBeNull();
+    expect(container.querySelector("title")?.textContent).toBe(
+      "[satisfied] must not panic on empty freehand strokes",
+    );
+
+    unmount();
+  });
+});
+
 afterEach(() => {
   document.body.innerHTML = "";
 });

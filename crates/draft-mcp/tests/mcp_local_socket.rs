@@ -694,3 +694,169 @@ async fn get_object_never_returns_raw_asset_bytes_for_an_image() {
 
     client.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn an_agent_can_create_read_and_update_a_requirement_through_the_existing_tool_surface() {
+    // The semantic taxonomy's first slice (docs/specs/requirement-shape.md):
+    // Requirement needs no new MCP tool — create_object/get_object/
+    // modify_object already accept any typed shape payload, gated by the
+    // exact same AgentMode checks every other shape already goes through.
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let mut graph = Graph::new();
+    let page_id = PageId::new();
+    graph.ensure_page(page_id, "Level 1");
+    let state = Arc::new(LiveState::new(graph, AgentMode::Build));
+    let mut changes = state.changes.subscribe();
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    let client = connect_client(&pipe_name).await;
+    let create_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "payload".to_string(),
+            serde_json::json!({
+                "kind": "requirement", "x": 0.0, "y": 0.0,
+                "status": "open", "description": "empty freehand strokes must not panic",
+                "linkedObjectIds": [],
+            }),
+        ),
+    ]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("create_object").with_arguments(create_args))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    let object_id: draft_core::ObjectId = json["object_id"]
+        .as_str()
+        .expect("object_id in response")
+        .parse()
+        .expect("valid object id");
+    assert_eq!(
+        changes.recv().await.expect("a change notification fired"),
+        page_id
+    );
+
+    let get_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "object_id".to_string(),
+            serde_json::Value::String(object_id.to_string()),
+        ),
+    ]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_object").with_arguments(get_args.clone()))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert_eq!(json["status"], "open");
+    assert_eq!(json["description"], "empty freehand strokes must not panic");
+
+    // An agent marks it satisfied once implemented — the human's canvas
+    // learns about it through the same live-sync path any other write uses.
+    let modify_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "object_id".to_string(),
+            serde_json::Value::String(object_id.to_string()),
+        ),
+        (
+            "payload".to_string(),
+            serde_json::json!({
+                "kind": "requirement", "x": 0.0, "y": 0.0,
+                "status": "satisfied", "description": "empty freehand strokes must not panic",
+                "linkedObjectIds": [],
+            }),
+        ),
+    ]);
+    client
+        .call_tool(CallToolRequestParams::new("modify_object").with_arguments(modify_args))
+        .await
+        .unwrap();
+    assert_eq!(
+        changes
+            .recv()
+            .await
+            .expect("a second change notification fired"),
+        page_id
+    );
+
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_object").with_arguments(get_args))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert_eq!(json["status"], "satisfied");
+
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_requirement_with_an_unknown_status_is_rejected_not_stored() {
+    let pipe_name = format!(
+        r"\\.\pipe\draft-mcp-test-{}",
+        ObjectId::new().as_uuid().simple()
+    );
+
+    let mut graph = Graph::new();
+    let page_id = PageId::new();
+    graph.ensure_page(page_id, "Level 1");
+    let state = Arc::new(LiveState::new(graph, AgentMode::Build));
+
+    let server_pipe_name = pipe_name.clone();
+    let server_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let _ = draft_mcp::local_socket::serve_forever_on(server_state, &server_pipe_name).await;
+    });
+
+    let client = connect_client(&pipe_name).await;
+    let create_args = serde_json::Map::from_iter([
+        (
+            "page_id".to_string(),
+            serde_json::Value::String(page_id.to_string()),
+        ),
+        (
+            "payload".to_string(),
+            serde_json::json!({
+                "kind": "requirement", "x": 0.0, "y": 0.0,
+                "status": "in_progress", "description": "not one of the two known states"
+            }),
+        ),
+    ]);
+    let result = client
+        .call_tool(CallToolRequestParams::new("create_object").with_arguments(create_args))
+        .await
+        .unwrap();
+    let json = first_text_content(&result);
+    assert!(json["error"].is_string(), "expected rejection, got {json}");
+    assert_eq!(
+        state
+            .graph
+            .lock()
+            .unwrap()
+            .page(page_id)
+            .unwrap()
+            .object_count(),
+        0,
+        "the malformed requirement must not have been stored"
+    );
+
+    client.cancel().await.unwrap();
+}

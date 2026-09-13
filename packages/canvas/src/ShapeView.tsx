@@ -157,6 +157,33 @@ function ShapeViewComponent({ object, selected }: { object: CanvasObject; select
       const d = `M ${outline.map(([x, y]) => `${x + shape.x},${y + shape.y}`).join(" L ")} Z`;
       return <path d={d} fill={selectionStroke} />;
     }
+    case "requirement": {
+      // A pin, not a drawing shape: a colored dot (open vs. satisfied) with
+      // a small flag glyph, distinct from every drawing-shape rendering
+      // above so it reads as "a different kind of thing" on the canvas, not
+      // a badly-drawn circle. The full description is a native tooltip
+      // (<title>) rather than a custom hover UI — this is v1's deliberately
+      // minimal affordance (see docs/specs/requirement-shape.md).
+      const fill = shape.status === "satisfied" ? "var(--draft-good)" : "var(--draft-accent)";
+      return (
+        <g>
+          <title>{`[${shape.status}] ${shape.description}`}</title>
+          <circle
+            cx={shape.x}
+            cy={shape.y}
+            r={7}
+            fill={fill}
+            stroke={selectionStroke}
+            strokeWidth={selected ? 2 : 1}
+          />
+          <path
+            d={`M ${shape.x - 2} ${shape.y - 4} L ${shape.x - 2} ${shape.y + 4} M ${shape.x - 2} ${shape.y - 4} L ${shape.x + 3} ${shape.y - 2.5} L ${shape.x - 2} ${shape.y - 1} Z`}
+            fill="var(--draft-accent-contrast)"
+            stroke="none"
+          />
+        </g>
+      );
+    }
     default:
       return null;
   }

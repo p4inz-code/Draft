@@ -2,14 +2,24 @@
  * `.app-canvas` (see App.tsx/App.css's `.app-body` row), not absolutely
  * positioned on top of it. Figma's own right-hand panel is always present
  * rather than something a user opens/closes, so there's no toggle handle
- * and no open/closed transform here. */
+ * and no open/closed transform here.
+ *
+ * `--settings-border` is a locally stronger divider than the shared
+ * `--draft-border` token — scoped to this file only (not a change to the
+ * token itself, which other chrome still relies on at its original
+ * weight) — because a panel built entirely out of hairline dividers
+ * (no card backgrounds) needs those hairlines to actually read clearly,
+ * not blend into the surface the way a single subtle border elsewhere
+ * in the app can afford to. */
 .settings-sidebar-panel {
+  --settings-border: color-mix(in srgb, var(--draft-border) 100%, var(--draft-text) 18%);
+
   display: flex;
   flex-direction: column;
   width: 300px;
   flex-shrink: 0;
   background: var(--draft-surface);
-  border-left: 1px solid var(--draft-border);
+  border-left: 1px solid var(--settings-border);
   color: var(--draft-text);
   overflow: hidden;
 }
@@ -20,8 +30,9 @@
  * same shape Figma's own right-hand panel uses instead of a left icon rail. */
 .settings-panel-header {
   flex-shrink: 0;
-  padding: 0.65rem 0.9rem;
-  border-bottom: 1px solid var(--draft-border);
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--settings-border);
+  background: var(--draft-surface-2);
 }
 
 .settings-panel-title {
@@ -33,7 +44,7 @@
 }
 
 .settings-section {
-  border-bottom: 1px solid var(--draft-border);
+  border-bottom: 1px solid var(--settings-border);
 }
 
 .settings-section:last-child {
@@ -45,10 +56,11 @@
   align-items: center;
   gap: 0.5rem;
   width: 100%;
+  min-height: 2.6rem;
   font-family: inherit;
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.65rem 0.9rem;
+  padding: 0.5rem 0.9rem;
   border: none;
   background: transparent;
   color: var(--draft-text);
@@ -149,7 +161,7 @@
 .settings-pane-desc code {
   font-family: var(--draft-font-sans);
   background: var(--draft-surface-2);
-  border: 1px solid var(--draft-border);
+  border: 1px solid var(--settings-border);
   border-radius: 4px;
   padding: 0.05rem 0.3rem;
   font-size: 0.9em;
@@ -159,7 +171,7 @@
   font-family: var(--draft-font-sans);
   font-size: 0.74rem;
   background: var(--draft-surface-2);
-  border: 1px solid var(--draft-border);
+  border: 1px solid var(--settings-border);
   border-radius: var(--draft-radius-sm);
   padding: 0.55rem 0.7rem;
   margin: 0.4rem 0 0;
@@ -172,7 +184,7 @@
   font-size: 0.76rem;
   padding: 0.4rem 0.8rem;
   margin-top: 0.9rem;
-  border: 1px solid var(--draft-border);
+  border: 1px solid var(--settings-border);
   border-radius: var(--draft-radius-sm);
   background: var(--draft-surface-2);
   color: var(--draft-text);
@@ -194,7 +206,7 @@
   max-width: 100%;
   padding: 0.2rem;
   background: var(--draft-surface-2);
-  border: 1px solid var(--draft-border);
+  border: 1px solid var(--settings-border);
   border-radius: var(--draft-radius-md);
   gap: 0.15rem;
 }
@@ -251,13 +263,13 @@
   display: flex;
   gap: 0.6rem;
   padding: 0.75rem 0.8rem;
-  border: 1px solid var(--draft-border);
+  border: 1px solid var(--settings-border);
   border-radius: var(--draft-radius-md);
   background: var(--draft-surface-2);
 }
 
 .settings-card-live {
-  border-color: color-mix(in srgb, var(--draft-good) 35%, var(--draft-border));
+  border-color: color-mix(in srgb, var(--draft-good) 35%, var(--settings-border));
   background: color-mix(in srgb, var(--draft-good) 8%, var(--draft-surface-2));
 }
 

@@ -260,7 +260,20 @@ export function Canvas() {
       // why an interrupted drag (undo/redo, a tool switch, Delete, etc. all
       // fired while a mouse button is still physically held down) is unsafe
       // to leave running in the background. A no-op when nothing is active.
-      finishActiveDrag();
+      //
+      // Skipped for a bare modifier keydown (Shift/Control/Alt/Meta with no
+      // other key) — those fire their own keydown event the instant the
+      // physical key goes down, including while a shape is already being
+      // drawn/resized with the mouse still held. Shift specifically is a
+      // *held* modifier read live off every pointermove (constrain-to-
+      // square/45°-snap), not a one-shot shortcut — finalizing the drag here
+      // would end it the moment Shift was pressed, before the user ever got
+      // to use the constraint. No real shortcut below ever matches on a
+      // bare modifier key's own keydown (e.g. Ctrl+Z's event has
+      // e.key === "z", not "Control"), so skipping this is always safe.
+      const isBareModifierKey =
+        e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta";
+      if (!isBareModifierKey) finishActiveDrag();
 
       const numberedTool = NUMBER_KEY_TOOLS[e.key];
       const letterTool = LETTER_KEY_TOOLS[e.key.toLowerCase()];

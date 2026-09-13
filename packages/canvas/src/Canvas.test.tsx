@@ -363,6 +363,39 @@ describe("Shift-to-constrain while drawing", () => {
     unmount();
   });
 
+  it("still constrains when Shift is physically pressed mid-drag, not just held from the start", () => {
+    // Regression: the keydown handler's finishActiveDrag() guard (added to
+    // fix keyboard shortcuts corrupting an in-progress drag) originally ran
+    // for *every* keydown, including a bare Shift press — which fires its
+    // own real "keydown" event the instant the physical key goes down, even
+    // while a shape is already being dragged. That ended the draw early
+    // (committing whatever size existed at that instant), so pressing Shift
+    // mid-drag silently stopped the shape from resizing with the mouse at
+    // all — exactly what "holding Shift doesn't do anything" looks like.
+    const { container, unmount } = render(<Canvas />);
+    const svg = container.querySelector('[role="application"]');
+    if (!svg) throw new Error("canvas svg not found");
+
+    setTool("rectangle");
+    pointerDownAt(svg, 0, 0);
+    // Drag without Shift first — the physical key hasn't been pressed yet.
+    firePointer(svg, "pointermove", 60, 20);
+    // Now the user physically presses Shift, firing its own keydown event.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }));
+    // The drag continues, now reporting shiftKey: true on every subsequent
+    // pointer event, same as a real browser would.
+    firePointer(svg, "pointermove", 100, 40, { shiftKey: true });
+    firePointer(svg, "pointerup", 100, 40, { shiftKey: true });
+
+    const [object] = Object.values(useCanvasStore.getState().shapes);
+    const shape = object?.shape;
+    if (!shape || shape.kind !== "rectangle") throw new Error("expected a rectangle");
+    expect(shape.width).toBe(100);
+    expect(shape.height).toBe(100);
+
+    unmount();
+  });
+
   it("does not constrain when Shift is not held", () => {
     const { container, unmount } = render(<Canvas />);
     const svg = container.querySelector('[role="application"]');

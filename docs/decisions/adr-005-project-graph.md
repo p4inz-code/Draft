@@ -1,4 +1,4 @@
-# ADR-005: The Project Graph as the Source of Truth
+# ADR-005: the project graph as the source of truth
 
 **Status:** Accepted
 **Date:** 2026-09-05
@@ -6,8 +6,8 @@
 
 ## Context
 
-DRAFT's core value proposition — an AI agent understanding a human's visual workspace
-without receiving raw screenshots — requires a structured representation of that workspace
+DRAFT's core value proposition, an AI agent understanding a human's visual workspace
+without receiving raw screenshots, requires a structured representation of that workspace
 that exists independent of any particular canvas/rendering implementation (proven necessary
 in practice by [ADR-004](adr-004-custom-canvas-engine.md)'s canvas swap).
 
@@ -16,10 +16,10 @@ in practice by [ADR-004](adr-004-custom-canvas-engine.md)'s canvas swap).
 The Project Graph (`crates/draft-graph`) is the single source of truth for a project's
 structured state: pages and their objects, addressed by stable typed IDs
 (`crates/draft-core`). It is built exclusively by applying typed operations
-(`crates/draft-events`, [ADR-012](adr-012-operation-log-sync.md)) — no component, including
+(`crates/draft-events`, [ADR-012](adr-012-operation-log-sync.md)), no component, including
 the canvas, mutates it directly.
 
-## Options Considered
+## Options considered
 
 ### Option A: Project Graph as source of truth, canvas as a view (chosen)
 
@@ -33,10 +33,10 @@ agent's read/write surface is well-defined and doesn't depend on rendering inter
 
 **Pros:** Less translation code; whatever the canvas SDK already persists "just works."
 **Cons:** Directly couples the project format and MCP surface to a specific canvas
-implementation's internal schema — exactly the fragility [ADR-004](adr-004-custom-canvas-engine.md)
+implementation's internal schema, exactly the fragility [ADR-004](adr-004-custom-canvas-engine.md)
 demonstrated is a real risk, not a hypothetical one.
 
-## Trade-off Analysis
+## Trade-off analysis
 
 The translation overhead of Option A is a fixed, one-time cost per operation type; Option
 B's coupling risk is open-ended and already materialized once during this project's
@@ -45,7 +45,7 @@ foundation phase.
 ## Consequences
 
 - Object payloads were untyped JSON in the graph at foundation stage, deliberately, until
-  the canvas produced concrete shapes worth typing — see
+  the canvas produced concrete shapes worth typing. See
   [ADR-014](adr-014-typed-shape-taxonomy.md) for the typed taxonomy that replaced this, and
   [docs/project-graph.md](../project-graph.md) for the current state.
 - Every new kind of user action needs a corresponding operation variant
@@ -53,9 +53,9 @@ foundation phase.
 - MCP write tools (Session 2+) are automatically limited to exactly what the canvas itself
   can do, since both go through `Graph::apply`.
 
-## Action Items
+## Action items
 
 1. [x] Implement `Graph::apply` for create/update/move/delete with unknown-page/object and
    duplicate-creation rejection.
-2. [x] Define the typed shape taxonomy once Session 1's canvas needs it — see
+2. [x] Define the typed shape taxonomy once Session 1's canvas needs it. See
    [ADR-014](adr-014-typed-shape-taxonomy.md).

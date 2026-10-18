@@ -5,13 +5,13 @@ This is the detailed design doc. For the one-page summary, see
 
 ## Requirements that shaped this
 
-- A human must be able to use DRAFT fully offline, with no AI connection (local-first —
+- A human must be able to use DRAFT fully offline, with no AI connection (local-first
   [docs/privacy.md](privacy.md)).
 - An AI agent must be able to read a DRAFT workspace without receiving raw canvas
-  pixels/screenshots for everything — it needs structured, addressable data
+  pixels/screenshots for everything, it needs structured, addressable data
   ([docs/project-graph.md](project-graph.md), [docs/mcp.md](mcp.md)).
 - The canvas implementation must be replaceable without touching the project format or the
-  MCP surface (this already happened once — see [ADR-004](decisions/adr-004-custom-canvas-engine.md)).
+  MCP surface (this already happened once. See [ADR-004](decisions/adr-004-custom-canvas-engine.md)).
 - The desktop app (Tauri) and a future web app must be able to share the same core logic
   without the core assuming a specific OS API is always available
   ([docs/cross-platform.md](cross-platform.md), [docs/web.md](web.md)).
@@ -47,15 +47,15 @@ the same vocabulary spec'd for the event system MCP will eventually expose as
 ## Data flow: a user drags a shape
 
 1. The canvas engine (`packages/canvas`) updates its own fast, in-memory Zustand store
-   immediately — this is what makes dragging feel like 60fps, and it's not persisted yet.
+   immediately, this is what makes dragging feel like 60fps, and it's not persisted yet.
 2. On a meaningful boundary (pointer-up, not every mousemove frame), the frontend emits a
    `MoveObject` operation.
-3. The operation crosses the Tauri IPC boundary as JSON (typed on both sides —
+3. The operation crosses the Tauri IPC boundary as JSON (typed on both sides
    `draft-events::Operation` in Rust, `@draft/shared`'s `Operation` in TS, kept in sync by
    hand for now).
 4. `draft-graph::Graph::apply` mutates the in-memory graph, or rejects the operation if it
    targets a page/object that doesn't exist.
-5. `draft-project` persists the change (Session 1+ — the round-trip exists today via
+5. `draft-project` persists the change (Session 1+. The round-trip exists today via
    `save_project`/`open_project`, but nothing calls it from the UI yet).
 6. If an agent is connected with sufficient permission, MCP surfaces the change as a
    `recent_changes` event (Session 2+).
@@ -64,7 +64,7 @@ the same vocabulary spec'd for the event system MCP will eventually expose as
 
 | Component | Responsibility | What exists today |
 |---|---|---|
-| `draft-core` | Stable typed IDs (`scheme://uuid`), shared error type | Full — `ProjectId`/`PageId`/`ObjectId`/`AssetId`/`AnnotationId`/`RegionId` |
+| `draft-core` | Stable typed IDs (`scheme://uuid`), shared error type | Full, `ProjectId`/`PageId`/`ObjectId`/`AssetId`/`AnnotationId`/`RegionId` |
 | `draft-security` | Agent permission model, path-safety guard | Full for the types that exist; scoping (per-page/object grants) is Session 3 |
 | `draft-platform` | OS abstraction trait so core crates aren't desktop-locked | `PlatformPaths` trait + native (`dirs`-backed) impl; browser/WASM impl is Session 3 |
 | `draft-events` | Typed operation vocabulary + append-only log | In-memory log; persisting/replaying it is Session 1/2 |
@@ -74,22 +74,22 @@ the same vocabulary spec'd for the event system MCP will eventually expose as
 | `draft-mcp` | Exposes the graph to AI agents | Foundation-stage types only (`Transport`, `AgentConnection`); real `rmcp` integration is Session 2 |
 | `packages/canvas` | The drawing surface | Camera/viewport math only; shapes/tools/selection are Session 1 |
 | `packages/ui` | Shared components, design tokens | `Button`, `Logo` (real brand kit lockup), CSS tokens |
-| `packages/project-client` | Typed wrapper over Tauri `invoke` | One call (`getCoreVersion`) — grows with each new command |
+| `packages/project-client` | Typed wrapper over Tauri `invoke` | One call (`getCoreVersion`), grows with each new command |
 | `apps/desktop` | Tauri 2 + React shell | Boots, round-trips one IPC call, consumes `@draft/ui` |
-| `apps/web` | Browser shell | Minimal — `@draft/ui` only, no canvas yet (see [docs/web.md](web.md)) |
+| `apps/web` | Browser shell | Minimal, `@draft/ui` only, no canvas yet (see [docs/web.md](web.md)) |
 
 ## Trade-offs made explicit
 
-- **A typed `Shape` enum in `draft-graph`** ([ADR-014](decisions/adr-014-typed-shape-taxonomy.md))
-  validates every object payload — human edit or agent write — into one of the eight known
+- A typed `Shape` enum in `draft-graph` ([ADR-014](decisions/adr-014-typed-shape-taxonomy.md))
+  validates every object payload, human edit or agent write, into one of the eight known
   drawing kinds, with an `Other` fallback preserving anything it doesn't recognize verbatim
   rather than rejecting it. The product spec's semantic taxonomy (region, requirement, flow,
-  ...) is still deferred — those layer meaning onto objects rather than being object kinds.
-- **Operations, not whole-graph snapshots**, keep IPC payloads small as a project grows, at
+  ...) is still deferred. Those layer meaning onto objects rather than being object kinds.
+- Operations, not whole-graph snapshots, keep IPC payloads small as a project grows, at
   the cost of needing every mutation site to go through the operation vocabulary rather than
   mutating state ad hoc.
-- **A local-socket MCP transport** (vs. pure stdio) is necessary because an agent needs
-  access to an *already-running* human editing session, not a freshly spawned process — but
+- A local-socket MCP transport (vs. pure stdio) is necessary because an agent needs
+  access to an *already-running* human editing session, not a freshly spawned process. But
   it means the desktop app takes on being a long-lived server, which is new attack surface
   or docs/agent-permissions.md is explicit about.
 

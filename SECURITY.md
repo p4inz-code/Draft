@@ -1,4 +1,4 @@
-# Security Policy
+# Security policy
 
 ## Reporting a vulnerability
 
@@ -22,17 +22,17 @@ DRAFT is local-first (see [docs/privacy.md](docs/privacy.md)) and, once the MCP 
 built, will accept connections from AI agents to read and (with explicit permission) write
 to a project. Security-relevant areas most worth scrutiny:
 
-- **Path handling** — anything that resolves a path from project data or an asset reference
+- Path handling: anything that resolves a path from project data or an asset reference
   (`draft-security::is_path_within_project`, used by `draft-project`/`draft-media`) must not
   allow escaping the project directory.
-- **The agent permission model** — every agent connection should require explicit,
+- The agent permission model: every agent connection should require explicit,
   visible user approval, and only `Build` mode should ever allow writes. See
   [docs/agent-permissions.md](docs/agent-permissions.md).
-- **The MCP transport** — once built, the local-socket listener the desktop app hosts must
+- The MCP transport: once built, the local-socket listener the desktop app hosts must
   bind loopback-only and not become a general-purpose local RPC surface for any process on
   the machine.
 
 ## Supported versions
 
-DRAFT hasn't had a first release yet — see [ROADMAP.md](ROADMAP.md). Once it does, this
+DRAFT hasn't had a first release yet. See [ROADMAP.md](ROADMAP.md). Once it does, this
 section will list which versions receive security fixes.

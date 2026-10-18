@@ -1,4 +1,4 @@
-# ADR-NNN: Title
+# ADR-NNN: title
 
 **Status:** Proposed | Accepted | Deprecated | Superseded
 **Date:** YYYY-MM-DD
@@ -12,19 +12,19 @@ What is the situation? What forces are at play?
 
 What is the change we're proposing?
 
-## Options Considered
+## Options considered
 
-### Option A: Name
-
-**Pros:** ...
-**Cons:** ...
-
-### Option B: Name
+### Option A: name
 
 **Pros:** ...
 **Cons:** ...
 
-## Trade-off Analysis
+### Option B: name
+
+**Pros:** ...
+**Cons:** ...
+
+## Trade-off analysis
 
 Key trade-offs between options, with clear reasoning.
 
@@ -34,6 +34,6 @@ Key trade-offs between options, with clear reasoning.
 - What becomes harder
 - What we'll need to revisit
 
-## Action Items
+## Action items
 
 1. [ ] Implementation step

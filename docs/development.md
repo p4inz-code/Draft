@@ -10,7 +10,7 @@ file.
 2. Add it to the root `Cargo.toml`'s `[workspace] members` list and, if other crates need to
    depend on it, to `[workspace.dependencies]` (path dependency), so every crate references
    the same version consistently.
-3. Give it real content from the start — the product spec explicitly forbids
+3. Give it real content from the start. The product spec explicitly forbids
    placeholder-only crates that exist just to make the tree look complete (see
    `crates/draft-security`/`draft-platform` for what "minimal but real" looks like).
 4. Add at least one test that exercises real behavior, not just "it compiles."
@@ -28,7 +28,7 @@ file.
 Tauri's `invoke` already serializes through JSON; `serde`'s `#[serde(tag = "type", rename_all
 = "snake_case")]` on `draft_events::Operation` produces exactly the discriminated-union shape
 `@draft/shared`'s hand-written TS `Operation` type expects. There's no schema-generation step
-today — if you add or change a Rust operation variant, update `packages/shared/src/operations.ts`
+today, if you add or change a Rust operation variant, update `packages/shared/src/operations.ts`
 to match in the same change. Revisit codegen (e.g. via `ts-rs` or `specta`) if this drifts
 enough to cause real bugs.
 

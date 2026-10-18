@@ -1,32 +1,32 @@
-# DRAFT Brand Kit
+# DRAFT brand kit
 
-**DRAFT** — A cross-platform visual workspace for humans and AI agents.
+**DRAFT**, A cross-platform visual workspace for humans and AI agents.
 *"If you can't explain it to AI, show it to AI."*
 
 by P4inz | Atharva Patil
 
 ---
 
-## Quick Reference
+## Quick reference
 
 | Use case | File |
 |---|---|
-| **App icon (Windows)** | `icons/draft.ico` or `desktop/windows/draft-icon.ico` |
-| **App icon (macOS)** | `desktop/macos/draft-icon-512.png` |
-| **App icon (Linux)** | `desktop/linux/draft-icon-256.png` |
-| **Favicon** | `favicon/favicon.svg` (preferred) or `favicon/favicon.ico` |
-| **Apple touch icon** | `favicon/apple-touch-icon.png` (180×180) |
-| **PWA icons** | `favicon/icon-192x192.png` and `favicon/icon-512x512.png` |
-| **GitHub avatar** | `social/github-avatar.png` (500×500) |
-| **GitHub social preview** | `social/github-social-preview.png` (1280×640) |
-| **Open Graph / link preview** | `social/og-image.png` (1200×630) |
-| **Twitter/X card** | `social/twitter-card.png` (1200×600) |
-| **Primary logo (SVG)** | `logo/primary/draft-logo-horizontal.svg` |
-| **Logo on dark bg** | `logo/primary/draft-logo-horizontal-light.svg` or `logo/variants/draft-on-dark-bg.png` |
-| **Logo on light bg** | `logo/primary/draft-logo-horizontal.svg` or `logo/variants/draft-on-light-bg.png` |
-| **Symbol only** | `logo/symbol/draft-symbol.svg` |
-| **Monochrome (print/docs)** | `logo/monochrome/draft-mono-black.svg` or `draft-mono-white.svg` |
-| **Splash screen** | `splash/splash-dark.png` or `splash/splash-light.png` (1920×1080) |
+| App icon (Windows) | `icons/draft.ico` or `desktop/windows/draft-icon.ico` |
+| App icon (macOS) | `desktop/macos/draft-icon-512.png` |
+| App icon (Linux) | `desktop/linux/draft-icon-256.png` |
+| Favicon | `favicon/favicon.svg` (preferred) or `favicon/favicon.ico` |
+| Apple touch icon | `favicon/apple-touch-icon.png` (180×180) |
+| PWA icons | `favicon/icon-192x192.png` and `favicon/icon-512x512.png` |
+| GitHub avatar | `social/github-avatar.png` (500×500) |
+| GitHub social preview | `social/github-social-preview.png` (1280×640) |
+| Open Graph / link preview | `social/og-image.png` (1200×630) |
+| Twitter/X card | `social/twitter-card.png` (1200×600) |
+| Primary logo (SVG) | `logo/primary/draft-logo-horizontal.svg` |
+| Logo on dark bg | `logo/primary/draft-logo-horizontal-light.svg` or `logo/variants/draft-on-dark-bg.png` |
+| Logo on light bg | `logo/primary/draft-logo-horizontal.svg` or `logo/variants/draft-on-light-bg.png` |
+| Symbol only | `logo/symbol/draft-symbol.svg` |
+| Monochrome (print/docs) | `logo/monochrome/draft-mono-black.svg` or `draft-mono-white.svg` |
+| Splash screen | `splash/splash-dark.png` or `splash/splash-light.png` (1920×1080) |
 
 ---
 
@@ -41,9 +41,9 @@ by P4inz | Atharva Patil
 
 ## Typography
 
-- **Wordmark / Headers:** JetBrains Mono (Bold/700)
-- **Tagline / UI:** JetBrains Mono (Medium/500)
-- **Fallbacks:** SF Mono, Menlo, monospace
+- Wordmark / Headers: JetBrains Mono (Bold/700)
+- Tagline / UI: JetBrains Mono (Medium/500)
+- Fallbacks: SF Mono, Menlo, monospace
 
 ## Favicon HTML
 
@@ -55,7 +55,7 @@ by P4inz | Atharva Patil
 
 ---
 
-## File Structure
+## File structure
 
 ```
 DRAFT-Brand-Kit/
@@ -79,12 +79,12 @@ DRAFT-Brand-Kit/
 └── README.md
 ```
 
-## ICO Contents
+## ICO contents
 
 `draft.ico` contains embedded PNG data at: 16, 24, 32, 48, 64, 128, 256 px.
 
 ## Notes
 
 - All PNGs have transparent backgrounds unless named with `-bg`
-- SVG wordmark files reference JetBrains Mono — convert text to outlines for full portability
-- The symbol mark is a document shape with a folded corner — the fold is the accent color
+- SVG wordmark files reference JetBrains Mono, convert text to outlines for full portability
+- The symbol mark is a document shape with a folded corner. The fold is the accent color

@@ -1,4 +1,4 @@
-# ADR-006: The `.draft` Project Format
+# ADR-006: the `.draft` project format
 
 **Status:** Accepted
 **Date:** 2026-09-05
@@ -17,14 +17,14 @@ A directory bundle: `project.draft/{project.json, pages/, assets/, thumbnails/, 
 with `project.json` carrying a `schema_version` integer from the first version. See
 [docs/project-format.md](../project-format.md) for the full shape.
 
-## Options Considered
+## Options considered
 
 ### Option A: Directory bundle (chosen)
 
 **Pros:** Media assets exist as real, individually addressable, streamable files; a
 corrupted or huge asset can't make the whole project unreadable, since `project.json` stays
 small and separate; matches the product spec's own example structure.
-**Cons:** A project is a folder, not a single double-clickable file — slightly less familiar
+**Cons:** A project is a folder, not a single double-clickable file, slightly less familiar
 UX than "one file" formats, though this is mitigated by the desktop app opening/saving the
 bundle as a unit.
 
@@ -36,7 +36,7 @@ simplicity), or forces media through a database blob API that fights the "assets
 individually addressable files" requirement from [docs/media.md](../media.md). Corruption
 risk is concentrated in one file instead of isolated per-asset.
 
-## Trade-off Analysis
+## Trade-off analysis
 
 The single-file UX advantage doesn't outweigh the format's need to hold large media
 reliably. Nothing prevents the desktop app from presenting the bundle to the user as if it
@@ -53,7 +53,7 @@ is achievable without its downsides.
   (`draft_security::is_path_within_project`) since project bundles are portable and their
   contents aren't trusted input.
 
-## Action Items
+## Action items
 
 1. [x] Implement `create_project`/`open_project`/`save_project` with schema-version
    validation and a corruption/malformed-JSON test.

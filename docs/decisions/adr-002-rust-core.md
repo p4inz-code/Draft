@@ -1,4 +1,4 @@
-# ADR-002: Rust for the Core Domain Logic
+# ADR-002: Rust for the core domain logic
 
 **Status:** Accepted
 **Date:** 2026-09-05
@@ -6,7 +6,7 @@
 
 ## Context
 
-DRAFT's most important architectural rule is that the canvas is not the source of truth —
+DRAFT's most important architectural rule is that the canvas is not the source of truth
 some layer must own the Project Graph, project format, permissions, and (eventually) the MCP
 server, independent of whatever renders the UI. That layer needs to be fast, memory-safe
 (it handles untrusted project files and, later, agent-supplied data), and usable both from a
@@ -18,9 +18,9 @@ Rust owns all core domain logic: the Project Graph (`draft-graph`), project form
 (`draft-project`), operation/event log (`draft-events`), media metadata (`draft-media`),
 permissions (`draft-security`), platform abstraction (`draft-platform`), and the MCP server
 (`draft-mcp`). The frontend (TypeScript/React) is a view layer that talks to this core over
-Tauri IPC — it never re-implements core logic.
+Tauri IPC, it never re-implements core logic.
 
-## Options Considered
+## Options considered
 
 ### Option A: Rust core
 
@@ -39,11 +39,11 @@ require either bundling Node into the desktop app (undermining the Tauri decisio
 duplicating logic between a Node backend and a browser frontend. Also weaker fit for a
 headless MCP server binary that should start fast and run with a small footprint.
 
-## Trade-off Analysis
+## Trade-off analysis
 
-Rust's steeper learning curve is accepted because the core's job — being a trustworthy,
+Rust's steeper learning curve is accepted because the core's job, being a trustworthy,
 long-lived source of truth that a UI, a CLI, and (eventually) untrusted agent requests all go
-through — benefits more from memory safety and performance than from being in the same
+through, benefits more from memory safety and performance than from being in the same
 language as the UI.
 
 ## Consequences
@@ -52,10 +52,10 @@ language as the UI.
   — see `crates/` in [/ARCHITECTURE.md](../../ARCHITECTURE.md).
 - The frontend and Rust core must keep their JSON contract in sync by hand for now (see
   [docs/development.md](../development.md)) until/unless codegen is introduced.
-- Contributors need a working Rust toolchain, not just Node — documented in
+- Contributors need a working Rust toolchain, not just Node, documented in
   [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
-## Action Items
+## Action items
 
 1. [x] Establish the Cargo workspace and the eight foundation crates.
 2. [ ] Introduce type-sharing codegen (e.g. `ts-rs`/`specta`) if hand-kept sync becomes a

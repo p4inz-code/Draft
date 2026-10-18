@@ -1,4 +1,4 @@
-# ADR-003: React + TypeScript for the Frontend
+# ADR-003: React + TypeScript for the frontend
 
 **Status:** Accepted
 **Date:** 2026-09-05
@@ -15,14 +15,14 @@ a real browser for the web build (ADR-008/[docs/web.md](../web.md)).
 React + TypeScript for all UI code, shared between `apps/desktop` and `apps/web` via
 `packages/ui`, `packages/canvas`, and `packages/shared`.
 
-## Options Considered
+## Options considered
 
 ### Option A: React + TypeScript
 
 **Pros:** Runs identically in a Tauri webview and a real browser (needed for the web build);
 huge ecosystem for canvas/interaction primitives; TypeScript gives a typed IPC boundary
 against the Rust core's JSON contract (see [docs/development.md](../development.md)).
-**Cons:** React's re-render model needs care for a 60fps canvas — mitigated by keeping
+**Cons:** React's re-render model needs care for a 60fps canvas, mitigated by keeping
 interactive state in a dedicated fast store (Zustand) rather than plain React state, per
 [docs/project-graph.md](../project-graph.md)'s live-edit-store design.
 
@@ -34,10 +34,10 @@ requirement outright); smaller ecosystem for the kind of rich 2D interaction DRA
 needs; would still need a plan for text editing, accessibility, etc. that the DOM gives for
 free.
 
-## Trade-off Analysis
+## Trade-off analysis
 
 The web-capable-architecture requirement (spec §5/§17) rules out a desktop-only native UI
-toolkit outright — only a web-technology UI runs in both a Tauri webview and a real browser
+toolkit outright, only a web-technology UI runs in both a Tauri webview and a real browser
 without a second UI implementation.
 
 ## Consequences
@@ -45,12 +45,12 @@ without a second UI implementation.
 - Canvas rendering uses DOM/SVG, not a native/WebGL surface (see
   [ADR-004](adr-004-custom-canvas-engine.md)).
 - Zustand is the frontend state tool for anything that needs to be fast/local before it's
-  committed to the Rust core as an operation (spec: avoid unnecessary global state — used
+  committed to the Rust core as an operation (spec: avoid unnecessary global state, used
   narrowly, not as a general app-state framework).
 - Component code is shared via `packages/ui`/`packages/canvas`, not duplicated between
   `apps/desktop` and `apps/web`.
 
-## Action Items
+## Action items
 
 1. [x] Scaffold `apps/desktop` (Vite + React + TS via Tauri's own template) and `apps/web`
    (plain Vite + React + TS).

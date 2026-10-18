@@ -1,4 +1,4 @@
-# ADR-011: Media Architecture
+# ADR-011: media architecture
 
 **Status:** Accepted
 **Date:** 2026-09-05
@@ -8,7 +8,7 @@
 
 Imported media (images, video, eventually other formats) needs to become an addressable
 workspace asset an agent can reference (`asset://...`, `region://...`) without requiring raw
-bytes for every question — but DRAFT should not promise perfect support for every creative
+bytes for every question, but DRAFT should not promise perfect support for every creative
 format (PSD, AI) at V1.
 
 ## Decision
@@ -19,7 +19,7 @@ size. Format-specific handling (video timestamps, PSD layers, extracted frames) 
 explicitly deferred; only generic image/video/other categorization exists at foundation
 stage.
 
-## Options Considered
+## Options considered
 
 ### Option A: Content-addressed by hash (chosen)
 
@@ -31,11 +31,11 @@ one).
 
 ### Option B: Identify assets by their path within the project bundle
 
-**Pros:** Simpler — no hashing step.
+**Pros:** Simpler, no hashing step.
 **Cons:** Breaks identity on rename; two different files with the same relative path can't
 be distinguished from history; no natural de-duplication.
 
-## Trade-off Analysis
+## Trade-off analysis
 
 The one-time hashing cost at import is worth paying for stable identity and de-duplication,
 especially since imported reference media (screenshots, reference art) is commonly
@@ -43,15 +43,15 @@ re-imported across pages in exactly the game-design workflow DRAFT targets.
 
 ## Consequences
 
-- `crates/draft-media` has no dependency on format-specific parsing libraries yet — kept
+- `crates/draft-media` has no dependency on format-specific parsing libraries yet, kept
   minimal until Session 1/2 defines concrete needs (video duration/timestamps, PSD layers).
 - The product spec's "don't claim unsupported formats work" rule ([docs/media.md](../media.md))
   is upheld structurally: nothing here parses PSD/AI content, so nothing can silently claim
   to.
 - Thumbnail generation (the project format's `thumbnails/` directory) has no implementation
-  yet — tracked as deferred, not silently skipped.
+  yet, tracked as deferred, not silently skipped.
 
-## Action Items
+## Action items
 
 1. [x] Implement `hash_file` and `AssetMetadata::from_file` with determinism/sensitivity
    tests.

@@ -1,4 +1,4 @@
-# ADR-007: MCP Architecture and Transport
+# ADR-007: MCP architecture and transport
 
 **Status:** Accepted
 **Date:** 2026-09-05
@@ -6,7 +6,7 @@
 
 ## Context
 
-DRAFT must expose the Project Graph to MCP-compatible agents (Claude, Codex, others — never
+DRAFT must expose the Project Graph to MCP-compatible agents (Claude, Codex, others, never
 built Claude-specific). The initial foundation plan assumed pure stdio transport (the
 typical MCP pattern: the agent host spawns the server as a subprocess). A self-audit of that
 plan (running it through the `engineering:architecture` skill) caught that this is wrong for
@@ -19,38 +19,38 @@ has no access to that in-memory session.
 The official Rust MCP SDK, [`rmcp`](https://github.com/modelcontextprotocol/rust-sdk), with
 two transports:
 
-- **Primary:** a loopback-only local socket (named pipe on Windows, Unix domain socket on
+- Primary: a loopback-only local socket (named pipe on Windows, Unix domain socket on
   Linux/macOS) hosted by the running desktop app, giving an agent access to the live editing
   session.
-- **Secondary:** stdio, via a separate `draft-mcp` CLI binary operating directly on a project
+- Secondary: stdio, via a separate `draft-mcp` CLI binary operating directly on a project
   directory on disk, for headless/CI use with no desktop instance required.
 
-Every agent connection — either transport — requires explicit, visible user approval before
+Every agent connection, either transport, requires explicit, visible user approval before
 any access is granted (see [ADR-010](adr-010-agent-permission-model.md)).
 
-## Options Considered
+## Options considered
 
 ### Option A: Pure stdio (original plan)
 
 **Pros:** Simplest, most conventional MCP pattern; no listener/socket security surface.
 **Cons:** Fundamentally can't give an agent access to an already-running human editing
-session — the core use case. Rejected once this was recognized.
+session, the core use case. Rejected once this was recognized.
 
 ### Option B: Local socket only, no CLI binary
 
 **Pros:** Simpler than maintaining two transports.
 **Cons:** No way to use DRAFT's data headlessly (CI, scripting, an agent working against a
-project with no desktop app open) — spec explicitly wants DRAFT usable alongside existing
+project with no desktop app open), spec explicitly wants DRAFT usable alongside existing
 projects/repos without requiring a full IDE-like presence.
 
-### Option C: Local socket (live sessions) + stdio CLI (headless) — chosen
+### Option C: Local socket (live sessions) + stdio CLI (headless): chosen
 
 **Pros:** Covers both the live-editing case and the headless/CI case with the transport each
 is actually suited for.
 **Cons:** Two transports to implement and keep behaviorally consistent (same
 resources/tools/permission model on both).
 
-## Trade-off Analysis
+## Trade-off analysis
 
 The added complexity of a second transport is small relative to the alternative of simply
 not supporting a real, spec'd use case (headless/CI access). Both transports share the same
@@ -58,7 +58,7 @@ not supporting a real, spec'd use case (headless/CI access). Both transports sha
 
 ## Consequences
 
-- The desktop app becomes a long-lived local server, which is new attack surface — mitigated
+- The desktop app becomes a long-lived local server, which is new attack surface, mitigated
   by binding loopback-only and gating every read behind `AgentMode::allows_read()` (`Manual`
   by default; see [docs/agent-permissions.md](../agent-permissions.md),
   [SECURITY.md](../../SECURITY.md)).
@@ -68,7 +68,7 @@ not supporting a real, spec'd use case (headless/CI access). Both transports sha
   [docs/mcp.md](../mcp.md); `get_project`/`get_page`/`get_object` are implemented on both
   transports, the rest remain Session 2/3 work as detailed there.
 
-## Action Items
+## Action items
 
 1. [x] Define `Transport` (`LocalSocket`/`Stdio`) and `AgentConnection` (defaults to
    `AgentMode::Manual`) types.

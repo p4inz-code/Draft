@@ -1,4 +1,4 @@
-# Operations and Events
+# Operations and events
 
 Implemented in `crates/draft-events` (Rust) and mirrored in `@draft/shared` (TS). See
 [ADR-012](decisions/adr-012-operation-log-sync.md) for why this exists as one mechanism
@@ -17,13 +17,13 @@ Four operations today, matching the product spec's `user.*` event names one-to-o
 
 More will be added as the canvas grows (`user.connected_objects`, `user.added_annotation`,
 `user.imported_asset`, `user.changed_selection`, `user.changed_page`,
-`user.added_instruction` from the product spec) — each is a straightforward new
+`user.added_instruction` from the product spec). Each is a straightforward new
 `Operation` variant plus a `Graph::apply` arm, following the same pattern.
 
 ## Actor tagging
 
 Every recorded operation (`OperationRecord`) carries an `Actor`: `User` or `Agent`. This
-means an agent's changes are always distinguishable from the human's — required by the
+means an agent's changes are always distinguishable from the human's, required by the
 permission model (see [docs/agent-permissions.md](agent-permissions.md)) and useful for
 showing the user "the agent moved this" in the UI later.
 
@@ -31,7 +31,7 @@ showing the user "the agent moved this" in the UI later.
 
 `OperationLog` is an append-only, in-memory sequence right now (`OperationLog::append`
 stamps each record with a monotonic `sequence` and returns it). It is *not* persisted or
-replayed across sessions yet — that's Session 1/2, once:
+replayed across sessions yet, that's Session 1/2, once:
 
 - undo/redo needs a backing structure to replay/invert, and
 - MCP's `recent_changes` resource needs something to read from.

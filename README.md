@@ -114,7 +114,7 @@ cargo fmt --all
 
 ## License
 
-DRAFT is **free forever** but **not open source**. The source is available in this
+DRAFT is **free forever** but not open source. The source is available in this
 repository for transparency, but it's proprietary. See [LICENSE.md](LICENSE.md) for the
 exact terms.
 

@@ -5,17 +5,17 @@ Copyright (c) 2026 Atharva Patil | P4inz | P4inz Interactive Labs. All rights re
 > **Note on this document.** This is a starting draft of DRAFT's license, written to match
 > the product policy decided for the project: **free forever, source-available, not open
 > source** (see [ADR-009](docs/decisions/adr-009-free-forever-proprietary-license.md)). It is
-> not a substitute for legal advice — have it reviewed by a lawyer before relying on it for
+> not a substitute for legal advice. Have it reviewed by a lawyer before relying on it for
 > any commercial dispute or wide public distribution.
 
 ## Summary (not a substitute for the terms below)
 
-- You can **use DRAFT for free, forever**, for any purpose — personal, commercial, in a
+- You can **use DRAFT for free, forever**, for any purpose: personal, commercial, in a
   studio, whatever. No fee, no subscription, no license key.
 - The source code in this repository is here so you can **read it, verify it, and
-  contribute to it** — not so you can redistribute it, fork it into a competing product, or
+  contribute to it**, not so you can redistribute it, fork it into a competing product, or
   strip DRAFT's branding and ship it as your own.
-- This is **not an open-source license** (it doesn't meet the OSI definition — in
+- This is **not an open-source license** (it doesn't meet the OSI definition: in
   particular, it restricts redistribution and derivative-product use). Don't call it
   open source.
 
@@ -25,8 +25,8 @@ Copyright (c) 2026 Atharva Patil | P4inz | P4inz Interactive Labs. All rights re
 
 Subject to Section 3, Atharva Patil ("the Licensor") grants you a worldwide, royalty-free,
 non-exclusive, non-transferable, revocable-only-per-Section-5 license to download, install,
-and use the DRAFT application — as officially distributed by the Licensor, or built by you
-from this repository's unmodified source — for any lawful purpose, including commercial use,
+and use the DRAFT application (as officially distributed by the Licensor, or built by you
+from this repository's unmodified source) for any lawful purpose, including commercial use,
 at no cost.
 
 ### 2. Source availability
@@ -47,7 +47,7 @@ Without separate written permission from the Licensor, you may **not**:
 3. Remove or alter DRAFT's branding, copyright notices, or this license from the
    application or the source.
 4. Sublicense, sell, rent, or lease the application or the source code itself (using the
-   *application* for paid work you do — e.g. designing a commercial game level in DRAFT — is
+   *application* for paid work you do, e.g. designing a commercial game level in DRAFT, is
    fine; that's exactly what Section 1 permits).
 5. Use the "DRAFT" name or logo to describe your own product or service (see Section 6).
 

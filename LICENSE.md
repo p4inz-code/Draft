@@ -1,6 +1,6 @@
 # DRAFT License
 
-Copyright (c) 2026 Atharva Patil ("P4inz"). All rights reserved.
+Copyright (c) 2026 Atharva Patil | P4inz | P4inz Interactive Labs. All rights reserved.
 
 > **Note on this document.** This is a starting draft of DRAFT's license, written to match
 > the product policy decided for the project: **free forever, source-available, not open

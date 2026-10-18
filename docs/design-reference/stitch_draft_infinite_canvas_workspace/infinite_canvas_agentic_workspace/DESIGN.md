@@ -203,10 +203,10 @@ The design system employs a **Soft (Level 1)** geometric silhouette framework ta
 - Connected Agent Chip: Capsule containing an outer 1px border of `#10B981`, a pulsing live-beacon dot (6px) with an emerald drop-shadow, and agent taxonomy text in `JetBrains Mono` at `11px`.
 - Review / Approval Gates: High-visibility amber bounding boxes (`#F59E0B`) with action triggers (`Approve`, `Diff`, `Reject`) inset directly into the spatial block.
 
-### Canvas node cards
+### Canvas Node cards
 - Containerized blocks featuring an ultra-slim header bar, displaying node icon, semantic title (`Geist 13px`), and runtime latency or model label (`JetBrains Mono 10px`).
 - Connective port handles (input/output dots) measure 8px by 8px, snapping magnetically with cyan radial halos when cursor proximity is within 16px.
 
-### Selection bounds & cursor Indicators
+### Selection bounds & Cursor Indicators
 - Single and multi-entity selection handles are rendered with crisp 1px solid `#00D2FF` stroke bounds, accompanied by 6px squared control handles.
 - Human user cursors project a subtle neon name tag, while Autonomous Agent cursors display an explicit pill label showing current execution state (e.g., `AGENT: Synthesizing architecture...`).
